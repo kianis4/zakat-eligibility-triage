@@ -131,20 +131,22 @@ export async function campaignQueue(db: TriageDatabase): Promise<QueueEntry[]> {
 }
 
 /**
- * The agent file a reviewer would be shown for this campaign, or null if none has been run.
+ * Every agent file written about a campaign, oldest first.
+ *
+ * The reviewer page reads the last one and shows it, and reads all of them because the audit
+ * trail needs them: a decision names the run it was taken against, and an older decision was
+ * taken against an older file. Recomputing agreement against whichever file is newest would
+ * quietly restate what a past reviewer was looking at.
  */
-export async function latestTriageRun(
+export async function triageRunsFor(
   campaignId: string,
   db: TriageDatabase,
-): Promise<TriageRunRow | null> {
-  const [latest] = await db
+): Promise<TriageRunRow[]> {
+  return db
     .select()
     .from(triageRuns)
     .where(eq(triageRuns.campaignId, campaignId))
-    .orderBy(desc(triageRuns.sequence))
-    .limit(1);
-
-  return latest ?? null;
+    .orderBy(triageRuns.sequence);
 }
 
 export function supportedCategories(mapping: CategoryMapping): RecipientCategory[] {

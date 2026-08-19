@@ -9,6 +9,12 @@ import { campaigns, triageRuns } from "../../db/schema";
 import { createTestDatabase, type TestDatabase } from "../../db/testing";
 import { campaignRow, FIXTURE_CAMPAIGN } from "../../testing/triage-fixtures";
 import { POLICY_VERSION, RECIPIENT_CATEGORY_IDS } from "../categories";
+import {
+  agreementWith,
+  publishedOutcome,
+  recordDecision,
+  supportedCategories,
+} from "../decision";
 import { ExtractionError } from "../extraction";
 import { MappingError } from "../mapping";
 import * as triage from "../triage";
@@ -289,6 +295,55 @@ describe("runTriage", () => {
     await expect(
       runTriage("cmp_never_submitted", { db: database.db, model: resolvingModel() }),
     ).rejects.toThrow(/cmp_never_submitted/);
+  });
+});
+
+/**
+ * The invariant, end to end, over a pipeline run rather than over a fixture.
+ *
+ * The constraint tests in `src/db/__tests__/decision-invariant.test.ts` prove the database
+ * refuses what it should. This proves the other half: that a finished, clean, unrefused agent
+ * file publishes nothing on its own, and that the only thing which changes that is a human
+ * recording a decision.
+ */
+describe("a campaign the agent finished still has no outcome", () => {
+  let database: TestDatabase;
+
+  beforeEach(async () => {
+    database = await createTestDatabase();
+    await database.db.insert(campaigns).values(campaignRow());
+  });
+
+  afterEach(async () => {
+    await database.close();
+  });
+
+  it("publishes nothing until a human decides, and then publishes their decision", async () => {
+    const run = await runTriage(FIXTURE_CAMPAIGN.id, {
+      db: database.db,
+      model: resolvingModel(),
+    });
+
+    expect(run.escalation.escalate).toBe(false);
+    expect(supportedCategories(run.mapping)).toEqual(["al-gharimin"]);
+    expect(await publishedOutcome(FIXTURE_CAMPAIGN.id, database.db)).toBeNull();
+
+    await recordDecision(
+      {
+        campaignId: FIXTURE_CAMPAIGN.id,
+        triageRunId: run.id,
+        action: "approve",
+        reviewer: "Amina Suleiman",
+        note: "The debt is named and currently due, and the beneficiary is a person.",
+      },
+      database.db,
+    );
+
+    const outcome = await publishedOutcome(FIXTURE_CAMPAIGN.id, database.db);
+
+    expect(outcome?.action).toBe("approve");
+    expect(outcome?.triageRunId).toBe(run.id);
+    expect(agreementWith(run, "approve").agreed).toBe(true);
   });
 });
 

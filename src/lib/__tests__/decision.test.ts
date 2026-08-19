@@ -17,6 +17,7 @@ import {
   publishedOutcome,
   recordDecision,
   supportedCategories,
+  triageRunsFor,
 } from "../decision";
 
 const supportedFile = {
@@ -180,6 +181,16 @@ describe("recording a decision", () => {
     const queue = await campaignQueue(database.db);
 
     expect(queue.find((entry) => entry.id === FIXTURE_CAMPAIGN.id)?.outcome).toBe("escalate");
+  });
+
+  it("hands back every agent file in the order they were written", async () => {
+    await database.db
+      .insert(triageRuns)
+      .values(triageRunRow({ id: "run_fixture_0001b", campaignId: FIXTURE_CAMPAIGN.id }));
+
+    const runs = await triageRunsFor(FIXTURE_CAMPAIGN.id, database.db);
+
+    expect(runs.map((run) => run.id)).toEqual(["run_fixture_0001", "run_fixture_0001b"]);
   });
 
   it("keeps every decision and lets the latest one stand", async () => {
