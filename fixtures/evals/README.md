@@ -56,11 +56,16 @@ which a corpus of well-evidenced campaigns would never surface.
 ## How the labels were arrived at
 
 1. **A status is a statement about the campaign text, never a determination of eligibility.**
-   `supported` means the story itself says something bearing on the category. `not_supported`
-   means the story tells against it or the category is plainly not in play. `insufficient
-   evidence` means the category might be in play and the text does not settle it. A supported
-   finding on a poverty case is not a finding that the household is below a threshold, which
-   is established from statements and a caseworker rather than from prose.
+   The three are defined in the `CategoryFinding` docblock in `src/lib/mapping.ts` and are not
+   redefined here: `supported` is the story stating the qualifying facts that category's
+   evidence guidance asks for, `insufficient_evidence` is the story engaging or gesturing at
+   the category while those facts are missing, and `not_supported` is the story not engaging
+   the category at all or engaging it and pointing away. A supported finding on a poverty case
+   is not a finding that the household is below a threshold, which is established from
+   statements and a caseworker rather than from prose. That bar is why most of this corpus
+   leaves the two need categories open: a wage, a rent and a goal are not the fact that a
+   household cannot meet its basic needs, and a page that gives them and stops has engaged
+   those categories without settling them.
 2. **The statuses come from the evidence guidance and the research brief**, that is, the
    `evidenceGuidance` on each category in `src/lib/categories.ts` and sections 2 and 3 of
    `docs/RESEARCH.md`. Where the brief records a genuine disagreement, the label names it and
@@ -87,6 +92,17 @@ which a corpus of well-evidenced campaigns would never surface.
 6. **`expectedMissingEvidence` is a subset of the categories the same label leaves open.** The
    schema enforces that, because a label asking for a question on a category it also expects
    resolved reports a defect no implementation could ever clear.
+7. **Silence and engagement are labelled differently, and that is the distinction deciding what
+   an organizer is asked.** A category the story never raises is `not_supported`, so no question
+   goes out on it; a category the story raises and leaves unsettled is `insufficient_evidence`
+   and carries one. Two shapes are neither. A page that says neither who the money is for nor
+   what it does tells against nothing, so all eight lines stay open, which is 0013 and is the
+   only shape the fourth refusal condition can fire on. A page naming a person in hardship
+   without saying what the money does leaves open the headings an individual's hardship can
+   bear on and rules out the ones it never touches, which is 0012. Cases 0001, 0004 and 0016
+   are the contrast: each accounts for a household's position and names no creditor or says the
+   borrower can manage, so the debt or the need lines are text pointing away rather than text
+   absent, and they are recorded as not in play.
 
 ## What this corpus cannot prove
 
