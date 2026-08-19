@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, exists, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import type { TriageDatabase } from "../db/index";
 import {
+  campaigns,
   DECISION_ACTIONS,
   decisions,
   triageRuns,
@@ -82,6 +83,51 @@ export async function decisionHistory(
     .from(decisions)
     .where(eq(decisions.campaignId, campaignId))
     .orderBy(decisions.sequence);
+}
+
+export type QueueEntry = {
+  readonly id: string;
+  readonly title: string;
+  readonly createdAt: Date;
+  readonly hasTriageRun: boolean;
+  readonly outcome: DecisionAction | null;
+};
+
+/**
+ * The reviewer's queue: every campaign, whether the agent has read it, and how it came out.
+ *
+ * The outcome is a correlated subquery into `decisions` rather than a column on `campaigns`,
+ * and the extra SQL is the point rather than the cost. There is no status to read, so a
+ * campaign nobody has decided reports null here for the same reason it reports null
+ * everywhere else: nothing has been published about it (ADR-0008).
+ *
+ * The subqueries are built rather than written into a template. Drizzle renders a bare
+ * column in select position without its table, so a hand-written `where campaign_id = id`
+ * correlates against the inner table and silently compares two of its own columns: it
+ * returns rows, reports every campaign as unread and undecided, and looks like a queue with
+ * nothing in it yet.
+ */
+export async function campaignQueue(db: TriageDatabase): Promise<QueueEntry[]> {
+  return db
+    .select({
+      id: campaigns.id,
+      title: campaigns.title,
+      createdAt: campaigns.createdAt,
+      hasTriageRun: sql<boolean>`${exists(
+        db
+          .select({ one: sql`1` })
+          .from(triageRuns)
+          .where(eq(triageRuns.campaignId, campaigns.id)),
+      )}`,
+      outcome: sql<DecisionAction | null>`${db
+        .select({ action: decisions.action })
+        .from(decisions)
+        .where(eq(decisions.campaignId, campaigns.id))
+        .orderBy(desc(decisions.sequence))
+        .limit(1)}`,
+    })
+    .from(campaigns)
+    .orderBy(desc(campaigns.createdAt), campaigns.id);
 }
 
 /**

@@ -12,6 +12,7 @@ import {
 } from "../../testing/triage-fixtures";
 import {
   agreementWith,
+  campaignQueue,
   decisionHistory,
   publishedOutcome,
   recordDecision,
@@ -148,6 +149,37 @@ describe("recording a decision", () => {
     await expect(
       recordDecision({ ...decision, triageRunId: "run_never_ran" }, database.db),
     ).rejects.toThrow(/no triage run run_never_ran/);
+  });
+
+  it("shows the queue what has been read and what has been decided", async () => {
+    const unread = { ...FIXTURE_CAMPAIGN, id: "cmp_fixture_0003" };
+    await database.db.insert(campaigns).values(campaignRow(unread));
+
+    const before = await campaignQueue(database.db);
+
+    expect(before.map((entry) => entry.id).sort()).toEqual([
+      FIXTURE_CAMPAIGN.id,
+      other.id,
+      unread.id,
+    ]);
+    expect(before.find((entry) => entry.id === unread.id)?.hasTriageRun).toBe(false);
+    expect(before.find((entry) => entry.id === other.id)?.hasTriageRun).toBe(true);
+    expect(before.every((entry) => entry.outcome === null)).toBe(true);
+
+    await recordDecision(decision, database.db);
+    const after = await campaignQueue(database.db);
+
+    expect(after.find((entry) => entry.id === FIXTURE_CAMPAIGN.id)?.outcome).toBe("approve");
+    expect(after.find((entry) => entry.id === other.id)?.outcome).toBeNull();
+  });
+
+  it("reports the latest decision in the queue, not the first", async () => {
+    await recordDecision({ ...decision, action: "request_info" }, database.db);
+    await recordDecision({ ...decision, action: "escalate" }, database.db);
+
+    const queue = await campaignQueue(database.db);
+
+    expect(queue.find((entry) => entry.id === FIXTURE_CAMPAIGN.id)?.outcome).toBe("escalate");
   });
 
   it("keeps every decision and lets the latest one stand", async () => {
