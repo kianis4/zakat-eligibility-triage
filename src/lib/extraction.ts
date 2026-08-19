@@ -2,7 +2,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { generateObject, NoObjectGeneratedError, type LanguageModel } from "ai";
 import { z } from "zod";
 
-import type { CampaignInput } from "./campaign";
+import { CampaignInput } from "./campaign";
 
 const Quote = z.string().min(1).describe("A verbatim substring of the campaign story.");
 
@@ -117,11 +117,17 @@ function quoteSites(facts: ExtractedFacts): QuoteSite[] {
  * looks identical to a real one on the page, so accepting it would silently break the
  * only guarantee this module offers. For the same reason there is no repair pass and no
  * retry against a looser schema: a caller gets valid, cited facts or an error.
+ *
+ * The campaign is re-parsed on the way in. This is the module boundary, where a raw
+ * request body can arrive already cast to the type, and a story that is missing has to
+ * surface as a schema error naming the field rather than as a `TypeError` thrown much
+ * later inside quote validation.
  */
 export async function extractFacts(
   campaign: CampaignInput,
   model?: LanguageModel,
 ): Promise<ExtractedFacts> {
+  const input = CampaignInput.parse(campaign);
   let facts: ExtractedFacts;
 
   try {
@@ -130,12 +136,12 @@ export async function extractFacts(
       schema: ExtractedFacts,
       system: SYSTEM_PROMPT,
       prompt: [
-        `Campaign title: ${campaign.title}`,
-        `Platform category: ${campaign.category}`,
-        `Stated goal: ${campaign.goalAmount} ${campaign.currency}`,
+        `Campaign title: ${input.title}`,
+        `Platform category: ${input.category}`,
+        `Stated goal: ${input.goalAmount} ${input.currency}`,
         "",
         "Campaign story:",
-        campaign.story,
+        input.story,
       ].join("\n"),
     });
     facts = result.object;
@@ -143,24 +149,24 @@ export async function extractFacts(
     if (NoObjectGeneratedError.isInstance(cause)) {
       throw new ExtractionError(
         "schema_validation_failed",
-        `The model response for campaign ${campaign.id} did not satisfy the ExtractedFacts schema.`,
+        `The model response for campaign ${input.id} did not satisfy the ExtractedFacts schema.`,
         { cause },
       );
     }
     throw new ExtractionError(
       "model_call_failed",
-      `The extraction call for campaign ${campaign.id} did not complete.`,
+      `The extraction call for campaign ${input.id} did not complete.`,
       { cause },
     );
   }
 
-  const fabricated = quoteSites(facts).filter((site) => !campaign.story.includes(site.quote));
+  const fabricated = quoteSites(facts).filter((site) => !input.story.includes(site.quote));
 
   if (fabricated.length > 0) {
     const detail = fabricated.map((site) => `${site.path}: ${JSON.stringify(site.quote)}`);
     throw new ExtractionError(
       "quote_not_verbatim",
-      `The model response for campaign ${campaign.id} contains quotes that are not verbatim spans of the story: ${detail.join("; ")}`,
+      `The model response for campaign ${input.id} contains quotes that are not verbatim spans of the story: ${detail.join("; ")}`,
     );
   }
 
