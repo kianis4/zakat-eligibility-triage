@@ -25,8 +25,13 @@ network. The same campaign evaluated twice refuses for the same reasons in the s
 
 Four conditions fire it: mixed use, scholarly difference, an eligibility claim with no
 supported category behind it, and a story that resolved nothing about a beneficiary it never
-identified. Each produces a reason carrying the specific question a reviewer answers and the
-spans of story that raised it. `EscalationDecision` is a discriminated union whose escalating
+identified. Three of the four trace to `docs/RESEARCH.md`: scholarly difference to section 3
+and the refusal implication in section 7, the unsupported claim and the resolved-nothing case
+to the insufficient-evidence argument in section 6.3. Mixed use is not in the research and is
+named by the backlog instead, which calls a campaign of mixed eligible and ineligible use the
+case that matters most, so it is recorded here as a product requirement rather than as a
+finding the research supports. Each condition produces a reason carrying the specific question
+a reviewer answers and the spans of story that raised it. `EscalationDecision` is a discriminated union whose escalating
 member types its reason list as non-empty, so a refusal with nothing on it does not compile.
 
 The decision carries no score and no confidence figure. The only numbers anywhere in it are
