@@ -196,6 +196,14 @@ describe("the generation modules cannot reach the precedent store", () => {
     expect(graph).not.toContain(`${SRC}lib/precedent.ts`);
   });
 
+  it("finds no path from the assembled pipeline to precedent, database and all", async () => {
+    const graph = await collectImportGraph(`${SRC}lib/triage.ts`);
+
+    expect(graph).toContain(`${SRC}lib/mapping.ts`);
+    expect(graph).toContain(`${SRC}db/schema.ts`);
+    expect(graph).not.toContain(`${SRC}lib/precedent.ts`);
+  });
+
   it("leaves no dynamic import for the walker to miss", async () => {
     const fenced = new Set([
       ...(await collectImportGraph(`${SRC}lib/extraction.ts`)),
