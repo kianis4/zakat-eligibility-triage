@@ -19,8 +19,30 @@ export const GATES = {
    * is a fabrication that looks identical to a real one on the page. One invalid citation is
    * therefore not a quality regression to be averaged away, it is the contract broken, and a
    * threshold below 100 would be a statement that some fabrication is acceptable.
+   *
+   * This measures truth and nothing else, since a live run showed what else was riding on it.
+   * Whether a true citation landed where the label expected is `citationAnchoring` below.
    */
   citationValidity: 1,
+
+  /**
+   * 90 percent of the supported findings whose category the label already agrees with.
+   *
+   * Not 100, because a miss here is not a defect. The label anticipates one span; a model
+   * citing a different genuine span of the same story, for the same category, has disagreed
+   * about which words carry the support. Two people writing the corpus would disagree the
+   * same way, and `mustCiteSubstring` is documented as an overlap target precisely so a label
+   * does not have to guess which words a correct citation picks out. Failing a build on one
+   * such disagreement is what this gate was split out of `citationValidity` to stop.
+   *
+   * Not zero either, and high rather than nominal. The labels' whole claim to check anything
+   * is that a supported finding has to point at the part of the story the label had in mind.
+   * Systematic anchoring drift would leave every citation valid, every status agreeing, and
+   * the corpus no longer testing that the support is where it is said to be. 90 percent
+   * tolerates the occasional genuine difference of reading while making a pattern of them
+   * fail, which is the shape of the risk.
+   */
+  citationAnchoring: 0.9,
 
   /**
    * 80 percent of the 144 category judgments in the corpus, which is 18 fixtures at 8 each.
@@ -177,11 +199,19 @@ export function evaluateGates(
   const deterministicGates = [
     rateGate(
       "citation-validity",
-      "Every citation slices its own quote back out of the story, and lands where the label says",
+      "Every citation slices its own quote back out of the story it cites",
       deterministic.citationValidityRate,
       GATES.citationValidity,
       sum(fixtures, (fixture) => fixture.citations.valid),
       sum(fixtures, (fixture) => fixture.citations.checked),
+    ),
+    rateGate(
+      "citation-anchoring",
+      "A supported finding cites the part of the story its label anticipated",
+      deterministic.citationAnchoringRate,
+      GATES.citationAnchoring,
+      sum(fixtures, (fixture) => fixture.anchoring.anchored),
+      sum(fixtures, (fixture) => fixture.anchoring.checked),
     ),
     rateGate(
       "category-agreement",

@@ -65,6 +65,61 @@ describe("the citation gate", () => {
   });
 });
 
+/**
+ * Split out of citation-validity after a live run failed a build on one supported finding
+ * that cited a real span of the right story for the right category, differing from the label
+ * only about which words carried the point.
+ */
+describe("the citation anchoring gate", () => {
+  it("holds at exactly the floor", () => {
+    const fixtures = [
+      score("a", { anchored: 9, anchorChecks: 10 }),
+      score("b", { anchored: 9, anchorChecks: 10 }),
+    ];
+
+    expect(gate(fixtures, "citation-anchoring").observed).toBe("90.0% (18 of 20)");
+    expect(gate(fixtures, "citation-anchoring").passed).toBe(true);
+    expect(exitCode(gatesFor(fixtures))).toBe(0);
+  });
+
+  it("fails one miss below the floor", () => {
+    const fixtures = [
+      score("a", { anchored: 8, anchorChecks: 10 }),
+      score("b", { anchored: 9, anchorChecks: 10 }),
+    ];
+
+    expect(gate(fixtures, "citation-anchoring").observed).toBe("85.0% (17 of 20)");
+    expect(gate(fixtures, "citation-anchoring").passed).toBe(false);
+    expect(exitCode(gatesFor(fixtures))).toBe(1);
+  });
+
+  /**
+   * The whole point of the split. One anchoring miss used to fail the 100 percent validity
+   * gate; it must now leave that gate alone.
+   */
+  it("does not touch citation validity", () => {
+    const fixtures = [score("a", { anchored: 0, anchorChecks: 1 })];
+
+    expect(gate(fixtures, "citation-validity").passed).toBe(true);
+    expect(gate(fixtures, "citation-validity").observed).toBe("100.0% (2 of 2)");
+    expect(failedGates(gatesFor(fixtures)).map((entry) => entry.id)).toEqual([
+      "citation-anchoring",
+    ]);
+  });
+
+  it("leaves an invalid citation on the validity gate and off this one", () => {
+    const fixtures = [score("a", { citationsValid: 1, citationsChecked: 2 })];
+
+    expect(gate(fixtures, "citation-anchoring").passed).toBe(true);
+    expect(failedGates(gatesFor(fixtures)).map((entry) => entry.id)).toEqual(["citation-validity"]);
+  });
+
+  it("is set below one, so a single difference of reading cannot fail a build", () => {
+    expect(GATES.citationAnchoring).toBeLessThan(1);
+    expect(GATES.citationAnchoring).toBeGreaterThanOrEqual(0.9);
+  });
+});
+
 describe("the category agreement gate", () => {
   it("holds at exactly the floor", () => {
     const fixtures = [score("a", { agreed: 8 }), score("b", { agreed: 8 }), score("c", { agreed: 8 }), score("d", { agreed: 8 }), score("e", { agreed: 0 })];
@@ -217,7 +272,7 @@ describe("a run that breaks several things at once", () => {
   });
 
   it("evaluates one gate per deterministic dimension, one per judge dimension, and the judge-responded gate", () => {
-    expect(gatesFor(clean)).toHaveLength(4 + 1 + JUDGE_DIMENSIONS.length);
+    expect(gatesFor(clean)).toHaveLength(5 + 1 + JUDGE_DIMENSIONS.length);
   });
 });
 

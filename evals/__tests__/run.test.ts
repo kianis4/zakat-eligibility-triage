@@ -113,7 +113,13 @@ describe("scoring a fixture the pipeline reads differently", () => {
     ]);
   });
 
-  it("counts a supported finding citing the wrong part of the story as a citation violation", async () => {
+  /**
+   * The case that forced validity and anchoring apart. The finding is on the right category,
+   * its quote is a real span of the story, and it resolves byte-exact. The only thing wrong
+   * with it is that the label had different words in mind, which is a disagreement about
+   * which sentence carries the support and not a fabricated citation.
+   */
+  it("counts a true citation the label did not anticipate against anchoring alone", async () => {
     const elsewhere: Record<string, ModelFindingPayload> = {
       "al-fuqara": {
         status: "supported",
@@ -126,10 +132,67 @@ describe("scoring a fixture the pipeline reads differently", () => {
     const score = await scoreFixture(clean, subject(agreeingMapping(clean, elsewhere)));
 
     expect(score.categoryAgreement.agreed).toBe(8);
-    expect(score.citations.valid).toBe(score.citations.checked - 1);
-    expect(score.citations.violations).toEqual([
-      expect.objectContaining({ category: "al-fuqara", kind: "misses_expected_span" }),
+    expect(score.citations.violations).toEqual([]);
+    expect(score.citations.valid).toBe(score.citations.checked);
+    expect(score.anchoring.anchored).toBe(score.anchoring.checked - 1);
+    expect(score.anchoring.misses).toEqual([
+      {
+        category: "al-fuqara",
+        expected: clean.label.expectedFindings["al-fuqara"].status === "supported"
+          ? clean.label.expectedFindings["al-fuqara"].mustCiteSubstring
+          : "",
+        nearest: clean.story.slice(0, 30),
+      },
     ]);
+  });
+
+  it("keeps a fabricated quote on validity and off anchoring", async () => {
+    const fabricated: Record<string, ModelFindingPayload> = {
+      "al-fuqara": {
+        status: "supported",
+        quotes: ["the household has been destitute since 2019"],
+        rationale: "The story states a long-standing hardship.",
+        scholarlyDifference: null,
+      },
+    };
+
+    const score = await scoreFixture(clean, subject(agreeingMapping(clean, fabricated)));
+
+    expect(score.citations.valid).toBe(0);
+    expect(score.citations.violations).toEqual([
+      expect.objectContaining({ kind: "unresolvable" }),
+    ]);
+    expect(score.anchoring).toEqual({ checked: 0, anchored: 0, misses: [] });
+  });
+
+  it("counts a citation landing on the expected span as anchored", async () => {
+    const score = await scoreFixture(clean, subject(agreeingMapping(clean)));
+
+    expect(score.anchoring.checked).toBe(2);
+    expect(score.anchoring.anchored).toBe(2);
+    expect(score.anchoring.misses).toEqual([]);
+  });
+
+  /**
+   * Anchoring is only asked where the two already agree the category is supported. Where they
+   * do not, that is a category disagreement and is counted there; charging it here as well
+   * would move two gates for one reading error.
+   */
+  it("asks nothing of anchoring on a category the label does not call supported", async () => {
+    const overClaimed: Record<string, ModelFindingPayload> = {
+      "al-gharimin": {
+        status: "supported",
+        quotes: [clean.story.slice(0, 30)],
+        rationale: "The quoted words state this directly.",
+        scholarlyDifference: null,
+      },
+    };
+
+    const score = await scoreFixture(clean, subject(agreeingMapping(clean, overClaimed)));
+
+    expect(score.categoryAgreement.agreed).toBe(7);
+    expect(score.anchoring.checked).toBe(2);
+    expect(score.anchoring.misses).toEqual([]);
   });
 
   it("counts an unexpected refusal as an escalation disagreement", async () => {

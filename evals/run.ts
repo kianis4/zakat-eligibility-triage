@@ -51,24 +51,46 @@ export type CategoryDisagreement = {
 };
 
 /**
- * A citation that failed one of the two things a citation promises.
+ * A citation that is not true, which is the only thing this type now covers.
  *
  * `not_verbatim` is the offsets not slicing the quote back out of the story, which should be
  * impossible by construction because `resolveCitation` computes the offsets by exact search.
  * It is checked here anyway, end to end on the real output, because "guaranteed by
  * construction" is a claim about code that a harness is in a position to actually test.
+ * `unresolvable` is the mapping stage refusing a quote it could not find, which is the same
+ * contract failing one step earlier and is counted here rather than being lost inside a
+ * fixture-level error.
  *
- * `misses_expected_span` is the pipeline citing the story for a category the label also calls
- * supported, but citing a part of it the label does not recognise. `unresolvable` is the
- * mapping stage refusing a quote it could not find, which is the same contract failing one
- * step earlier and is counted here rather than being lost inside a fixture-level error.
+ * A third kind used to live here, for a citation that was true but landed outside the span the
+ * label anticipated. It is an `AnchoringMiss` now. Both are disagreements with the corpus and
+ * only one of them means the output was untrue, and a gate at 100 percent has to be about the
+ * second kind alone.
  */
 export type CitationSite = RecipientCategory | "mixed-use" | "pipeline";
 
 export type CitationViolation = {
   readonly category: CitationSite;
-  readonly kind: "not_verbatim" | "misses_expected_span" | "unresolvable";
+  readonly kind: "not_verbatim" | "unresolvable";
   readonly detail: string;
+};
+
+/**
+ * A supported finding that cited the story truthfully, somewhere the label did not expect.
+ *
+ * This is not a citation defect and it used to be counted as one. The finding is on the right
+ * category, its quote is a real span of the story, and it resolves byte-exact; what happened
+ * is that the label anticipated one set of words and the model picked out another set that
+ * also carries the point. Two people writing a label would disagree the same way.
+ *
+ * Both spans are carried so a reader can settle it by eye. `nearest` is the actual citation
+ * closest to the expected span, which is the one worth looking at: an anchoring miss where
+ * the nearest quote is a sentence away is a label being narrow, and one where the nearest
+ * quote is at the other end of the story is worth a harder look at the finding.
+ */
+export type AnchoringMiss = {
+  readonly category: RecipientCategory;
+  readonly expected: string;
+  readonly nearest: string;
 };
 
 export type CategoryAgreementScore = {
@@ -81,6 +103,12 @@ export type CitationScore = {
   readonly checked: number;
   readonly valid: number;
   readonly violations: readonly CitationViolation[];
+};
+
+export type AnchoringScore = {
+  readonly checked: number;
+  readonly anchored: number;
+  readonly misses: readonly AnchoringMiss[];
 };
 
 export type EscalationScore = {
@@ -112,6 +140,7 @@ export type FixtureScore = {
   readonly failure: string | null;
   readonly categoryAgreement: CategoryAgreementScore;
   readonly citations: CitationScore;
+  readonly anchoring: AnchoringScore;
   readonly escalation: EscalationScore;
   readonly missingEvidence: MissingEvidenceScore;
   readonly campaign: CampaignInput;
@@ -122,6 +151,7 @@ export type DeterministicSummary = {
   readonly fixtures: readonly FixtureScore[];
   readonly categoryAgreementRate: number;
   readonly citationValidityRate: number;
+  readonly citationAnchoringRate: number;
   readonly escalationAgreementRate: number;
   readonly missingEvidenceCoverageRate: number;
 };
@@ -164,17 +194,18 @@ function scoreCategoryAgreement(
 }
 
 /**
- * Checks the two promises a citation makes, on the output the pipeline actually produced.
+ * Checks that every citation is true, which is the whole of what validity means.
  *
- * The first is byte-exactness, checked against the story the fixture holds rather than
- * against anything the mapping stage carried forward, so a story that changed shape on the
- * way through would fail here rather than pass a self-consistent check.
+ * Byte-exactness only. It is checked against the story the fixture holds rather than against
+ * anything the mapping stage carried forward, so a story that changed shape on the way through
+ * fails here rather than passing a self-consistent check.
  *
- * The second only applies where the label also calls the category supported. Where it does
- * not, the disagreement is a category disagreement and is counted there; charging it twice
- * would make one reading error move two gates. Overlap rather than equality is what the label
- * promises, per `mustCiteSubstring`: a label says which part of the story a correct citation
- * has to land in, not which words it has to pick out.
+ * Whether a citation landed where the label expected is a different question and is scored in
+ * `scoreAnchoring`. The two were one measurement behind one 100 percent gate until a live run
+ * showed what that conflates: a supported finding on the right category, quoting a real span
+ * of the story, failed the build because the label had anticipated different words. That is a
+ * disagreement about which sentence carries the point, not a fabricated quote, and the gate
+ * that exists to catch fabrication should not be the gate that fires on it.
  *
  * Exported for one reason: the byte-exactness check cannot fire through the pipeline, because
  * `resolveCitation` computes the offsets by exact search and fails closed on anything else.
@@ -212,29 +243,6 @@ export function scoreCitations(fixture: EvalFixture, mapping: CategoryMapping): 
     for (const citation of finding.citations) {
       verbatim(category, citation);
     }
-
-    const expected = fixture.label.expectedFindings[category];
-
-    if (expected.status !== "supported") {
-      continue;
-    }
-
-    checked += 1;
-    const start = fixture.story.indexOf(expected.mustCiteSubstring);
-    const end = start + expected.mustCiteSubstring.length;
-    const overlaps = finding.citations.some(
-      (citation) => citation.start < end && start < citation.end,
-    );
-
-    if (!overlaps) {
-      violations.push({
-        category,
-        kind: "misses_expected_span",
-        detail: `No citation overlaps ${JSON.stringify(expected.mustCiteSubstring)}; the finding cites ${JSON.stringify(
-          finding.citations.map((citation) => citation.quote),
-        )}.`,
-      });
-    }
   }
 
   /**
@@ -250,6 +258,59 @@ export function scoreCitations(fixture: EvalFixture, mapping: CategoryMapping): 
   }
 
   return { checked, valid: checked - violations.length, violations };
+}
+
+/**
+ * Checks whether a supported finding cited the part of the story its label anticipated.
+ *
+ * Scored only where the label and the pipeline already agree the category is supported. Where
+ * they disagree about the status, that is a category disagreement and is counted there;
+ * charging it here as well would move two gates for one reading error. Overlap rather than
+ * equality is what the label promises, per `mustCiteSubstring`: a label says which part of the
+ * story a correct citation has to land in, not which words it has to pick out.
+ *
+ * A miss is a weaker signal than an invalid citation and is gated accordingly. It says the
+ * label and the model read different words as carrying the same point, which one run can
+ * reasonably contain and a corpus cannot systematically contain without the labels ceasing to
+ * check anything.
+ */
+export function scoreAnchoring(fixture: EvalFixture, mapping: CategoryMapping): AnchoringScore {
+  const misses: AnchoringMiss[] = [];
+  let checked = 0;
+
+  for (const category of RECIPIENT_CATEGORY_IDS) {
+    const finding = mapping.categories[category];
+    const expected = fixture.label.expectedFindings[category];
+
+    if (finding.status !== "supported" || expected.status !== "supported") {
+      continue;
+    }
+
+    checked += 1;
+    const start = fixture.story.indexOf(expected.mustCiteSubstring);
+    const end = start + expected.mustCiteSubstring.length;
+
+    if (finding.citations.some((citation) => citation.start < end && start < citation.end)) {
+      continue;
+    }
+
+    /**
+     * The gap to the expected span, zero when they touch. Sorting by it picks the citation a
+     * reader should look at first, which is the one that came closest to the words the label
+     * had in mind.
+     */
+    const distance = (citation: { start: number; end: number }) =>
+      Math.max(0, Math.max(citation.start - end, start - citation.end));
+    const nearest = [...finding.citations].sort((a, b) => distance(a) - distance(b))[0];
+
+    misses.push({
+      category,
+      expected: expected.mustCiteSubstring,
+      nearest: nearest.quote,
+    });
+  }
+
+  return { checked, anchored: checked - misses.length, misses };
 }
 
 function sameKinds(left: readonly string[], right: readonly string[]): boolean {
@@ -298,6 +359,7 @@ export async function scoreFixture(
       failure: null,
       categoryAgreement: scoreCategoryAgreement(fixture, mapping),
       citations: scoreCitations(fixture, mapping),
+      anchoring: scoreAnchoring(fixture, mapping),
       escalation: {
         passed: sameKinds(label.expectedEscalation.kinds, actualKinds),
         expected: label.expectedEscalation.kinds,
@@ -335,6 +397,12 @@ export async function scoreFixture(
             ],
           }
         : { checked: 0, valid: 0, violations: [] },
+      /**
+       * No anchoring checks, rather than failed ones. A fixture that threw produced no
+       * supported finding to anchor, and scoring it zero here would charge one pipeline
+       * failure to a second gate on top of the three it already fails.
+       */
+      anchoring: { checked: 0, anchored: 0, misses: [] },
       escalation: { passed: false, expected: label.expectedEscalation.kinds, actual: [] },
       missingEvidence: {
         covered: 0,
@@ -367,6 +435,10 @@ export function summarize(fixtures: readonly FixtureScore[]): DeterministicSumma
     citationValidityRate: rate(
       sum((fixture) => fixture.citations.valid),
       sum((fixture) => fixture.citations.checked),
+    ),
+    citationAnchoringRate: rate(
+      sum((fixture) => fixture.anchoring.anchored),
+      sum((fixture) => fixture.anchoring.checked),
     ),
     escalationAgreementRate: rate(
       fixtures.filter((fixture) => fixture.escalation.passed).length,

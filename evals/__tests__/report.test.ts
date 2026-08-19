@@ -78,6 +78,60 @@ describe("a report on a failing run", () => {
   });
 });
 
+describe("an anchoring miss", () => {
+  const missed: FixtureScore = {
+    ...score("eval_0011"),
+    anchoring: {
+      checked: 2,
+      anchored: 1,
+      misses: [
+        {
+          category: "fi-sabilillah",
+          expected: "a coordinator two days a week",
+          nearest: "a quarterly weekend course",
+        },
+      ],
+    },
+  };
+
+  it("reads apart from a validity miss in the citations cell", () => {
+    const rendered = renderReport(run([missed], [outcome("eval_0011")]));
+
+    expect(rendered).toContain("2/2 valid, 1/2 anchored");
+    expect(rendered).toContain("fi-sabilillah: cited elsewhere in the story");
+  });
+
+  /**
+   * Settling one of these means reading the two spans side by side: the next sentence over
+   * means the label was narrow, the far end of the story means the finding needs a look.
+   */
+  it("prints both spans in the terminal summary", () => {
+    const summary = renderSummary(run([missed], [outcome("eval_0011")]));
+
+    expect(summary).toContain(
+      "1 supported finding cited a true span the label did not anticipate:",
+    );
+    expect(summary).toContain("eval_0011 fi-sabilillah");
+    expect(summary).toContain('label expected: "a coordinator two days a week"');
+    expect(summary).toContain('nearest actual: "a quarterly weekend course"');
+  });
+
+  it("says nothing when every supported finding anchored where it was expected", () => {
+    const summary = renderSummary(run([score("eval_0001")], [outcome("eval_0001")]));
+
+    expect(summary).not.toContain("the label did not anticipate");
+  });
+
+  it("distinguishes a fixture with no anchor checks from one that failed them", () => {
+    const none: FixtureScore = {
+      ...score("eval_0005"),
+      anchoring: { checked: 0, anchored: 0, misses: [] },
+    };
+
+    expect(renderReport(run([none], [outcome("eval_0005")]))).toContain("no anchor checks");
+  });
+});
+
 /**
  * "differs" on its own says a set comparison failed and nothing about which way, and the two
  * directions are opposite defects: a condition that never fired is a recall bug, one that

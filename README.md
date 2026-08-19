@@ -55,7 +55,8 @@ the terminal, and exits non-zero if any gate was missed.
 
 | Gate | Bar |
 | --- | --- |
-| Citation validity | 100%, every citation slicing its own quote back out of the story and landing where the label says |
+| Citation validity | 100%, every citation slicing its own quote back out of the story |
+| Citation anchoring | 90% of supported findings citing the span their label anticipated |
 | Category agreement | 80% of the 144 category judgments |
 | Escalation agreement | 75% of fixtures, on an exact match of the refusal-kind set |
 | Missing-evidence coverage | 80% of the categories the corpus expects a question on |
@@ -64,7 +65,9 @@ the terminal, and exits non-zero if any gate was missed.
 | Judge: records it returned a verdict on | at most 2 of 18 unjudged, after one repair attempt each |
 
 Citation validity is the only bar at 100 because a citation is the one output that is either
-true or a fabrication that looks identical to a real one on the page. The rest sit well below
+true or a fabrication that looks identical to a real one on the page. Anchoring is scored apart
+from it, because a finding quoting a real span the label did not anticipate has disagreed about
+which words carry the point rather than made anything up. The rest sit well below
 it on purpose, since five of the eighteen cases are labelled ambiguous precisely because two
 qualified reviewers could read them differently. Every number is a first calibration and moves
 only in a commit that argues from a report.

@@ -242,3 +242,34 @@ check the criterion still says what the definition says, and that no dimension a
 the judge to leave an unraised category unresolved. Those tests are weak, being string
 matches against prose, and they are still the strongest check available on text whose only
 other reader is a model.
+
+## Addendum, 2026-08-19: citation validity and citation anchoring are two measurements
+
+A later run failed the build on `citation-validity` at 98.2 percent, 56 of 57. The one miss
+was eval_0011, which scored 8 of 8 on category agreement: a supported finding, on a category
+the label agrees is supported, quoting a real span of the story that resolves byte-exact, in
+different words than the label had anticipated.
+
+That is not an invalid citation. `mustCiteSubstring` is documented in the corpus README as an
+overlap target rather than a required span, precisely so a label does not have to guess which
+words a correct citation will pick out, and two people writing the corpus would disagree about
+this the same way. Scoring it under a 100 percent gate meant one difference of reading failed a
+build on the gate reserved for fabricated quotes.
+
+The measurement is now split. `citation-validity` keeps the 100 percent floor and asks only
+whether a citation is true: does it slice its own quote back out of the story, with a
+`citation_unresolvable` throw charged here as the same contract failing a step earlier. That is
+ADR-0003's contract and one violation should indeed fail a build. `citation-anchoring` is new,
+scored over the supported findings whose category the label already agrees with, and floored at
+90 rather than 100 because a miss is a disagreement about which words carry the support and not
+a defect. It is floored high rather than removed because the labels' claim to check anything
+rests on a supported finding pointing where the label had in mind, and systematic drift would
+leave every citation valid, every status agreeing, and the corpus testing nothing.
+
+The report prints both counts in one cell and the terminal summary prints both spans for each
+miss, the label's expected substring against the nearest actual quote, because settling one of
+these is a matter of reading them side by side: the next sentence over means the label was
+narrow, the far end of the story means the finding needs a harder look.
+
+This is the same error as the judge addendum above, in a second place. **A gate is only as
+meaningful as the single question it asks**, and both of these had quietly come to ask two.

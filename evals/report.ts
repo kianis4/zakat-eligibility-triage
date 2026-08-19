@@ -49,10 +49,19 @@ function fixtureRow(fixture: FixtureScore): readonly string[] {
     ];
   }
 
-  const citations =
+  /**
+   * One cell, two measurements, kept legible as two. A run where every citation is true and
+   * one landed somewhere the label did not expect is a different run from one carrying a
+   * fabricated quote, and a single fraction cannot say which happened.
+   */
+  const citations = [
     fixture.citations.checked === 0
-      ? "none"
-      : `${fixture.citations.valid}/${fixture.citations.checked}`;
+      ? "no citations"
+      : `${fixture.citations.valid}/${fixture.citations.checked} valid`,
+    fixture.anchoring.checked === 0
+      ? "no anchor checks"
+      : `${fixture.anchoring.anchored}/${fixture.anchoring.checked} anchored`,
+  ].join(", ");
   const questions =
     fixture.missingEvidence.expected === 0
       ? "none expected"
@@ -62,6 +71,10 @@ function fixtureRow(fixture: FixtureScore): readonly string[] {
     ...fixture.categoryAgreement.disagreements.map(
       (entry) => `${entry.category}: expected ${entry.expected}, got ${entry.actual}`,
     ),
+    ...fixture.citations.violations.map(
+      (violation) => `${violation.category}: invalid citation (${violation.kind})`,
+    ),
+    ...fixture.anchoring.misses.map((miss) => `${miss.category}: cited elsewhere in the story`),
     ...(fixture.escalation.passed ? [] : [escalationDifference(fixture)]),
   ];
 
@@ -231,6 +244,29 @@ export function renderSummary(run: EvalRun): string {
     lines.push(
       `${threw.length} fixture${threw.length === 1 ? "" : "s"} threw in the pipeline:`,
       ...threw.map((fixture) => `  ${fixture.id}: ${fixture.failure}`),
+      "",
+    );
+  }
+
+  /**
+   * Both spans, because settling an anchoring miss is a matter of reading them side by side.
+   * If the model's quote is the next sentence over, the label was narrow and the label is what
+   * should change; if it is somewhere else entirely, the finding is worth a harder look. A
+   * rate alone supports neither conclusion, and this was the miss that used to fail the build
+   * under the citation gate without ever printing what it disagreed about.
+   */
+  const anchoringMisses = run.deterministic.fixtures.flatMap((fixture) =>
+    fixture.anchoring.misses.map((miss) => ({ fixtureId: fixture.id, miss })),
+  );
+
+  if (anchoringMisses.length > 0) {
+    lines.push(
+      `${anchoringMisses.length} supported finding${anchoringMisses.length === 1 ? "" : "s"} cited a true span the label did not anticipate:`,
+      ...anchoringMisses.flatMap(({ fixtureId, miss }) => [
+        `  ${fixtureId} ${miss.category}`,
+        `    label expected: ${JSON.stringify(miss.expected)}`,
+        `    nearest actual: ${JSON.stringify(miss.nearest)}`,
+      ]),
       "",
     );
   }

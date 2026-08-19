@@ -27,6 +27,8 @@ export function score(
     agreed?: number;
     citationsValid?: number;
     citationsChecked?: number;
+    anchored?: number;
+    anchorChecks?: number;
     escalationPassed?: boolean;
     covered?: number;
     expectedQuestions?: number;
@@ -35,6 +37,7 @@ export function score(
   } = {},
 ): FixtureScore {
   const checked = parts.citationsChecked ?? 2;
+  const anchorChecks = parts.anchorChecks ?? 1;
 
   return {
     id,
@@ -44,6 +47,11 @@ export function score(
     failure: parts.threw ?? null,
     categoryAgreement: { agreed: parts.agreed ?? 8, total: 8, disagreements: [] },
     citations: { checked, valid: parts.citationsValid ?? checked, violations: [] },
+    anchoring: {
+      checked: anchorChecks,
+      anchored: parts.anchored ?? anchorChecks,
+      misses: [],
+    },
     escalation: { passed: parts.escalationPassed ?? true, expected: [], actual: [] },
     missingEvidence: {
       covered: parts.covered ?? 0,
