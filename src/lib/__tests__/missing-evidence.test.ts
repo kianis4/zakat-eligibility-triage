@@ -46,8 +46,21 @@ const beneficiaryQuestion =
  * categories unresolved, and the same question reached for twice, because the two
  * categories of material need turn on the same unstated fact.
  */
+/**
+ * The model returns its findings as a list naming the category in each item, which is the
+ * shape the provider's schema compiler accepts. A record keyed by category is the readable
+ * way to write one out, so this turns that into the list the model would have sent.
+ */
+function findingsFrom(byCategory: Record<string, Record<string, unknown>>) {
+  return Object.entries(byCategory).map(([category, finding]) => ({
+    category,
+    quotes: [],
+    ...finding,
+  }));
+}
+
 const vagueModelMapping = {
-  categories: {
+  findings: findingsFrom({
     "al-fuqara": {
       status: "insufficient_evidence",
       rationale: "The story names no beneficiary and states no financial position.",
@@ -107,7 +120,7 @@ const vagueModelMapping = {
         "Is anyone you are raising for away from home or unable to get back to it?",
       scholarlyDifference: null,
     },
-  },
+  }),
   mixedUseSignals: [],
 };
 

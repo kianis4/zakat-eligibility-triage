@@ -314,45 +314,92 @@ const ModelScholarlyDifference = z
   .nullable()
   .describe("The recorded difference this finding sits inside, selected by id, or null.");
 
-const ModelFinding = z.discriminatedUnion("status", [
-  z.object({
-    status: z.literal("supported"),
+const FINDING_STATUSES = ["supported", "not_supported", "insufficient_evidence"] as const;
+
+/**
+ * One category's finding, in the one shape the model fills eight times over.
+ *
+ * The model used to be handed eight named category properties, each a three-member union
+ * carrying a nullable selection, and the provider's structured-output compiler refused the
+ * result: thirty-two union-typed parameters against a limit of sixteen. The categories are
+ * a list now, and the category this finding is about is a field in it, so the schema
+ * describes one item rather than eight copies of one. Union-typed parameters in this item:
+ * one, `scholarlyDifference`, which is nullable. The whole model-facing schema declares that
+ * one, and `src/lib/__tests__/mapping-types.test.ts` holds it under the limit.
+ *
+ * The flattening costs the union that made an uncited supported finding unconstructable at
+ * the model boundary, so the check below carries it instead: a supported finding with no
+ * quote, or an unresolved one missing the fact or the question, fails parsing exactly as it
+ * did before. `quotes` is required and empty on the statuses that have nothing to quote,
+ * because an empty list of supporting spans is the honest reading of a finding with none.
+ * `missingFact` and `questionForOrganizer` stay optional: an empty string there would be a
+ * missing fact that claims to name one. Nothing about the output type changes; the eight
+ * findings are folded back into the `CategoryMapping` record server-side.
+ */
+const ModelFinding = z
+  .object({
+    category: z
+      .enum(RECIPIENT_CATEGORY_IDS)
+      .describe("The category this finding is about. Exactly one finding per category."),
+    status: z
+      .enum(FINDING_STATUSES)
+      .describe("What the story does or does not say about this category."),
     quotes: z
       .array(z.string().min(1))
-      .min(1)
-      .describe("Verbatim spans of the story that support this category. At least one."),
-    rationale: Rationale.describe("What the quoted text says, in one or two sentences."),
-    scholarlyDifference: ModelScholarlyDifference,
-  }),
-  z.object({
-    status: z.literal("not_supported"),
-    rationale: Rationale.describe("Why the story does not bear on this category."),
-    scholarlyDifference: ModelScholarlyDifference,
-  }),
-  z.object({
-    status: z.literal("insufficient_evidence"),
-    rationale: Rationale.describe("What is unresolved about this category."),
-    missingFact: MissingFact.describe(
-      "The one specific fact the story does not state, in a single sentence.",
+      .describe(
+        "Verbatim spans of the story that support this category. At least one when the status is supported, empty otherwise.",
+      ),
+    rationale: Rationale.describe("What the story says about this category, in one or two sentences."),
+    missingFact: MissingFact.optional().describe(
+      "The one specific fact the story does not state, in a single sentence. Only on an insufficient_evidence finding.",
     ),
-    questionForOrganizer: OrganizerQuestion.describe(
-      "The question a reviewer sends the organizer, word for word, to obtain that fact.",
+    questionForOrganizer: OrganizerQuestion.optional().describe(
+      "The question a reviewer sends the organizer, word for word, to obtain that fact. Only on an insufficient_evidence finding.",
     ),
     scholarlyDifference: ModelScholarlyDifference,
-  }),
-]);
+  })
+  .superRefine((finding, ctx) => {
+    if (finding.status === "supported" && finding.quotes.length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["quotes"],
+        message: "A supported status without a quote from the story is not available.",
+      });
+    }
+
+    if (finding.status !== "insufficient_evidence") {
+      return;
+    }
+
+    if (finding.missingFact === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["missingFact"],
+        message: "An unresolved finding names the fact that would resolve it.",
+      });
+    }
+
+    if (finding.questionForOrganizer === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["questionForOrganizer"],
+        message: "An unresolved finding carries the question that would obtain the missing fact.",
+      });
+    }
+  });
+
+type ModelFinding = z.infer<typeof ModelFinding>;
 
 /**
  * Everything the model is permitted to return, and the surface a test reads to check that
  * the permission is what ADR-0007 says it is.
  */
 export const ModelMapping = z.object({
-  categories: z.object(
-    Object.fromEntries(RECIPIENT_CATEGORY_IDS.map((id) => [id, ModelFinding])) as Record<
-      RecipientCategory,
-      typeof ModelFinding
-    >,
-  ),
+  findings: z
+    .array(ModelFinding)
+    .describe(
+      "One finding for each of the eight categories, in any order. Every category appears exactly once.",
+    ),
   mixedUseSignals: z
     .array(
       z.object({
@@ -433,6 +480,10 @@ const SYSTEM_PROMPT = [
   "   evidence. Record what the claim says; do not let it stand in for the facts it asserts.",
   "9. Record mixedUseSignals where the story indicates the money splits across distinct uses,",
   "   quoting the spans that show it. Do not judge the split.",
+  "10. Return findings as a list holding exactly one entry per category, with the category id",
+  "   in its category field. All eight ids below must appear and none of them twice. Fill",
+  "   quotes only on a supported finding and leave it empty otherwise; fill missingFact and",
+  "   questionForOrganizer only on an insufficient_evidence finding and omit them otherwise.",
   "",
   "The eight categories, and the campaign text that would bear on each:",
   "",
@@ -453,7 +504,7 @@ const SYSTEM_PROMPT = [
  * travels beside it under its own name rather than mixed into it.
  */
 function resolveScholarlyDifference(
-  selection: NonNullable<ModelMapping["categories"][RecipientCategory]["scholarlyDifference"]>,
+  selection: NonNullable<ModelFinding["scholarlyDifference"]>,
 ): ScholarlyDifferenceReference {
   return {
     entry: scholarlyDifferenceById(selection.id),
@@ -461,7 +512,7 @@ function resolveScholarlyDifference(
   };
 }
 
-function resolveFinding(story: string, finding: ModelMapping["categories"][RecipientCategory]) {
+function resolveFinding(story: string, finding: ModelFinding) {
   const difference =
     finding.scholarlyDifference === null
       ? {}
@@ -487,6 +538,46 @@ function resolveFinding(story: string, finding: ModelMapping["categories"][Recip
     questionForOrganizer: finding.questionForOrganizer,
     ...difference,
   };
+}
+
+/**
+ * Folds the list the model returns back into the record the rest of the system reads.
+ *
+ * The list is the shape the provider will compile, not a shape anything downstream wants:
+ * every consumer looks a category up by id, and a list permits what a record cannot say, a
+ * category twice or a category not at all. Both fail the whole mapping here rather than
+ * reaching a reviewer as eight findings with one of them silently missing or overwritten. A
+ * category id the corpus does not hold never gets this far, because the enum on the item
+ * refuses it and the model call fails schema validation.
+ */
+function foldFindings(campaignId: string, story: string, findings: readonly ModelFinding[]) {
+  const byCategory = new Map<RecipientCategory, ModelFinding>();
+
+  for (const finding of findings) {
+    if (byCategory.has(finding.category)) {
+      throw new MappingError(
+        "schema_validation_failed",
+        `The model returned more than one finding for ${finding.category} on campaign ${campaignId}.`,
+      );
+    }
+
+    byCategory.set(finding.category, finding);
+  }
+
+  return Object.fromEntries(
+    RECIPIENT_CATEGORY_IDS.map((id) => {
+      const finding = byCategory.get(id);
+
+      if (finding === undefined) {
+        throw new MappingError(
+          "schema_validation_failed",
+          `The model returned no finding for ${id} on campaign ${campaignId}.`,
+        );
+      }
+
+      return [id, resolveFinding(story, finding)];
+    }),
+  );
 }
 
 /**
@@ -545,9 +636,7 @@ export async function mapCategories(
     );
   }
 
-  const categories = Object.fromEntries(
-    RECIPIENT_CATEGORY_IDS.map((id) => [id, resolveFinding(input.story, mapping.categories[id])]),
-  );
+  const categories = foldFindings(input.id, input.story, mapping.findings);
 
   const mixedUseSignals = mapping.mixedUseSignals.map((signal) => ({
     description: signal.description,

@@ -49,25 +49,25 @@ const factsPayload = {
 };
 
 const mappingPayload = {
-  categories: Object.fromEntries(
-    RECIPIENT_CATEGORY_IDS.map((id) => [
-      id,
-      id === "al-gharimin"
-        ? {
-            status: "supported",
-            quotes: ["cannot repay it"],
-            rationale: "The story states a debt the family says it cannot repay.",
-            scholarlyDifference: null,
-          }
-        : {
-            status: "insufficient_evidence",
-            rationale: "The story does not say enough about this category.",
-            missingFact: "Whether the beneficiary falls under this category at all.",
-            questionForOrganizer:
-              "Could you tell us who receives the money once it is raised, and what it pays for first?",
-            scholarlyDifference: null,
-          },
-    ]),
+  findings: RECIPIENT_CATEGORY_IDS.map((id) =>
+    id === "al-gharimin"
+      ? {
+          category: id,
+          status: "supported",
+          quotes: ["cannot repay it"],
+          rationale: "The story states a debt the family says it cannot repay.",
+          scholarlyDifference: null,
+        }
+      : {
+          category: id,
+          status: "insufficient_evidence",
+          quotes: [],
+          rationale: "The story does not say enough about this category.",
+          missingFact: "Whether the beneficiary falls under this category at all.",
+          questionForOrganizer:
+            "Could you tell us who receives the money once it is raised, and what it pays for first?",
+          scholarlyDifference: null,
+        },
   ),
   mixedUseSignals: [],
 };
