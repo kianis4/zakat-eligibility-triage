@@ -229,6 +229,21 @@ export type OrganizerQuestion = z.infer<typeof OrganizerQuestion>;
  * - `not_supported`: the story does not engage the category at all, or engages it and points
  *   away.
  *
+ * Gesturing has an operational test, because it was the word doing the most work and the least
+ * defined. A story gestures at a category when it states a concrete fact that the category's
+ * qualifying facts in `./categories` would directly resolve or quantify. A rent shortfall the
+ * page asks for money to cover, or an organizer saying they have not caught up since their
+ * hours were cut, is a stated fact that a creditor, a sum, a cause and a due date would resolve,
+ * so al-gharimin is unresolved on that page and the question asks whether anything is owed and
+ * to whom. General hardship ambiance states no such fact and gestures at nothing in particular:
+ * where a page like that leaves a line open, what leaves it open is one of the shapes in the
+ * prompt rather than a gesture.
+ *
+ * The contrast sits inside the same category. A borrower who says he is repaying an advance at
+ * a rate he can manage has stated the fact and settled it, which is engaging the category and
+ * pointing away from it. Naming no creditor is not on its own pointing away, so a page that
+ * states a shortfall and mentions nobody it owes is unresolved on debt rather than closed on it.
+ *
  * The line between the last two is operational rather than cosmetic. Organizer questions
  * attach to `insufficient_evidence` alone, in `./missing-evidence`, so silence recorded as
  * unresolved sends a reviewer a question about something the page never raised, and
@@ -495,11 +510,12 @@ const SYSTEM_PROMPT = [
   "   states, name it in scholarlyDifference; a difference never moves a status.",
   "3. Use 'not_supported' where the story does not engage the category at all, or engages it",
   "   and points away. A campaign that never touches travel, displacement or being cut off",
-  "   from home is not_supported on ibn-al-sabil rather than unresolved on it. A household",
-  "   that accounts for its own position and names nobody it owes is not_supported on",
-  "   al-gharimin. A business the copy calls profitable, a borrower who says he can manage the",
-  "   repayment, and an organizer who says they take nothing and cover the page's fees",
-  "   themselves each engage a category and point away from it.",
+  "   from home is not_supported on ibn-al-sabil rather than unresolved on it. A business the",
+  "   copy calls profitable, a borrower who says he can manage the repayment, and an organizer",
+  "   who says they take nothing and cover the page's fees themselves each engage a category",
+  "   and point away from it. Pointing away is the story saying the position is met, not the",
+  "   story going quiet: a household that names nobody it owes has not pointed away from debt,",
+  "   and where it states a shortfall or arrears the debt line stays open.",
   "   One shape rules nothing out. A page that says neither who receives the money nor what it",
   "   buys has told against nothing, so every category is insufficient_evidence on it and none",
   "   is not_supported. An appeal saying only that the year has been hard and that whatever",
@@ -512,7 +528,17 @@ const SYSTEM_PROMPT = [
   "   three, and the headings the account passes over are not_supported.",
   "4. Use 'insufficient_evidence' where the story engages the category, or gestures at it, and",
   "   the qualifying facts are missing, and name in missingFact the single specific fact that",
-  "   is absent. A story that describes the people a campaign is meant to help and says nothing",
+  "   is absent. A story gestures at a category when it states a concrete fact that the",
+  "   category's guidance below would directly resolve or quantify. A rent shortfall the page",
+  "   asks for money to cover, and an organizer saying they have not caught up since their",
+  "   hours were cut, each state a fact a creditor, a sum, a cause and a due date would resolve,",
+  "   so al-gharimin is insufficient_evidence there and the question asks whether anything is",
+  "   owed and to whom. A page saying only that the year has been hard states no such fact and",
+  "   gestures at nothing in particular; where a page like that leaves a line open, what leaves",
+  "   it open is one of the shapes in 3 rather than a gesture. The contrast sits inside the same",
+  "   category: the borrower repaying an advance at a rate he says he can manage has stated that",
+  "   fact and settled it, which points away and is not_supported.",
+  "   A story that describes the people a campaign is meant to help and says nothing",
   "   about their means engages al-fuqara and al-masakin and settles neither. A campaign",
   "   raising for a programme it will deliver to other people engages al-amilina-alayha",
   "   wherever it does not say what share of the donations covers that delivery. A story",
