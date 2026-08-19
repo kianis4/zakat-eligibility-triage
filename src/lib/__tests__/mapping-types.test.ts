@@ -55,6 +55,24 @@ describe("an uncited mixed-use signal is unrepresentable", () => {
     expect(MixedUseSignal.safeParse(signal).success).toBe(false);
   });
 
+  /**
+   * The description is the only part of a signal that reaches the escalation question, and
+   * the question is the whole value of the refusal. A description of "." parses as a string,
+   * builds a grammatical question, and names nothing a reviewer could act on, which is the
+   * generic needs-review flag arriving by the back door.
+   */
+  it("does not accept a description made of punctuation", () => {
+    const signal: MixedUseSignal = { description: ".", citations: [citation] };
+
+    expect(MixedUseSignal.safeParse(signal).success).toBe(false);
+  });
+
+  it("does not accept a description naming only one thing the money goes to", () => {
+    const signal: MixedUseSignal = { description: "Equipment", citations: [citation] };
+
+    expect(MixedUseSignal.safeParse(signal).success).toBe(false);
+  });
+
   it("accepts a signal that cites one span", () => {
     const signal: MixedUseSignal = {
       description: "Surplus funds are directed to equipment rather than to the debt.",
