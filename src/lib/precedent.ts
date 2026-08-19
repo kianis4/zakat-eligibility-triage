@@ -76,13 +76,18 @@ function excerpt(story: string): string {
  * screen reads as a confidence in the comparison, and the comparison it would be
  * expressing confidence in is between two pieces of marketing prose.
  *
+ * Only the title and the story are read, and the parameter says so. A stored row and a
+ * submitted `CampaignInput` both satisfy it, so the reviewer page does not have to
+ * reconstruct a full campaign, and in particular does not have to turn a numeric goal
+ * amount back into a float to ask a text question.
+ *
  * The embedder is injected for the same reason the language model is injected upstream,
  * and it is checked against the column width rather than trusted: a fake or a swapped
  * model that returns the wrong number of dimensions would otherwise surface as an opaque
  * database error at the far end of a query.
  */
 export async function retrievePrecedents(
-  campaign: CampaignInput,
+  campaign: Pick<CampaignInput, "title" | "story">,
   options: RetrievePrecedentsOptions,
 ): Promise<PrecedentForReviewer[]> {
   const { db, k = DEFAULT_K, embedder = embedWithOpenAI } = options;
