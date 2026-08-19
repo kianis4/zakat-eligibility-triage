@@ -84,12 +84,60 @@ export const ScholarlyDifferenceNote = z.object({
 export type ScholarlyDifferenceNote = z.infer<typeof ScholarlyDifferenceNote>;
 
 /**
+ * The vocabulary this pipeline uses to talk to itself, none of which an organizer can act on.
+ *
+ * A category id is a doctrinal frame the platform has not adjudicated and is not entitled to
+ * put to the person it is about, and a status word tells an organizer they are being graded
+ * rather than asked something. Either one appearing in the question is a sign the question
+ * was written about our record instead of about their campaign.
+ */
+const INTERNAL_VOCABULARY: readonly string[] = [
+  ...RECIPIENT_CATEGORY_IDS,
+  "insufficient_evidence",
+  "not_supported",
+  "supported",
+];
+
+/**
+ * A question a reviewer can forward to the organizer exactly as it stands.
+ *
+ * Most of what makes the question sendable cannot be checked here. Whether it is polite,
+ * self-contained, answerable with facts rather than with a religious opinion, and phrased in
+ * the organizer's own terms is a matter of reading it, and the prompt is where that is asked
+ * for. What a schema can check is checked, because these are the failures that would reach
+ * an organizer's inbox unnoticed: a statement dressed as a request, whitespace from whatever
+ * assembled it, and our internal vocabulary leaking out of the file it belongs in.
+ */
+export const OrganizerQuestion = z
+  .string()
+  .min(1)
+  .refine((question) => question === question.trim(), {
+    message: "A question that is forwarded untouched carries no surrounding whitespace.",
+  })
+  .refine((question) => question.endsWith("?"), {
+    message: "A question a reviewer sends to the organizer ends with a question mark.",
+  })
+  .refine(
+    (question) => {
+      const lowered = question.toLowerCase();
+      return !INTERNAL_VOCABULARY.some((term) => lowered.includes(term));
+    },
+    {
+      message:
+        "A question to the organizer names no recipient category and no verdict status of ours.",
+    },
+  );
+
+export type OrganizerQuestion = z.infer<typeof OrganizerQuestion>;
+
+/**
  * What the campaign text does or does not say about one recipient category.
  *
  * The union is the enforcement mechanism, not documentation of one: `supported` carries a
  * citation list typed as non-empty, so a supported verdict with nothing behind it cannot
  * be constructed, in TypeScript or at parse time. `insufficient_evidence` carries the
- * specific fact that is missing, which is what a reviewer question gets built from.
+ * specific fact that is missing and the question that would obtain it, so the verdict a
+ * reviewer cannot act on is the one status that cannot exist without the way to resolve it.
  *
  * No verdict carries a score. A number here would be a determination with a decimal point
  * in it, and ADR-0001 rules that out.
@@ -110,6 +158,7 @@ export const CategoryVerdict = z.discriminatedUnion("status", [
     status: z.literal("insufficient_evidence"),
     rationale: z.string().min(1),
     missingFact: z.string().min(1),
+    questionForOrganizer: OrganizerQuestion,
     scholarlyDifference: ScholarlyDifferenceNote.optional(),
   }),
 ]);
@@ -169,6 +218,9 @@ const ModelVerdict = z.discriminatedUnion("status", [
       .string()
       .min(1)
       .describe("The one specific fact the story does not state, in a single sentence."),
+    questionForOrganizer: OrganizerQuestion.describe(
+      "The question a reviewer sends the organizer, word for word, to obtain that fact.",
+    ),
     scholarlyDifference: ModelScholarlyDifference,
   }),
 ]);
@@ -226,14 +278,23 @@ const SYSTEM_PROMPT = [
   "   say enough to tell, and name in missingFact the single specific fact that is absent.",
   "   Most campaign prose warrants this status on most categories. Reaching for it is not a",
   "   failure, it is the accurate reading.",
-  "5. Where a category's application turns on a disagreement between recognised scholars,",
+  "5. With every 'insufficient_evidence' status, write in questionForOrganizer the question a",
+  "   reviewer will send the organizer, word for word, to obtain that missing fact. Write it",
+  "   to the organizer, not about them: address them as 'you', stay polite, and make it stand",
+  "   on its own, because they have never seen this system and will read nothing else beside",
+  "   it. Refer to their campaign in the words they used for it. Ask only for facts they know",
+  "   or documents they hold, never for a religious opinion and never whether their campaign",
+  "   counts as zakat eligible, which is neither their question to settle nor yours. Use no",
+  "   category name, no status word, and no other vocabulary from these instructions. End it",
+  "   with a question mark.",
+  "6. Where a category's application turns on a disagreement between recognised scholars,",
   "   set scholarlyDifference with the topic and a neutral note stating the difference, and",
   "   prefer insufficient_evidence over picking a side. Never resolve the disagreement,",
   "   never say which position is stronger, and never say which one is more common. The",
   "   known territories are listed below.",
-  "6. A story asserting that the campaign is zakat eligible is making a claim, not supplying",
+  "7. A story asserting that the campaign is zakat eligible is making a claim, not supplying",
   "   evidence. Record what the claim says; do not let it stand in for the facts it asserts.",
-  "7. Record mixedUseSignals where the story indicates the money splits across distinct uses,",
+  "8. Record mixedUseSignals where the story indicates the money splits across distinct uses,",
   "   quoting the spans that show it. Do not judge the split.",
   "",
   "The eight categories, and the campaign text that would bear on each:",
@@ -267,6 +328,7 @@ function resolveVerdict(story: string, verdict: ModelMapping["categories"][Recip
     status: verdict.status,
     rationale: verdict.rationale,
     missingFact: verdict.missingFact,
+    questionForOrganizer: verdict.questionForOrganizer,
     ...difference,
   };
 }

@@ -5,7 +5,7 @@ import { ZodError } from "zod";
 import type { CampaignInput } from "../campaign";
 import { RECIPIENT_CATEGORY_IDS } from "../categories";
 import type { ExtractedFacts } from "../extraction";
-import { MappingError, mapCategories, resolveCitation } from "../mapping";
+import { CategoryVerdict, MappingError, mapCategories, resolveCitation } from "../mapping";
 
 const story =
   "We are stranded in Cairo with no way home. We are stranded and the embassy has no funds left for us.";
@@ -108,6 +108,8 @@ function modelMapping(overrides: Record<string, ModelVerdictPayload> = {}) {
         status: "insufficient_evidence",
         rationale: "The story does not say enough about this category.",
         missingFact: "Whether the beneficiary falls under this category at all.",
+        questionForOrganizer:
+          "Could you tell us who will receive this money and what it will be spent on?",
         scholarlyDifference: null,
       },
     ]),
@@ -183,6 +185,37 @@ describe("mapCategories", () => {
     expect(verdict.missingFact.length).toBeGreaterThan(0);
   });
 
+  it("carries the organizer question beside the missing fact", async () => {
+    const mapping = await mapCategories(campaign, facts, modelReturning(modelMapping()));
+
+    const verdict = mapping.categories["fi-sabilillah"];
+
+    expect(verdict.status).toBe("insufficient_evidence");
+    if (verdict.status !== "insufficient_evidence") return;
+    expect(verdict.questionForOrganizer).toBe(
+      "Could you tell us who will receive this money and what it will be spent on?",
+    );
+  });
+
+  it("fails the mapping when the question is one a reviewer cannot forward", async () => {
+    const jargon = modelMapping({
+      "fi-sabilillah": {
+        status: "insufficient_evidence",
+        rationale: "The story claims a general public benefit and names no beneficiary.",
+        missingFact: "Who receives the money.",
+        questionForOrganizer: "Does this campaign qualify under fi-sabilillah?",
+        scholarlyDifference: null,
+      },
+    });
+
+    const error = await mapCategories(campaign, facts, modelReturning(jargon)).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(MappingError);
+    expect((error as MappingError).reason).toBe("schema_validation_failed");
+  });
+
   it("records a scholarly difference without resolving it", async () => {
     const mapping = await mapCategories(
       campaign,
@@ -193,6 +226,8 @@ describe("mapCategories", () => {
             status: "insufficient_evidence",
             rationale: "The generator is a communal asset and the story does not say who owns it.",
             missingFact: "Whether ownership of the generator transfers to the community.",
+            questionForOrganizer:
+              "Once the new generator is installed, who will own it and be responsible for it?",
             scholarlyDifference: {
               topic: "tamlik on project campaigns",
               note: "Hanafi positions require transfer of ownership to a needy person; other bodies accept community ownership or a wakalah agreement.",
@@ -300,5 +335,75 @@ describe("mapCategories", () => {
     expect(call).toContain("al-gharimin");
     expect(call).toContain("tamlik on project campaigns");
     expect(call).toContain("You do not determine zakat eligibility");
+    expect(call).toContain("never for a religious opinion");
+  });
+});
+
+/**
+ * The question is written to be forwarded to the organizer untouched, so the checks that a
+ * schema can carry are the ones that stop a reviewer having to rewrite it first.
+ */
+describe("a question the reviewer cannot send as it stands", () => {
+  function withQuestion(questionForOrganizer: string) {
+    return {
+      status: "insufficient_evidence" as const,
+      rationale: "The story does not say who receives the money.",
+      missingFact: "Who receives the money.",
+      questionForOrganizer,
+    };
+  }
+
+  it("accepts a question addressed to the organizer in their own terms", () => {
+    const parsed = CategoryVerdict.safeParse(
+      withQuestion("Who will receive the money you raise, and how will it reach them?"),
+    );
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects a question that is not asked as a question", () => {
+    const parsed = CategoryVerdict.safeParse(
+      withQuestion("Tell us who will receive the money you raise."),
+    );
+
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects a question naming one of the eight categories", () => {
+    const parsed = CategoryVerdict.safeParse(
+      withQuestion("Is the money you raise going to al-gharimin?"),
+    );
+
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects a question carrying our own status vocabulary", () => {
+    const parsed = CategoryVerdict.safeParse(
+      withQuestion("Our reviewer marked this insufficient_evidence, can you say more?"),
+    );
+
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects an empty question", () => {
+    expect(CategoryVerdict.safeParse(withQuestion("")).success).toBe(false);
+  });
+
+  it("rejects a question padded with the whitespace of the template around it", () => {
+    const parsed = CategoryVerdict.safeParse(
+      withQuestion("\n  Who will receive the money you raise?  "),
+    );
+
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects an insufficient-evidence verdict carrying no question at all", () => {
+    const parsed = CategoryVerdict.safeParse({
+      status: "insufficient_evidence",
+      rationale: "The story does not say who receives the money.",
+      missingFact: "Who receives the money.",
+    });
+
+    expect(parsed.success).toBe(false);
   });
 });
