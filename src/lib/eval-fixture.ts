@@ -19,7 +19,7 @@ const FIXTURES_DIR = fileURLToPath(new URL("../../fixtures/evals/", import.meta.
  * `insufficient_evidence` says the category might be in play and the text does not settle it.
  *
  * `mustCiteSubstring` rides on `supported` and nowhere else, for the same reason
- * `CategoryVerdict` puts citations there: a supported label with nothing to point at is the
+ * `CategoryFinding` puts citations there: a supported label with nothing to point at is the
  * uncited assertion the pipeline exists to refuse, and an eval corpus that permitted one
  * would be scoring the pipeline against a standard it does not hold itself to. It is a
  * substring rather than a span so that a fixture does not have to guess which words a
@@ -104,7 +104,7 @@ export const EvalLabel = z
     }
 
     /**
-     * `buildMissingEvidenceReport` reads the unresolved verdicts and nothing else, so a
+     * `buildMissingEvidenceReport` reads the unresolved findings and nothing else, so a
      * category can only carry a question if it is also expected unresolved. The list is a
      * subset rather than a copy of them: it names the categories where a reviewer must come
      * away with something to ask, which is the part of the report a label is willing to
