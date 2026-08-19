@@ -6,6 +6,7 @@ import { loadEvalFixtures } from "../../src/lib/eval-fixture";
 import type { CategoryMapping } from "../../src/lib/mapping";
 import {
   JUDGE_DIMENSIONS,
+  JUDGE_RUBRIC,
   JudgeError,
   judgeCorpus,
   judgeRecord,
@@ -125,6 +126,50 @@ describe("the judge parser", () => {
 
   it("rejects a response that is not an object at all", () => {
     expect(() => parseJudgeVerdict("pass")).toThrow(JudgeError);
+  });
+});
+
+/**
+ * The rubric is prose sent to a model, so nothing compiles it against the definition it is
+ * meant to test. That is how it came to say the opposite: it was written before the three
+ * statuses were pinned in `CategoryFinding`, and the first live run failed records for
+ * behaviour the pinned definition calls correct. These assertions are the cheapest available
+ * standing check that the two have not drifted apart again.
+ */
+describe("the rubric against the status definition it tests", () => {
+  const boundary = JUDGE_RUBRIC.find(
+    (dimension) => dimension.id === "unresolved-only-where-engaged",
+  );
+
+  it("is carried on a dimension the gates and the report can index", () => {
+    expect(boundary).toBeDefined();
+    expect(JUDGE_DIMENSIONS).toContain("unresolved-only-where-engaged");
+  });
+
+  it("calls closing an unengaged category correct rather than a failure", () => {
+    expect(boundary?.criterion).toContain("correctly closed as not_supported");
+    expect(boundary?.criterion).toContain("must not be reported as one");
+  });
+
+  it("fails a category the story engages being settled instead of left unresolved", () => {
+    expect(boundary?.criterion).toContain("engage or gesture at");
+    expect(boundary?.criterion).toContain("left insufficient_evidence");
+  });
+
+  it("fails a closure justified by facts the story does not state", () => {
+    expect(boundary?.criterion).toContain("asserting facts the story does not state");
+  });
+
+  /**
+   * The rule that produced the false positives, in the words it used. A rubric telling the
+   * judge that silence belongs in insufficient_evidence contradicts the pinned definition,
+   * whichever dimension it is written on.
+   */
+  it("nowhere tells the judge that an unraised category should be left unresolved", () => {
+    for (const dimension of JUDGE_RUBRIC) {
+      expect(dimension.criterion).not.toContain("does not speak to a category");
+      expect(dimension.criterion).not.toContain("leaves it unresolved");
+    }
   });
 });
 

@@ -19,9 +19,10 @@ that asserts rather than argues. A question can satisfy every schema rule, endin
 question mark and naming no internal vocabulary, and still be one a reviewer would rewrite
 before sending. A sentence can quietly settle a scholarly difference in prose that no regular
 expression matches, which `src/lib/model-prose.ts` already records as the residual its shape
-guard cannot cover. And `insufficient_evidence` can be a hedge instead of the honest reading
-of a silent story. Those four failure modes are the ones that make a green deterministic run
-mean less than it looks, and no label can catch any of them.
+guard cannot cover. And the line between `insufficient_evidence` and `not_supported` can be
+drawn in the wrong place, hedging on a category the story never raised or settling one it
+gestures at. Those four failure modes are the ones that make a green deterministic run mean
+less than it looks, and no label can catch any of them.
 
 ## Decision
 Two scorers, one gate, arranged so each measures only what it can.
@@ -35,8 +36,10 @@ on every dimension rather than ending the run.
 
 **Judge scoring** (`evals/judge.ts`) asks a second model, once per fixture, for a verdict on
 four rubric dimensions: rationales argue from the campaign's own words, organizer questions are
-specific and sendable as they stand, nothing adjudicates a difference or issues a ruling, and
-silence is recorded as unresolved rather than guessed either way.
+specific and sendable as they stand, nothing adjudicates a difference or issues a ruling, and a
+category is left unresolved when the story engages it and closed when it does not. The fourth
+tests the line drawn in the `CategoryFinding` docblock in `src/lib/mapping.ts` and does not
+restate it; see the second addendum for what happened when it did.
 
 Each dimension is **pass or fail with a one-sentence reason, never a score**. A number here
 would be the thing ADR-0001 rejected arriving through the back door of the test harness. That
@@ -209,3 +212,33 @@ category agreement against an 80 percent floor. And two fixtures threw in the pi
 than being scored, one on a fabricated extraction quote and one on a mapping schema failure.
 Whether those are pipeline defects, prompt defects or labels that are wrong is exactly the
 question a calibration commit has to argue, and it is not answered here.
+
+## Addendum, 2026-08-19: the rubric had drifted from the status definitions
+
+The fourth dimension was written when the eval harness was built, before the three statuses
+were pinned to a single definition in the `CategoryFinding` docblock. It said that a category
+the story does not speak to should be left unresolved with the missing fact named. The pinned
+definition says the opposite: `not_supported` covers a story that "does not engage the category
+at all", and `insufficient_evidence` is for one that "engages the category, or gestures at it,
+and the qualifying facts are missing".
+
+The live run showed the cost. The judge failed records for closing al-muallafati-qulubuhum on
+stories that never mention faith background, and for closing al-gharimin on stories that never
+mention debt, and gave articulate specific reasons for both. The pipeline was right and the
+rubric was wrong, and nothing in the harness could have noticed, because a rubric is prose sent
+to a model and no compiler reads it.
+
+The dimension is now `unresolved-only-where-engaged`, and it tests the pinned line rather than
+restating it: closing an unraised category is explicitly correct, while settling a category the
+story does engage, or justifying a closure with facts the story does not state, fails. The
+rename is deliberate. The old id asserted the old rule, and an identifier that states a
+superseded definition is the same drift in a shorter form.
+
+The general lesson is the one the docblock itself makes when it says the statuses are defined
+there and nowhere else: **every restatement of a definition is a copy that can rot**, and the
+eval rubric is a restatement that lives outside the type system, outside the prompt, and
+outside the corpus. It is now pinned by assertions in `evals/__tests__/judge.test.ts` that
+check the criterion still says what the definition says, and that no dimension anywhere tells
+the judge to leave an unraised category unresolved. Those tests are weak, being string
+matches against prose, and they are still the strongest check available on text whose only
+other reader is a model.

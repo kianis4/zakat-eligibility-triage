@@ -156,7 +156,8 @@ const DIMENSION_STATEMENTS: Readonly<Record<JudgeDimension, string>> = {
   "evidence-not-assertion": "Rationales argue from the campaign's own words",
   "sendable-questions": "Organizer questions are specific and sendable as they stand",
   "no-ruling": "Nothing adjudicates a difference or issues a ruling",
-  "silence-not-guesswork": "Silence is recorded as unresolved rather than guessed either way",
+  "unresolved-only-where-engaged":
+    "A category is left unresolved when the story engages it, and closed when it does not",
 };
 
 /**

@@ -177,7 +177,7 @@ describe("the judge gates", () => {
 
     expect(gate(clean, "judge/sendable-questions", outcomes).passed).toBe(false);
     expect(gate(clean, "judge/evidence-not-assertion", outcomes).passed).toBe(true);
-    expect(gate(clean, "judge/silence-not-guesswork", outcomes).passed).toBe(true);
+    expect(gate(clean, "judge/unresolved-only-where-engaged", outcomes).passed).toBe(true);
   });
 
   it("holds a dimension at the floor", () => {

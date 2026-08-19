@@ -23,7 +23,7 @@ export const JUDGE_DIMENSIONS = [
   "evidence-not-assertion",
   "sendable-questions",
   "no-ruling",
-  "silence-not-guesswork",
+  "unresolved-only-where-engaged",
 ] as const;
 
 export type JudgeDimension = (typeof JUDGE_DIMENSIONS)[number];
@@ -53,11 +53,33 @@ export const JUDGE_RUBRIC: readonly RubricDimension[] = [
     criterion:
       "No sentence anywhere in the record settles a disagreement between scholars, says which position is stronger or more common, or states that the campaign is or is not zakat eligible. Naming that a question is unsettled is correct and passes. Any sentence a reader could take as the answer to it fails.",
   },
+  /**
+   * The status definitions this dimension tests are pinned in the `CategoryFinding` docblock
+   * in `src/lib/mapping.ts`, which states that they are defined there and nowhere else. The
+   * two that matter here, quoted:
+   *
+   *   `insufficient_evidence`: the story engages the category, or gestures at it, and the
+   *   qualifying facts are missing.
+   *   `not_supported`: the story does not engage the category at all, or engages it and
+   *   points away.
+   *
+   * The criterion below is a test of that line and not a second statement of it. An earlier
+   * version was a second statement of it, written before the definition was pinned, and it
+   * said the opposite: that a category the story does not speak to should be left unresolved.
+   * The first live run duly failed records for closing al-muallafati-qulubuhum on a story that
+   * never mentions faith background, which the pinned definition calls correct. A rubric
+   * marking correct behaviour wrong is worse than no rubric, because it produces confident
+   * specific reasons for its errors.
+   *
+   * The line is operational, per the same docblock: organizer questions attach to
+   * `insufficient_evidence` alone, so getting it wrong either sends a reviewer a question about
+   * something the page never raised, or withholds the one question that would settle the file.
+   */
   {
-    id: "silence-not-guesswork",
-    label: "Silence is recorded as unresolved rather than guessed either way",
+    id: "unresolved-only-where-engaged",
+    label: "A category is left unresolved when the story engages it, and closed when it does not",
     criterion:
-      "Where the story simply does not speak to a category, the record leaves it unresolved and names the fact that is missing. A category resolved as supported or not supported on text that does not actually bear on it fails, in either direction.",
+      "A category the story does not raise at all is correctly closed as not_supported, with a rationale that says only that the story does not speak to it; that is not a failure and must not be reported as one. Two things fail. First, a category the story does engage or gesture at, such as a debt hinted at without figures or a hardship left unexplained, being settled either way instead of left insufficient_evidence with the absent qualifying fact named. Second, a rationale justifying a closure by asserting facts the story does not state, rather than by observing that the story is silent.",
   },
 ];
 
