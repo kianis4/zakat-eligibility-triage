@@ -1,0 +1,32 @@
+{
+  "id": "eval_0017",
+  "title": "Bail and a lawyer for Yusuf, four months in and no trial date",
+  "story": "Yusuf has been held for four months without trial after a raid on the market where he keeps a stall. The charge has changed twice. The lawyer we have found will take the case for 4,500 USD, which covers the hearing and the two appeals if it comes to that, and there is a bail application that needs 2,000 USD lodged with the court, returnable if he attends, which he will. His wife has been selling the stock off a mat at the roadside to feed the three children and there is almost none of it left to sell. We are asking for 6,500 USD. It is paid to the lawyer's office directly and the bail is lodged with the court, and both will be receipted here. Nobody in this family has done anything except be in the wrong market on the wrong morning.",
+  "category": "Legal Support",
+  "goalAmount": 6500,
+  "currency": "USD",
+  "organizer": {
+    "name": "Ousmane Diallo",
+    "location": "Bamako, Mali",
+    "relationshipToBeneficiary": "brother"
+  },
+  "label": {
+    "expectedFindings": {
+      "al-fuqara": { "status": "insufficient_evidence" },
+      "al-masakin": { "status": "insufficient_evidence" },
+      "al-amilina-alayha": { "status": "not_supported" },
+      "al-muallafati-qulubuhum": { "status": "not_supported" },
+      "fi-al-riqab": {
+        "status": "supported",
+        "mustCiteSubstring": "held for four months without trial"
+      },
+      "al-gharimin": { "status": "not_supported" },
+      "fi-sabilillah": { "status": "not_supported" },
+      "ibn-al-sabil": { "status": "not_supported" }
+    },
+    "expectedEscalation": { "expected": true, "kinds": ["scholarly_difference"] },
+    "expectedMissingEvidence": ["al-fuqara", "al-masakin"],
+    "notes": "Detention without trial, bail lodged with a court and a named lawyer for a specific person is text bearing on the freeing category, so the line is supported by what the page says. Where the positions part is what the category now covers: one institution applies it to bonded labour and trafficking, another extends it to bail and the legal defence of the unjustly imprisoned, and the platform documented in the research brief states that the category no longer applies today. That difference is not in the repository's own list of contested territories, which makes this case useful twice over, since a difference that is real has to be nameable whether or not it was enumerated in advance. The household need is described and the money does not reach the household; it reaches a lawyer's office and a court. Those two facts pull in different directions, so the need lines are left open rather than resolved from a description of the wife's situation.",
+    "difficulty": "ambiguous"
+  }
+}

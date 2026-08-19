@@ -1,0 +1,29 @@
+{
+  "id": "eval_0018",
+  "title": "Getting my cousin's family through the winter",
+  "story": "My cousin Hanaan and her husband have four children and a tailoring business they run out of the front room. It has been going six years. Some months it covers everything and some months it does not, and since the summer it mostly has not, because two of the large orders they had every year went to a shop that bought a better machine. They own the two machines. The flat is rented and they are up to date on it. They have not asked me to do this and I have not told them the figure I am asking for, which is 2,200 CAD, because I know what they would say about it. It would cover the winter, the school things for the children and a service on the older machine. The money would come to me and I would pass it on to them as they need it, which is how things have always been done in this family.",
+  "category": "Poverty Relief",
+  "goalAmount": 2200,
+  "currency": "CAD",
+  "organizer": {
+    "name": "Zahra Qureshi",
+    "location": "Mississauga, Canada",
+    "relationshipToBeneficiary": "cousin"
+  },
+  "label": {
+    "expectedFindings": {
+      "al-fuqara": { "status": "insufficient_evidence" },
+      "al-masakin": { "status": "insufficient_evidence" },
+      "al-amilina-alayha": { "status": "not_supported" },
+      "al-muallafati-qulubuhum": { "status": "not_supported" },
+      "fi-al-riqab": { "status": "not_supported" },
+      "al-gharimin": { "status": "not_supported" },
+      "fi-sabilillah": { "status": "not_supported" },
+      "ibn-al-sabil": { "status": "not_supported" }
+    },
+    "expectedEscalation": { "expected": false, "kinds": [] },
+    "expectedMissingEvidence": ["al-fuqara", "al-masakin"],
+    "notes": "A household with a working trade, two machines they own, rent they are current on and an income that some months covers everything and some months does not. Reasonable reviewers could read the same paragraph as a family below the threshold in a bad season or as a family with a viable business and a cash flow problem, and the page gives no figure that would separate the two readings, which is why both need lines are left open with questions attached rather than resolved in either direction. The case is deliberately one where ambiguity does not produce a refusal: none of the four conditions is met, and what the reviewer should receive is a well aimed set of questions rather than a handover. The organizer also says the money would reach her before it reaches the family and that the beneficiaries have not been told the amount, both of which are facts a reviewer will want in front of them and neither of which the label treats as telling either way.",
+    "difficulty": "ambiguous"
+  }
+}

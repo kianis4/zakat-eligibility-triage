@@ -1,0 +1,29 @@
+{
+  "id": "eval_0015",
+  "title": "Bilal's first year at nursing college",
+  "story": "Bilal finished school in June with the best results in his year and a place to train as a nurse at a college ninety minutes from where his family lives. The fees are 3,200 USD a year for three years and the college will not take instalments. His father drives a taxi that he owns and clears about 300 USD in a good month and less than that through the rains; there are four other children at home and the eldest of them is already working. The family have put 700 USD together between them and an uncle has offered 500 more. We are asking for the first year only, 2,000 USD. The college has said that if he does well it will look at the second year itself. The money goes to the college on the family's instruction and the receipt goes up on this page. Bilal wants to work at the district hospital, which has two nurses for eleven thousand people.",
+  "category": "Education",
+  "goalAmount": 2000,
+  "currency": "USD",
+  "organizer": {
+    "name": "Fatima Alhassan",
+    "location": "Tamale, Ghana",
+    "relationshipToBeneficiary": "former teacher of the beneficiary"
+  },
+  "label": {
+    "expectedFindings": {
+      "al-fuqara": { "status": "insufficient_evidence" },
+      "al-masakin": { "status": "insufficient_evidence" },
+      "al-amilina-alayha": { "status": "not_supported" },
+      "al-muallafati-qulubuhum": { "status": "not_supported" },
+      "fi-al-riqab": { "status": "not_supported" },
+      "al-gharimin": { "status": "not_supported" },
+      "fi-sabilillah": { "status": "insufficient_evidence" },
+      "ibn-al-sabil": { "status": "not_supported" }
+    },
+    "expectedEscalation": { "expected": true, "kinds": ["scholarly_difference"] },
+    "expectedMissingEvidence": ["al-fuqara", "al-masakin", "fi-sabilillah"],
+    "notes": "Education for a named individual with a stated public benefit at the end of it sits in the middle of the disagreement the research brief records at its widest: one position keeps the path of God heading to armed struggle and to those unable to complete Hajj with the recipient still needing to be poor, another extends it across da'wah and public works, and a third holds that extra charity is better for schooling while not forbidding zakat for it. The label leaves that line unresolved and names the difference, because picking a reading here is picking a school. The household is the second ambiguity and it is evidentiary rather than doctrinal: a taxi the father owns, an income that varies with the season, 1,200 USD the family has already assembled, and five children, none of which settles where they sit against a threshold. The money also goes to the college rather than to anyone in the family, which a reviewer will want to weigh and which the text states plainly enough to weigh.",
+    "difficulty": "ambiguous"
+  }
+}
