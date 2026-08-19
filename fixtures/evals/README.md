@@ -71,8 +71,11 @@ which a corpus of well-evidenced campaigns would never surface.
    both are debts, and the brief treats debt as settled on principle and contested mainly on
    fact. 0002 states the facts the positions act on, so no difference is expected. 0010 says
    the borrowing carried interest, which puts lawfulness live, so a difference is expected.
-   That judgment is the most arguable thing in this corpus and it is written down here so it
-   can be argued with.
+   It rests on section 3.4 of the brief, which describes debt as comparatively settled on
+   principle and contested mainly on fact. This is the most load-bearing single judgment in
+   the corpus, because 0002 is the only clean label that depends on a difference *not* being
+   named, so if the reading of 3.4 is wrong then a case the suite calls clean is one that
+   should have been handed to a human. It is written down here so it can be argued with.
 4. **Escalation expectations are read off the four conditions in `src/lib/escalation.ts`**,
    which are deterministic code, so an expectation is checkable against a rule rather than
    against taste. A stated administrative deduction is labelled as one use with a cost rather
