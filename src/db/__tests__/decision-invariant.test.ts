@@ -1,5 +1,5 @@
 import { getTableColumns, getTableName, is } from "drizzle-orm";
-import { PgTable } from "drizzle-orm/pg-core";
+import { PgTable, pgTable, text } from "drizzle-orm/pg-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { publishedOutcome } from "../../lib/decision";
@@ -66,36 +66,61 @@ async function refusalFrom(work: Promise<unknown>): Promise<string> {
   return reasons.join("\n");
 }
 
+function outcomeColumnsOutsideDecisions(tables: readonly PgTable[]): string[] {
+  return tables.flatMap((table) => {
+    const name = getTableName(table);
+
+    if (name === "decisions") {
+      return [];
+    }
+
+    return Object.entries(getTableColumns(table))
+      .filter(
+        ([property, column]) =>
+          (OUTCOME_WORDS.test(property) || OUTCOME_WORDS.test(column.name)) &&
+          !PERMITTED_OUTCOME_COLUMNS.has(`${name}.${column.name}`),
+      )
+      .map(([, column]) => `${name}.${column.name}`);
+  });
+}
+
 describe("no table but decisions carries an outcome", () => {
-  it("finds no outcome-shaped column anywhere else in the schema", () => {
-    const exported: unknown[] = Object.values(schema);
-    const tables = exported.filter((value): value is PgTable => is(value, PgTable));
+  const exported: unknown[] = Object.values(schema);
+  const tables = exported.filter((value): value is PgTable => is(value, PgTable));
 
-    expect(tables.length).toBeGreaterThanOrEqual(4);
-
-    const offending = tables.flatMap((table) => {
-      const name = getTableName(table);
-
-      if (name === "decisions") {
-        return [];
-      }
-
-      return Object.entries(getTableColumns(table))
-        .filter(
-          ([property, column]) =>
-            (OUTCOME_WORDS.test(property) || OUTCOME_WORDS.test(column.name)) &&
-            !PERMITTED_OUTCOME_COLUMNS.has(`${name}.${column.name}`),
-        )
-        .map(([, column]) => `${name}.${column.name}`);
-    });
-
-    expect(offending).toEqual([]);
+  it("walks every table the schema exports", () => {
+    expect(tables.map(getTableName).sort()).toEqual([
+      "campaigns",
+      "decisions",
+      "precedents",
+      "triage_runs",
+    ]);
   });
 
-  it("catches the shortcut column when one is added", () => {
-    const shortcut = { name: "eligibility_status" };
+  it("finds no outcome-shaped column anywhere else in the schema", () => {
+    expect(outcomeColumnsOutsideDecisions(tables)).toEqual([]);
+  });
 
-    expect(OUTCOME_WORDS.test(shortcut.name)).toBe(true);
+  /**
+   * The guard is worth nothing if it passes on a schema that has the shortcut in it, so it is
+   * run against one. The table below is the change a future contributor makes under deadline:
+   * a campaign carrying its own status, written by the pipeline, read by a template.
+   */
+  it("catches the shortcut column when a table gains one", () => {
+    const shortcut = pgTable("campaigns", {
+      id: text("id").primaryKey(),
+      eligibilityStatus: text("eligibility_status"),
+    });
+
+    expect(outcomeColumnsOutsideDecisions([shortcut])).toEqual(["campaigns.eligibility_status"]);
+  });
+
+  it("catches it under the other names it would be given", () => {
+    for (const column of ["outcome", "verdict", "is_eligible", "approved_at", "review_status"]) {
+      const shortcut = pgTable("triage_runs", { [column]: text(column) });
+
+      expect(outcomeColumnsOutsideDecisions([shortcut])).toHaveLength(1);
+    }
   });
 });
 
