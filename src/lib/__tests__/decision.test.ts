@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { campaigns, decisions, triageRuns } from "../../db/schema";
@@ -181,6 +182,38 @@ describe("recording a decision", () => {
     const queue = await campaignQueue(database.db);
 
     expect(queue.find((entry) => entry.id === FIXTURE_CAMPAIGN.id)?.outcome).toBe("escalate");
+  });
+
+  /**
+   * The trail follows the order things were recorded, not the order they claim.
+   *
+   * Without this, timestamp ordering passes every other test in the file: the two orders
+   * agree whenever the clock behaves, which is almost always, and the one run where they
+   * disagree is the one nobody is watching. So the two are made to disagree on purpose. The
+   * decision recorded first carries the later `decided_at`, which is what a clock going
+   * backwards over a leap second, a daylight change, or a container with a drifting clock
+   * produces, and the trail must still read in the order the reviewers acted.
+   */
+  it("orders the trail by what was recorded first, not by what claims the later time", async () => {
+    const first = await recordDecision({ ...decision, action: "request_info" }, database.db);
+    const second = await recordDecision({ ...decision, action: "escalate" }, database.db);
+
+    await database.db
+      .update(decisions)
+      .set({ decidedAt: new Date("2026-08-19T18:00:00.000Z") })
+      .where(eq(decisions.id, first.id));
+    await database.db
+      .update(decisions)
+      .set({ decidedAt: new Date("2026-08-19T09:00:00.000Z") })
+      .where(eq(decisions.id, second.id));
+
+    const history = await decisionHistory(FIXTURE_CAMPAIGN.id, database.db);
+
+    expect(history.map((entry) => entry.id)).toEqual([first.id, second.id]);
+    expect(history[0]?.decidedAt.getTime()).toBeGreaterThan(
+      history[1]?.decidedAt.getTime() as number,
+    );
+    expect((await publishedOutcome(FIXTURE_CAMPAIGN.id, database.db))?.action).toBe("escalate");
   });
 
   it("hands back every agent file in the order they were written", async () => {
