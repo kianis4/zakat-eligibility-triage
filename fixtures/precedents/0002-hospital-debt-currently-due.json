@@ -1,0 +1,13 @@
+{
+  "id": "prc_0002",
+  "title": "Clearing a hospital bill for the Nasser family",
+  "story": "My uncle Bilal spent eleven weeks in hospital in Amman after a fall at work and came home to an invoice for 6,800 JOD. The hospital has sent two payment demands and the last one gives us until the end of next month. He is 61, he has not worked since the fall, and the family has no savings left after the first surgery. The house is rented and there is nothing else. We are asking for help to clear the balance in one payment so the file is closed.",
+  "categoryOutcomes": {
+    "al-gharimin": "supported",
+    "al-fuqara": "supported",
+    "al-masakin": "insufficient_evidence"
+  },
+  "decision": "approved",
+  "reviewerNote": "Approved. The itemised invoice and both payment demands were supplied, so the debt is current and quantified rather than anticipated, and that is the fact our policy asks for first. The household's own means do not cover it on the statements we were sent. I asked the organizer directly whether any part of the balance is accrued interest or a late charge and was told it is not, which the invoice bears out. Payment goes to the beneficiary, who settles the account. Straightforward on the evidence; the only reason it took a second look is that a medical bill is often a bill someone else is already paying, and here nobody is.",
+  "decidedAt": "2026-01-27T00:00:00.000Z"
+}

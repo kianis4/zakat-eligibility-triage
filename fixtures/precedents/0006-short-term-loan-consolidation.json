@@ -1,0 +1,12 @@
+{
+  "id": "prc_0006",
+  "title": "Consolidating two card balances and a short-term loan",
+  "story": "I took a short-term loan in March to cover a van repair and rolled it over twice, and the balance has more than doubled since. With the two card balances on top I now owe about 7,300 GBP and the minimum payments take more than a third of what I bring home. I want to clear the lot in one go and stop the charges from compounding. I have been driving for the same firm for six years and I can keep up once the balance is gone.",
+  "categoryOutcomes": {
+    "al-gharimin": "not_supported",
+    "al-fuqara": "insufficient_evidence"
+  },
+  "decision": "declined",
+  "reviewerNote": "Declined as submitted. Our policy does not treat the interest portion of a balance as a debt for these purposes, and on the statements supplied most of what is owed here is rolled-over charges rather than the original 900 GBP repair. I asked the organizer to separate principal from interest and they could not, because the lender's statement does not break it out. This pattern has been through our advisor before and the answer is on file, so I did not send it again. I invited a resubmission for the principal alone with a letter from the lender, and I made clear in writing that this is our policy on what we badge and not a judgement about the organizer or how the debt came about.",
+  "decidedAt": "2026-01-13T00:00:00.000Z"
+}

@@ -9,7 +9,7 @@ import {
   vector,
 } from "drizzle-orm/pg-core";
 
-import type { RecipientCategory } from "@/lib/categories";
+import type { RecipientCategory } from "../lib/categories";
 
 /**
  * Dimensionality of the embedding column.
