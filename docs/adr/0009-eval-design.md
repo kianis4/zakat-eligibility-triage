@@ -96,7 +96,11 @@ the one that leaves the gate in place while removing everything it was for.
   scholarly difference and still clear the bar.
 - **The subject model as its own judge.** Rejected. It would grade prose it would have written
   the same way, which measures self-consistency by a second route after the corpus already
-  measures it by the first. The judge runs on a different model for that reason.
+  measures it by the first. The judge runs on a different model for that reason. The
+  independence that buys is partial and should not be overstated: the subject and the judge
+  come from one vendor and one training lineage, so a blind spot they share is a blind spot
+  neither will report, and a judge from a different vendor would be a stronger check at the
+  cost of a second credential in CI and a second provider to keep working.
 - **A judge with the label in context, asked to explain disagreements.** Tempting, because the
   explanations would be useful. Rejected because it stops being an independent measurement: the
   same call would be producing both the judgment and the account of it, anchored on the answer.
