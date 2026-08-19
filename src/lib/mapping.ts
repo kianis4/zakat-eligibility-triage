@@ -112,10 +112,14 @@ export type CategoryVerdict = z.infer<typeof CategoryVerdict>;
 /**
  * A span suggesting the campaign splits its funds across distinct uses, some of which may
  * belong to different categories or to none. Escalation logic reads these directly.
+ *
+ * The citation list is non-empty for the same reason a supported verdict's is. A signal is
+ * a claim about the campaign, and a claim about the campaign with no span behind it is the
+ * thing this pipeline does not emit, whether it sits beside a category or outside all eight.
  */
 export const MixedUseSignal = z.object({
   description: z.string().min(1),
-  citations: z.array(Citation),
+  citations: z.tuple([Citation], Citation),
 });
 
 export type MixedUseSignal = z.infer<typeof MixedUseSignal>;
@@ -173,10 +177,15 @@ const ModelMapping = z.object({
     .array(
       z.object({
         description: z.string().min(1),
-        quotes: z.array(z.string().min(1)),
+        quotes: z
+          .array(z.string().min(1))
+          .min(1)
+          .describe("Verbatim spans showing the split. At least one."),
       }),
     )
-    .describe("Spans indicating the campaign splits funds across distinct uses. May be empty."),
+    .describe(
+      "Signals that the campaign splits funds across distinct uses. The list may be empty, but a signal in it must quote the story.",
+    ),
 });
 
 type ModelMapping = z.infer<typeof ModelMapping>;

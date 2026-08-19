@@ -239,6 +239,20 @@ describe("mapCategories", () => {
     expect((error as MappingError).reason).toBe("citation_unresolvable");
   });
 
+  it("rejects a mixed-use signal that cites nothing, at the schema level", async () => {
+    const uncited = {
+      ...modelMapping(),
+      mixedUseSignals: [{ description: "The money is split across two purposes.", quotes: [] }],
+    };
+
+    const error = await mapCategories(campaign, facts, modelReturning(uncited)).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(MappingError);
+    expect((error as MappingError).reason).toBe("schema_validation_failed");
+  });
+
   it("distinguishes a failed model call from a malformed response", async () => {
     const unreachable = new MockLanguageModelV3({
       doGenerate: async () => {

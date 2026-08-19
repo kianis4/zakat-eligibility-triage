@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { CategoryMapping, CategoryVerdict, type Citation } from "../mapping";
+import { CategoryMapping, CategoryVerdict, type Citation, MixedUseSignal } from "../mapping";
 
 const citation: Citation = { quote: "cannot repay it", start: 10, end: 25 };
 
@@ -41,6 +41,27 @@ describe("an uncited supported verdict is unrepresentable", () => {
     };
 
     expect(CategoryVerdict.safeParse(verdict).success).toBe(true);
+  });
+});
+
+describe("an uncited mixed-use signal is unrepresentable", () => {
+  it("does not accept a signal with an empty citation list", () => {
+    const signal: MixedUseSignal = {
+      description: "Surplus funds are directed to equipment rather than to the debt.",
+      // @ts-expect-error a mixed-use signal needs at least one citation
+      citations: [],
+    };
+
+    expect(MixedUseSignal.safeParse(signal).success).toBe(false);
+  });
+
+  it("accepts a signal that cites one span", () => {
+    const signal: MixedUseSignal = {
+      description: "Surplus funds are directed to equipment rather than to the debt.",
+      citations: [citation],
+    };
+
+    expect(MixedUseSignal.safeParse(signal).success).toBe(true);
   });
 });
 
