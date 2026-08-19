@@ -1,8 +1,14 @@
 import { eq } from "drizzle-orm";
+import Link from "next/link";
 
 import { getDatabase, isDatabaseConfigured } from "../../../db/index";
 import { campaigns } from "../../../db/schema";
+import { decisionHistory, triageRunsFor } from "../../../lib/decision";
 import { retrievePrecedents, type PrecedentForReviewer } from "../../../lib/precedent";
+import { runTriageAction } from "../actions";
+import { AgentFile } from "./agent-file";
+import { AuditTrail, DecisionForm } from "./decision-panel";
+import { ProvenanceLegend } from "./provenance";
 
 /**
  * The reviewer's file for one campaign, with comparable adjudications beside it.
@@ -11,8 +17,9 @@ import { retrievePrecedents, type PrecedentForReviewer } from "../../../lib/prec
  * it is on this page and nowhere near a prompt, which is the rule ADR-0004 sets and
  * `src/lib/__tests__/precedent-isolation.test.ts` enforces.
  *
- * The findings table, the missing-evidence questions and the decision controls are later
- * issues. What is here is the campaign as submitted and the precedent section.
+ * The page has no outcome to show until the audit trail has something in it. That is not a
+ * rendering choice: there is no column anywhere that could hold one, so the only thing this
+ * page can report about a campaign's standing is what a human recorded (ADR-0008).
  */
 export const dynamic = "force-dynamic";
 
@@ -51,8 +58,15 @@ function PrecedentCard({ precedent }: { precedent: PrecedentForReviewer }) {
   );
 }
 
-export default async function CampaignReviewPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CampaignReviewPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
   const { id } = await params;
+  const { error } = await searchParams;
 
   if (!isDatabaseConfigured()) {
     return (
@@ -78,11 +92,26 @@ export default async function CampaignReviewPage({ params }: { params: Promise<{
     );
   }
 
-  const precedents = await retrievePrecedents(campaign, { db });
+  const [precedents, runs, history] = await Promise.all([
+    retrievePrecedents(campaign, { db }),
+    triageRunsFor(campaign.id, db),
+    decisionHistory(campaign.id, db),
+  ]);
+
+  const latestRun = runs.at(-1);
+  const runsById = new Map(runs.map((run) => [run.id, run]));
 
   return (
     <main>
+      <p style={{ fontSize: "0.9rem" }}>
+        <Link href="/campaigns">Back to the queue</Link>
+      </p>
       <h1>{campaign.title}</h1>
+      {error === undefined ? null : (
+        <p role="alert" style={{ border: "1px solid #b00", padding: "0.5rem 0.75rem" }}>
+          {error}
+        </p>
+      )}
       <dl>
         <dt>Platform category, as the organizer selected it</dt>
         <dd>{campaign.category}</dd>
@@ -99,6 +128,38 @@ export default async function CampaignReviewPage({ params }: { params: Promise<{
       <h2>Campaign story</h2>
       <p style={{ whiteSpace: "pre-wrap" }}>{campaign.story}</p>
 
+      <h2>The agent&apos;s file</h2>
+      <p>Who wrote what you are about to read:</p>
+      <ProvenanceLegend />
+
+      {latestRun === undefined ? (
+        <form action={runTriageAction}>
+          <input type="hidden" name="campaignId" value={campaign.id} />
+          <p>
+            The agent has not read this campaign yet. A decision is always recorded against a
+            specific agent file, so the pipeline runs first.
+          </p>
+          <p>
+            <button type="submit">Run the triage</button>
+          </p>
+        </form>
+      ) : (
+        <>
+          <AgentFile run={latestRun} />
+          <form action={runTriageAction}>
+            <input type="hidden" name="campaignId" value={campaign.id} />
+            <p>
+              <button type="submit">Read the campaign again</button>
+              {" "}
+              <small>
+                Files a new agent file. The one above is kept, and any decision already taken
+                against it keeps pointing at what its reviewer read.
+              </small>
+            </p>
+          </form>
+        </>
+      )}
+
       <h2>Precedent</h2>
       <p>
         Previously adjudicated campaigns, closest first. Every one of them is synthetic and
@@ -114,6 +175,16 @@ export default async function CampaignReviewPage({ params }: { params: Promise<{
       ) : (
         precedents.map((precedent) => <PrecedentCard key={precedent.id} precedent={precedent} />)
       )}
+
+      <h2>Decision</h2>
+      {latestRun === undefined ? (
+        <p>Run the triage above before recording a decision.</p>
+      ) : (
+        <DecisionForm campaignId={campaign.id} run={latestRun} />
+      )}
+
+      <h2>Audit trail</h2>
+      <AuditTrail history={history} runs={runsById} />
     </main>
   );
 }
