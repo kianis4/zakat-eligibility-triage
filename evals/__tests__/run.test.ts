@@ -1,8 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { loadEvalFixtures, type EvalFixture } from "../../src/lib/eval-fixture";
+import {
+  MINIMUM_CORPUS_SIZE,
+  loadEvalFixtures,
+  type EvalFixture,
+} from "../../src/lib/eval-fixture";
 import type { CategoryMapping } from "../../src/lib/mapping";
-import { scoreCitations, scoreCorpus, scoreFixture, summarize, type SubjectModels } from "../run";
+import {
+  assertCorpusIsWhole,
+  scoreCitations,
+  scoreCorpus,
+  scoreFixture,
+  summarize,
+  type SubjectModels,
+} from "../run";
 import {
   QUIET_FACTS,
   agreeingMapping,
@@ -271,14 +282,44 @@ describe("a fixture the pipeline throws on", () => {
   });
 
   it("does not stop the fixtures beside it being scored", async () => {
-    const summary = await scoreCorpus([clean, withQuestions], {
+    const summary = await scoreCorpus(corpus, {
       extraction: modelReturning(QUIET_FACTS),
       mapping: modelThrowing("connect ECONNREFUSED"),
     });
 
-    expect(summary.fixtures).toHaveLength(2);
-    expect(summary.fixtures.map((entry) => entry.id)).toEqual(["eval_0001", "eval_0002"]);
+    expect(summary.fixtures).toHaveLength(corpus.length);
+    expect(summary.fixtures.every((entry) => entry.outcome === "failed")).toBe(true);
     expect(summary.categoryAgreementRate).toBe(0);
+  });
+});
+
+/**
+ * The hole this closes had the worst available shape: an emptied fixtures directory took
+ * every gate green in about a second, because all four rates read an empty denominator as a
+ * vacuous pass and there was nothing left to fail the non-vacuous ones.
+ */
+describe("a corpus too small to be the corpus the gates were set against", () => {
+  it("refuses to score an empty corpus", async () => {
+    await expect(scoreCorpus([], subject(agreeingMapping(clean)))).rejects.toThrow(
+      /holds 0 fixtures, and the gate requires at least 14/,
+    );
+  });
+
+  it("refuses to score one fixture short of the floor", async () => {
+    const thirteen = corpus.slice(0, MINIMUM_CORPUS_SIZE - 1);
+
+    expect(thirteen).toHaveLength(13);
+    await expect(scoreCorpus(thirteen, subject(agreeingMapping(clean)))).rejects.toThrow(
+      /holds 13 fixtures, and the gate requires at least 14/,
+    );
+  });
+
+  it("scores a corpus exactly at the floor", () => {
+    expect(() => assertCorpusIsWhole(corpus.slice(0, MINIMUM_CORPUS_SIZE))).not.toThrow();
+  });
+
+  it("is the same floor the corpus test pins, not a second opinion about it", () => {
+    expect(corpus.length).toBeGreaterThanOrEqual(MINIMUM_CORPUS_SIZE);
   });
 });
 
@@ -310,12 +351,8 @@ describe("the pooled rates the gates read", () => {
   });
 
   it("keeps fixture order regardless of the order the calls complete in", async () => {
-    const summary = await scoreCorpus([split, clean, withQuestions], subject(agreeingMapping(clean)), 3);
+    const summary = await scoreCorpus(corpus, subject(agreeingMapping(clean)), 6);
 
-    expect(summary.fixtures.map((entry) => entry.id)).toEqual([
-      "eval_0006",
-      "eval_0001",
-      "eval_0002",
-    ]);
+    expect(summary.fixtures.map((entry) => entry.id)).toEqual(corpus.map((entry) => entry.id));
   });
 });

@@ -3,7 +3,11 @@ import type { LanguageModel } from "ai";
 import type { CampaignInput } from "../src/lib/campaign";
 import { RECIPIENT_CATEGORY_IDS, type RecipientCategory } from "../src/lib/categories";
 import { evaluateEscalation, type EscalationReason } from "../src/lib/escalation";
-import type { EvalDifficulty, EvalFixture } from "../src/lib/eval-fixture";
+import {
+  MINIMUM_CORPUS_SIZE,
+  type EvalDifficulty,
+  type EvalFixture,
+} from "../src/lib/eval-fixture";
 import { extractFacts } from "../src/lib/extraction";
 import {
   MappingError,
@@ -376,6 +380,41 @@ export function summarize(fixtures: readonly FixtureScore[]): DeterministicSumma
 }
 
 /**
+ * Refuses to score a corpus too small to be the corpus the gates were set against.
+ *
+ * Without this the harness has a hole with the worst possible shape. Every one of the four
+ * rates reads an empty denominator as a vacuous pass, deliberately, so a `fixtures/evals/`
+ * that was emptied, renamed or lost to a bad checkout produces eight green gates, exit zero,
+ * and not one model call. The run would take about a second and report that everything holds.
+ *
+ * The vacuity argument in `rate` says the non-vacuous gates catch this, and that argument is
+ * only sound while fixtures exist to fail them. At zero fixtures every denominator is zero
+ * and nothing is left to notice. So the floor is asserted before any scoring rather than
+ * inferred from the scores afterwards, and it is the same `MINIMUM_CORPUS_SIZE` the corpus
+ * test pins, because a gate and a suite disagreeing about how much corpus is enough is the
+ * next version of this bug.
+ *
+ * It throws rather than returning a failing summary. A missing corpus is not a bad result to
+ * be reported alongside the others, it is the measurement never having happened, which is the
+ * same thing a missing API key is and gets the same answer.
+ */
+export function assertCorpusIsWhole(fixtures: readonly EvalFixture[]): void {
+  if (fixtures.length >= MINIMUM_CORPUS_SIZE) {
+    return;
+  }
+
+  throw new Error(
+    [
+      `The eval corpus holds ${fixtures.length} fixture${fixtures.length === 1 ? "" : "s"}, and the gate requires at least ${MINIMUM_CORPUS_SIZE}.`,
+      "",
+      "This is a failure rather than a small run. Every gate reads an empty denominator as a",
+      "vacuous pass, so a corpus that shrank away would take all of them green without a single",
+      "model call. Restore fixtures/evals/ before trusting any result from this harness.",
+    ].join("\n"),
+  );
+}
+
+/**
  * Scores the whole corpus, a few fixtures at a time.
  *
  * Bounded concurrency rather than one at a time or all at once: eighteen fixtures at two
@@ -389,6 +428,8 @@ export async function scoreCorpus(
   models: SubjectModels,
   concurrency = 4,
 ): Promise<DeterministicSummary> {
+  assertCorpusIsWhole(fixtures);
+
   const scores: FixtureScore[] = new Array(fixtures.length);
   let next = 0;
 

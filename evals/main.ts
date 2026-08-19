@@ -8,7 +8,7 @@ import { loadEvalFixtures } from "../src/lib/eval-fixture";
 import { evaluateGates, exitCode } from "./gate";
 import { judgeCorpus } from "./judge";
 import { renderReport, renderSummary } from "./report";
-import { scoreCorpus } from "./run";
+import { assertCorpusIsWhole, scoreCorpus } from "./run";
 
 const REPORT_PATH = fileURLToPath(new URL("./report.md", import.meta.url));
 
@@ -57,6 +57,19 @@ async function main(): Promise<never> {
 
   const startedAt = new Date();
   const fixtures = await loadEvalFixtures();
+
+  /**
+   * Asserted here as well as inside `scoreCorpus`, which is the guard that cannot be
+   * bypassed. This call is for the message: reaching it before the progress line below means
+   * a gutted corpus reports itself as a gutted corpus, rather than printing that it is about
+   * to run zero fixtures and then failing somewhere further down.
+   */
+  try {
+    assertCorpusIsWhole(fixtures);
+  } catch (thrown: unknown) {
+    process.stderr.write(`${thrown instanceof Error ? thrown.message : String(thrown)}\n`);
+    process.exit(1);
+  }
 
   process.stdout.write(
     `Running ${fixtures.length} fixtures against ${SUBJECT_MODEL}, judged by ${JUDGE_MODEL}.\n`,
