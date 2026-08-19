@@ -189,3 +189,20 @@ list can say what the record could not, a category twice or a category not at al
 back into `CategoryMapping` refuses both with `MappingError('schema_validation_failed')` rather
 than let a finding be silently overwritten or silently absent. The output type is unchanged;
 `CategoryFinding` remains the discriminated union ADR-0003 relies on.
+
+## Addendum, 2026-08-19: what `not_supported` says about silence
+
+The alternatives section above describes `insufficient_evidence` as the status that "says the
+text is silent and names the fact that would settle it". Issue #25 pins the tri-state down, and
+the silence half of that sentence no longer holds. The authoritative definition now lives in the
+`CategoryFinding` docblock in `src/lib/mapping.ts`, is encoded in the mapping prompt from there,
+and reads the other way: a story that does not engage a category at all is `not_supported` on it,
+and `insufficient_evidence` is for a category the story engages or gestures at while leaving the
+qualifying facts unstated.
+
+The reason is operational rather than doctrinal, and it is the distinction this ADR argued the
+queue turns on. Organizer questions attach to `insufficient_evidence` alone, so recording silence
+as unresolved sends the organizer a question about something their page never raised. Nothing else
+in this ADR moves: the status is still triage information rather than a ruling, the discriminated
+union still makes an uncited supported finding unconstructable, and the missing fact and the
+organizer question are still typed onto the one status that cannot be acted on without them.

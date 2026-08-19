@@ -14,9 +14,10 @@ const FIXTURES_DIR = fileURLToPath(new URL("../../fixtures/evals/", import.meta.
  * What the corpus expects the pipeline to record for one recipient category.
  *
  * A label is a statement about the campaign text, not about a campaign's zakat eligibility.
- * `supported` says the story itself says something bearing on the category, `not_supported`
- * says the story tells against it or the category is plainly not in play, and
- * `insufficient_evidence` says the category might be in play and the text does not settle it.
+ * The three statuses mean here exactly what the docblock on `CategoryFinding` in `./mapping`
+ * says they mean, and that definition is not restated here: a corpus labelled against a
+ * paraphrase of the pipeline's own vocabulary would report disagreements that are really the
+ * two wordings drifting apart.
  *
  * `mustCiteSubstring` rides on `supported` and nowhere else, for the same reason
  * `CategoryFinding` puts citations there: a supported label with nothing to point at is the
