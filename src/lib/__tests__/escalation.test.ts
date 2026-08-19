@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { CampaignInput } from "../campaign";
 import {
   RECIPIENT_CATEGORY_IDS,
-  SCHOLARLY_DIFFERENCES,
+  scholarlyDifferenceById,
   type RecipientCategory,
 } from "../categories";
 import { evaluateEscalation } from "../escalation";
@@ -132,8 +132,8 @@ const mixedUseModelMapping = {
       questionForOrganizer:
         "Once the boiler is installed, who owns it and who owns the building it heats?",
       scholarlyDifference: {
-        topic: "scope of fi sabilillah",
-        note: "Bodies differ over whether a communal building and its programme fall in this category at all.",
+        id: "fi-sabilillah-scope",
+        whyThisApplies: "The campaign pays for a communal building and the classes it runs.",
       },
     },
     "ibn-al-sabil": { status: "not_supported", rationale: "Nobody is described as away from home.", scholarlyDifference: null },
@@ -241,10 +241,8 @@ const waterFacts: ExtractedFacts = {
 };
 
 describe("a campaign that lands on a scholarly difference", () => {
-  const documented = SCHOLARLY_DIFFERENCES.find(
-    (difference) =>
-      difference.category === "fi-sabilillah" && difference.topic === "scope of fi sabilillah",
-  );
+  const documented = scholarlyDifferenceById("fi-sabilillah-scope");
+  const whyThisApplies = "The campaign drills boreholes four villages will share.";
 
   const mapping = mappingWith({
     "fi-sabilillah": {
@@ -252,10 +250,7 @@ describe("a campaign that lands on a scholarly difference", () => {
       rationale: "Water infrastructure is a public benefit work whose standing here is disputed.",
       missingFact: "Who owns the boreholes once they are drilled.",
       questionForOrganizer: "Once the boreholes are drilled, who owns them and who maintains them?",
-      scholarlyDifference: {
-        topic: "scope of fi sabilillah",
-        note: "Bodies differ over whether public-benefit infrastructure falls in this category at all.",
-      },
+      scholarlyDifference: { entry: documented, whyThisApplies },
     },
   });
 
@@ -278,12 +273,35 @@ describe("a campaign that lands on a scholarly difference", () => {
 
     const [difference] = decision.reasons;
 
-    expect(documented).toBeDefined();
     expect(difference.question).toContain("scope of fi sabilillah");
-    expect(difference.question).toContain(
-      "Bodies differ over whether public-benefit infrastructure falls in this category at all.",
+    expect(difference.question).toContain(whyThisApplies);
+    expect(difference.question).toContain(documented.summary);
+  });
+
+  /**
+   * The reviewer reads the corpus wording, so the question has to carry it rather than a
+   * version of it. Anything a model wrote about the disagreement would be indistinguishable
+   * from the recorded text once it is in the same paragraph, which is the failure ADR-0007
+   * removes by making the recorded text the only description there is.
+   */
+  it("quotes the versioned entry and adds nothing of its own about the disagreement", () => {
+    const decision = evaluateEscalation(waterCampaign, waterFacts, mapping);
+
+    if (!decision.escalate) {
+      throw new Error("A campaign inside a scholarly difference must escalate.");
+    }
+
+    const [difference] = decision.reasons;
+    const authored = difference.question
+      .replace(documented.summary, "")
+      .replace(documented.topic, "")
+      .replace(whyThisApplies, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    expect(authored).toBe(
+      "Recognised scholars differ on , and this campaign sits inside that difference. Which of those positions does platform policy apply to this campaign?",
     );
-    expect(difference.question).toContain(documented!.summary);
   });
 
   it("asks what platform policy applies rather than asking the reviewer to settle the fiqh", () => {

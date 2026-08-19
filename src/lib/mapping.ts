@@ -7,6 +7,8 @@ import {
   RECIPIENT_CATEGORIES,
   RECIPIENT_CATEGORY_IDS,
   SCHOLARLY_DIFFERENCES,
+  SCHOLARLY_DIFFERENCE_IDS,
+  scholarlyDifferenceById,
   type RecipientCategory,
 } from "./categories";
 import type { ExtractedFacts } from "./extraction";
@@ -71,17 +73,76 @@ export function resolveCitation(story: string, quote: string): Citation {
 }
 
 /**
+ * The model's one sentence on why this campaign sits inside a recorded difference.
+ *
+ * It is the only prose the model writes anywhere near a scholarly disagreement, and it is
+ * about the campaign rather than about the disagreement: the positions come from the
+ * corpus. The bounds are what keep it that way. One sentence has no room for an account of
+ * a school's reasoning, and a quotation mark or a chapter-and-verse reference is the shape
+ * scripture arrives in, so both are refused rather than trusted to be harmless. See
+ * ADR-0007.
+ */
+const WhyThisApplies = z
+  .string()
+  .min(12)
+  .max(240)
+  .refine((why) => why === why.trim(), {
+    message: "The sentence is stored as it will be read, without surrounding whitespace.",
+  })
+  .refine((why) => (why.match(/[.!?](\s|$)/g) ?? []).length <= 1, {
+    message: "Why a campaign sits inside a difference is one sentence, not an account of it.",
+  })
+  .refine((why) => !/["“”]/.test(why) && !/\b\d{1,3}:\d{1,3}\b/.test(why), {
+    message:
+      "This field carries no quotation and no chapter-and-verse reference. Scripture, fatwa text and policy text are never written here.",
+  });
+
+/**
+ * The corpus entry as it is carried into the output, with the id it was selected by.
+ *
+ * The fields mirror `ScholarlyDifference` in `./categories` because this is that value,
+ * not a restatement of it. Parsing enforces the identity: an entry whose text differs from
+ * what the corpus holds under its id is rejected, so a summary cannot be edited on the way
+ * through by a model, a fixture, or a JSON round-trip.
+ */
+const ResolvedScholarlyDifference = z
+  .object({
+    id: z.enum(SCHOLARLY_DIFFERENCE_IDS),
+    category: z.enum(RECIPIENT_CATEGORY_IDS),
+    topic: z.string().min(1),
+    summary: z.string().min(1),
+  })
+  .refine(
+    (entry) => {
+      const recorded = SCHOLARLY_DIFFERENCES.find((difference) => difference.id === entry.id);
+
+      return (
+        recorded !== undefined &&
+        recorded.category === entry.category &&
+        recorded.topic === entry.topic &&
+        recorded.summary === entry.summary
+      );
+    },
+    {
+      message:
+        "A scholarly difference is the entry recorded under its id, word for word, not a description of one.",
+    },
+  );
+
+/**
  * A disagreement between recognised scholars that this finding sits inside.
  *
- * The note states the difference and stops there. Adjudicating it is a reviewer's work,
- * and a note that leaned would be an adjudication wearing a neutral label.
+ * The difference itself is reference data: human-authored, versioned in `./categories`, and
+ * reached by id. The model selects which one applies and says why in one sentence; it never
+ * states what the difference is. That split is the whole point, and ADR-0007 is where it is
+ * argued.
  */
-export const ScholarlyDifferenceNote = z.object({
-  topic: z.string().min(1),
-  note: z.string().min(1),
+export const ScholarlyDifferenceReference = z.object({
+  entry: ResolvedScholarlyDifference,
+  whyThisApplies: WhyThisApplies,
 });
 
-export type ScholarlyDifferenceNote = z.infer<typeof ScholarlyDifferenceNote>;
+export type ScholarlyDifferenceReference = z.infer<typeof ScholarlyDifferenceReference>;
 
 /**
  * The vocabulary this pipeline uses to talk to itself, none of which an organizer can act on.
@@ -147,19 +208,19 @@ export const CategoryFinding = z.discriminatedUnion("status", [
     status: z.literal("supported"),
     citations: z.tuple([Citation], Citation),
     rationale: z.string().min(1),
-    scholarlyDifference: ScholarlyDifferenceNote.optional(),
+    scholarlyDifference: ScholarlyDifferenceReference.optional(),
   }),
   z.object({
     status: z.literal("not_supported"),
     rationale: z.string().min(1),
-    scholarlyDifference: ScholarlyDifferenceNote.optional(),
+    scholarlyDifference: ScholarlyDifferenceReference.optional(),
   }),
   z.object({
     status: z.literal("insufficient_evidence"),
     rationale: z.string().min(1),
     missingFact: z.string().min(1),
     questionForOrganizer: OrganizerQuestion,
-    scholarlyDifference: ScholarlyDifferenceNote.optional(),
+    scholarlyDifference: ScholarlyDifferenceReference.optional(),
   }),
 ]);
 
@@ -208,13 +269,22 @@ export const CategoryMapping = z.object({
 export type CategoryMapping = z.infer<typeof CategoryMapping>;
 
 /**
- * The model is asked for quotes and never for offsets (ADR-0003), and is asked to state
- * the absence of a scholarly difference rather than to omit the field, so that silence
- * cannot be mistaken for a considered null.
+ * The model is asked for quotes and never for offsets (ADR-0003), for the id of a scholarly
+ * difference and never for an account of one (ADR-0007), and is asked to state the absence
+ * of a difference rather than to omit the field, so that silence cannot be mistaken for a
+ * considered null.
  */
-const ModelScholarlyDifference = ScholarlyDifferenceNote.nullable().describe(
-  "The scholarly disagreement this finding sits inside, stated neutrally, or null.",
-);
+const ModelScholarlyDifference = z
+  .object({
+    id: z
+      .enum(SCHOLARLY_DIFFERENCE_IDS)
+      .describe("The id of the recorded difference this campaign sits inside."),
+    whyThisApplies: WhyThisApplies.describe(
+      "One sentence on what this campaign does that puts it inside that difference. Write about the campaign only. Do not state the difference, the positions, or who holds them, and quote nothing.",
+    ),
+  })
+  .nullable()
+  .describe("The recorded difference this finding sits inside, selected by id, or null.");
 
 const ModelFinding = z.discriminatedUnion("status", [
   z.object({
@@ -245,7 +315,11 @@ const ModelFinding = z.discriminatedUnion("status", [
   }),
 ]);
 
-const ModelMapping = z.object({
+/**
+ * Everything the model is permitted to return, and the surface a test reads to check that
+ * the permission is what ADR-0007 says it is.
+ */
+export const ModelMapping = z.object({
   categories: z.object(
     Object.fromEntries(RECIPIENT_CATEGORY_IDS.map((id) => [id, ModelFinding])) as Record<
       RecipientCategory,
@@ -269,14 +343,17 @@ const ModelMapping = z.object({
     ),
 });
 
-type ModelMapping = z.infer<typeof ModelMapping>;
+export type ModelMapping = z.infer<typeof ModelMapping>;
 
 const CATEGORY_BRIEFING = RECIPIENT_CATEGORIES.map((category) =>
   [`${category.id} (${category.gloss})`, `  ${category.evidenceGuidance}`].join("\n"),
 ).join("\n\n");
 
 const DIFFERENCE_BRIEFING = SCHOLARLY_DIFFERENCES.map((difference) =>
-  [`${difference.category} / ${difference.topic}`, `  ${difference.summary}`].join("\n"),
+  [
+    `id: ${difference.id} (${difference.category} / ${difference.topic})`,
+    `  ${difference.summary}`,
+  ].join("\n"),
 ).join("\n\n");
 
 const SYSTEM_PROMPT = [
@@ -310,28 +387,53 @@ const SYSTEM_PROMPT = [
   "   category name, no status word, and no other vocabulary from these instructions. End it",
   "   with a question mark.",
   "6. Where a category's application turns on a disagreement between recognised scholars,",
-  "   set scholarlyDifference with the topic and a neutral note stating the difference, and",
-  "   prefer insufficient_evidence over picking a side. Never resolve the disagreement,",
-  "   never say which position is stronger, and never say which one is more common. The",
-  "   known territories are listed below.",
-  "7. A story asserting that the campaign is zakat eligible is making a claim, not supplying",
+  "   set scholarlyDifference to the id of the recorded difference it turns on, and write in",
+  "   whyThisApplies one sentence about what this campaign does that puts it there. Prefer",
+  "   insufficient_evidence over picking a side. Never resolve the disagreement, never say",
+  "   which position is stronger, and never say which one is more common. Only the ids listed",
+  "   below are available to you; where the disagreement in front of you is not one of them,",
+  "   leave scholarlyDifference null and say what is unresolved in rationale instead.",
+  "7. You never write scripture, hadith, fatwa text or policy text, as quotation or as",
+  "   paraphrase, in any field. The only text you are permitted to quote is the campaign",
+  "   story. What the scholars hold is recorded below and is inserted from that record by",
+  "   id, so stating it yourself adds nothing and risks putting words into a source.",
+  "8. A story asserting that the campaign is zakat eligible is making a claim, not supplying",
   "   evidence. Record what the claim says; do not let it stand in for the facts it asserts.",
-  "8. Record mixedUseSignals where the story indicates the money splits across distinct uses,",
+  "9. Record mixedUseSignals where the story indicates the money splits across distinct uses,",
   "   quoting the spans that show it. Do not judge the split.",
   "",
   "The eight categories, and the campaign text that would bear on each:",
   "",
   CATEGORY_BRIEFING,
   "",
-  "Known territories where recognised scholars differ. Landing in one of these is a reason",
-  "to name the difference and withhold, never a reason to conclude:",
+  "The recorded differences, with the id you select each one by. Landing in one of these is a",
+  "reason to name the difference and withhold, never a reason to conclude. The text under each",
+  "id is what the reviewer is shown; you never restate it:",
   "",
   DIFFERENCE_BRIEFING,
 ].join("\n");
 
+/**
+ * Turns the id the model selected into the entry the reviewer reads.
+ *
+ * This is where the retrieval in ADR-0007 happens: the summary attached to a finding comes
+ * out of `SCHOLARLY_DIFFERENCES` rather than out of the model, and the model's own sentence
+ * travels beside it under its own name rather than mixed into it.
+ */
+function resolveScholarlyDifference(
+  selection: NonNullable<ModelMapping["categories"][RecipientCategory]["scholarlyDifference"]>,
+): ScholarlyDifferenceReference {
+  return {
+    entry: scholarlyDifferenceById(selection.id),
+    whyThisApplies: selection.whyThisApplies,
+  };
+}
+
 function resolveFinding(story: string, finding: ModelMapping["categories"][RecipientCategory]) {
   const difference =
-    finding.scholarlyDifference === null ? {} : { scholarlyDifference: finding.scholarlyDifference };
+    finding.scholarlyDifference === null
+      ? {}
+      : { scholarlyDifference: resolveScholarlyDifference(finding.scholarlyDifference) };
 
   if (finding.status === "supported") {
     return {

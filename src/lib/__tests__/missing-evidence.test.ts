@@ -95,8 +95,8 @@ const vagueModelMapping = {
       questionForOrganizer:
         "What will the money actually be spent on, and does it go to people directly or into a project?",
       scholarlyDifference: {
-        topic: "scope of fi sabilillah",
-        note: "Bodies differ over whether general public benefit work falls in this category at all.",
+        id: "fi-sabilillah-scope",
+        whyThisApplies: "The campaign describes a general benefit and names no beneficiary.",
       },
     },
     "ibn-al-sabil": {

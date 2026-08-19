@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 
 import type { CampaignInput } from "../campaign";
-import { RECIPIENT_CATEGORY_IDS } from "../categories";
+import { RECIPIENT_CATEGORY_IDS, scholarlyDifferenceById } from "../categories";
 import type { ExtractedFacts } from "../extraction";
 import { CategoryFinding, MappingError, mapCategories, resolveCitation } from "../mapping";
 
@@ -140,6 +140,17 @@ function modelReturning(payload: unknown): MockLanguageModelV3 {
   });
 }
 
+const tamlikSelection = {
+  status: "insufficient_evidence",
+  rationale: "The generator is a communal asset and the story does not say who owns it.",
+  missingFact: "Whether ownership of the generator transfers to the community.",
+  questionForOrganizer: "Once the new generator is installed, who will own it and be responsible for it?",
+  scholarlyDifference: {
+    id: "fi-sabilillah-tamlik",
+    whyThisApplies: "The campaign buys a generator the clinic keeps afterward.",
+  },
+};
+
 const supportedDebtFinding = {
   status: "supported",
   quotes: [debtQuote],
@@ -220,27 +231,72 @@ describe("mapCategories", () => {
     const mapping = await mapCategories(
       campaign,
       facts,
-      modelReturning(
-        modelMapping({
-          "fi-sabilillah": {
-            status: "insufficient_evidence",
-            rationale: "The generator is a communal asset and the story does not say who owns it.",
-            missingFact: "Whether ownership of the generator transfers to the community.",
-            questionForOrganizer:
-              "Once the new generator is installed, who will own it and be responsible for it?",
-            scholarlyDifference: {
-              topic: "tamlik on project campaigns",
-              note: "Hanafi positions require transfer of ownership to a needy person; other bodies accept community ownership or a wakalah agreement.",
-            },
-          },
-        }),
-      ),
+      modelReturning(modelMapping({ "fi-sabilillah": tamlikSelection })),
     );
 
-    expect(mapping.categories["fi-sabilillah"].scholarlyDifference?.topic).toBe(
+    expect(mapping.categories["fi-sabilillah"].scholarlyDifference?.entry.topic).toBe(
       "tamlik on project campaigns",
     );
     expect(mapping.categories["al-gharimin"].scholarlyDifference).toBeUndefined();
+  });
+
+  /**
+   * The difference the reviewer reads is the one in the corpus, byte for byte. That is what
+   * makes it checkable: a summary the model wrote would be a description of a scholarly
+   * position with nothing to diff it against, which is what ADR-0007 forbids.
+   */
+  it("resolves the selected id to the recorded entry rather than to anything the model wrote", async () => {
+    const mapping = await mapCategories(
+      campaign,
+      facts,
+      modelReturning(modelMapping({ "fi-sabilillah": tamlikSelection })),
+    );
+
+    const difference = mapping.categories["fi-sabilillah"].scholarlyDifference;
+
+    expect(difference?.entry).toEqual(scholarlyDifferenceById("fi-sabilillah-tamlik"));
+    expect(difference?.whyThisApplies).toBe(
+      "The campaign buys a generator the clinic keeps afterward.",
+    );
+  });
+
+  it("fails the mapping when the model names a difference the corpus does not record", async () => {
+    const invented = modelMapping({
+      "fi-sabilillah": {
+        ...tamlikSelection,
+        scholarlyDifference: {
+          id: "fi-sabilillah-mosques",
+          whyThisApplies: "The campaign buys a generator the clinic keeps afterward.",
+        },
+      },
+    });
+
+    const error = await mapCategories(campaign, facts, modelReturning(invented)).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(MappingError);
+    expect((error as MappingError).reason).toBe("schema_validation_failed");
+  });
+
+  it("fails the mapping when the model writes an account of the difference instead of one sentence", async () => {
+    const described = modelMapping({
+      "fi-sabilillah": {
+        ...tamlikSelection,
+        scholarlyDifference: {
+          id: "fi-sabilillah-tamlik",
+          whyThisApplies:
+            "The Hanafi position requires transfer of ownership to a needy person. Other bodies accept community ownership.",
+        },
+      },
+    });
+
+    const error = await mapCategories(campaign, facts, modelReturning(described)).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(MappingError);
+    expect((error as MappingError).reason).toBe("schema_validation_failed");
   });
 
   it("resolves the citations behind a mixed-use signal", async () => {

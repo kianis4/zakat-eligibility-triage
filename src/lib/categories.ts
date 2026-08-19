@@ -131,7 +131,29 @@ export const CROSS_CUTTING_RESTRICTIONS: readonly CrossCuttingRestriction[] = [
   },
 ];
 
+/**
+ * The closed set of differences the pipeline is allowed to name.
+ *
+ * The ids are how a difference is selected rather than described: the model picks one of
+ * these and the server resolves it to the entry below, so no description of a scholarly
+ * position is ever model-authored. See ADR-0007. They are stable keys and outlive edits to
+ * the summaries they point at, which is what makes `POLICY_VERSION` the thing that moves
+ * when the wording changes.
+ */
+export const SCHOLARLY_DIFFERENCE_IDS = [
+  "fi-sabilillah-scope",
+  "fi-sabilillah-tamlik",
+  "amilina-overhead",
+  "muallafati-still-operative",
+  "muallafati-non-muslim-recipient",
+  "gharimin-debt-conditions",
+  "ibn-al-sabil-displacement",
+] as const;
+
+export type ScholarlyDifferenceId = (typeof SCHOLARLY_DIFFERENCE_IDS)[number];
+
 export type ScholarlyDifference = {
+  readonly id: ScholarlyDifferenceId;
   readonly category: RecipientCategory;
   readonly topic: string;
   readonly summary: string;
@@ -147,45 +169,75 @@ export type ScholarlyDifference = {
  */
 export const SCHOLARLY_DIFFERENCES: readonly ScholarlyDifference[] = [
   {
+    id: "fi-sabilillah-scope",
     category: "fi-sabilillah",
     topic: "scope of fi sabilillah",
     summary:
       "A Hanafi fatwa by Shaykh Sohail Hanif restricts the category to those fighting in the way of Allah and those unable to complete Hajj, the recipient still needing to be legally poor, and characterises the broad modern reading as aberrant. AMJA adopts the widest surveyed position, covering da'wah, defence of the religion, and the overhead of delivering it. Dr. Muzammil Siddiqi takes a middle position: extra charity is better for building work, but zakat for mosques and schools is not forbidden, especially in non-Muslim countries. Two AMJA fatwas twelve years apart reach opposite conclusions on mosques.",
   },
   {
+    id: "fi-sabilillah-tamlik",
     category: "fi-sabilillah",
     topic: "tamlik on project campaigns",
     summary:
       "Tamlik, the transfer of ownership of zakat to a needy person, is the doctrinal engine under the fi sabilillah dispute: the Hanafi position holds it is why zakat cannot build a mosque, the recipient having to be both needy and a person. Two operational answers are documented rather than one: National Zakat Foundation UK uses a wakalah agency agreement that vests ownership in the recipient, and Islamic Relief transfers ownership of a completed communal asset to the local community. AMJA's public reasoning route does not engage tamlik as a separate hurdle in the sources reviewed, arguing through fi sabilillah scope instead, which is an absence in the record rather than a position AMJA states. For a project campaign the determinative question is therefore which mechanism exists, which campaign copy usually does not state.",
   },
   {
+    id: "amilina-overhead",
     category: "al-amilina-alayha",
     topic: "organisational overhead charged to zakat",
     summary:
       "There is no single permissible figure among bodies that all consider themselves within the rules. The International Islamic Fiqh Academy conditioned its authorisation of UNHCR's fund on zero deduction; National Zakat Foundation UK caps a distribution-service contribution at 10 percent and takes no core costs; Islamic Relief Worldwide states 12.5 percent; Islamic Relief USA states 20 percent; Muslim Hands argues that 100 percent claims are structurally misleading because the cost lands somewhere else regardless. A campaign's stated deduction is a fact to surface, not a figure to rule on.",
   },
   {
+    id: "muallafati-still-operative",
     category: "al-muallafati-qulubuhum",
     topic: "whether the category still operates",
     summary:
       "Darul Iftaa Birmingham holds the category abrogated, attributing that to Malik, al-Thawri, Ishaq ibn Rahawayh and Abu Hanifah, and Darul Qasim reports that no Rightly Guided Caliph paid it after Umar's decision. SeekersGuidance reads the same history the other way, as an absence of need rather than an abrogation. The Fiqh Council of North America, in a fatwa dated January 2026 signed by Dr. Yasir Qadhi, Dr. Muzammil Siddiqi, Dr. Hatem al-Haj and others, holds the ruling unabrogated and applicable. This is a live and currently moving disagreement between contemporary bodies.",
   },
   {
+    id: "muallafati-non-muslim-recipient",
     category: "al-muallafati-qulubuhum",
     topic: "whether zakat may go to a non-Muslim recipient",
     summary:
       "The general restriction, as al-feqh states it, is that zakat may not be given to non-Muslims except under al-mu'allafatu qulubuhum, which is why this question and the operative-status question move together. Islamic Relief's operating position is narrower than a blanket ban: where other funds are not available, zakat may be used for non-Muslims in Muslim-majority areas. National Zakat Foundation UK's policy, on Hanafi criteria, requires the applicant to be a Muslim.",
   },
   {
+    id: "gharimin-debt-conditions",
     category: "al-gharimin",
     topic: "conditions on debt",
     summary:
       "The schools agree that someone able to repay from their own means is not eligible, and Maliki, Shafi'i and Hanafi positions require the debt to have been lawfully incurred. The Maliki school excludes debt taken on deliberately to qualify. Shafi'i and Hanbali positions recognise debt taken on to reconcile feuding parties even where the debtor is not personally poor. Egypt's Dar al-Ifta separates lawful debt, unlawful debt followed by repentance, and unrepented unlawful debt. The disagreements act mostly on facts campaign copy rarely states: whether the debt is due, and whether the debtor can pay.",
   },
   {
+    id: "ibn-al-sabil-displacement",
     category: "ibn-al-sabil",
     topic: "modern application to displaced people",
     summary:
       "Applying the category to refugees and internally displaced people is mainstream rather than fringe: UNHCR grounds it in the classical traveller definition plus a modern Hanafi extension to those separated from their wealth by upheaval, and Zakat Foundation of America places refugees primarily under al-gharimin and secondarily here. LaunchGood declines to verify traveller campaigns at all, on practical rather than doctrinal grounds, which is a platform position rather than a scholarly one and should not be read as a third opinion.",
   },
 ];
+
+const SCHOLARLY_DIFFERENCE_BY_ID = new Map(
+  SCHOLARLY_DIFFERENCES.map((difference) => [difference.id, difference]),
+);
+
+/**
+ * Resolves a selected id to the human-authored entry it names.
+ *
+ * The id is the only thing a model is allowed to supply about a scholarly difference, so
+ * this is the single door between a selection and the text a reviewer reads. It throws on
+ * an id the corpus does not hold rather than returning undefined: an unknown id has already
+ * failed the schema that only accepts the closed set, so reaching here with one is a broken
+ * invariant, and the alternative is a finding whose difference silently disappears.
+ */
+export function scholarlyDifferenceById(id: ScholarlyDifferenceId): ScholarlyDifference {
+  const difference = SCHOLARLY_DIFFERENCE_BY_ID.get(id);
+
+  if (difference === undefined) {
+    throw new Error(`No scholarly difference is recorded under the id ${JSON.stringify(id)}.`);
+  }
+
+  return difference;
+}

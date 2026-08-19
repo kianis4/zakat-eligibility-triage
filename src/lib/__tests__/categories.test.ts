@@ -5,6 +5,8 @@ import {
   RECIPIENT_CATEGORIES,
   RECIPIENT_CATEGORY_IDS,
   SCHOLARLY_DIFFERENCES,
+  SCHOLARLY_DIFFERENCE_IDS,
+  scholarlyDifferenceById,
 } from "../categories";
 
 describe("recipient categories", () => {
@@ -59,6 +61,28 @@ describe("scholarly differences", () => {
       expect(difference.topic.length).toBeGreaterThan(0);
       expect(difference.summary.length).toBeGreaterThan(0);
     }
+  });
+
+  /**
+   * The id list is what the model-facing schema turns into an enum, so a difference the
+   * corpus holds under no id is one the pipeline can never name, and an id with no entry
+   * behind it is a selection that resolves to nothing. Both are silent failures, which is
+   * why the two lists are asserted against each other rather than each on its own.
+   */
+  it("holds exactly one entry under each of the declared ids", () => {
+    expect(SCHOLARLY_DIFFERENCES.map((difference) => difference.id)).toEqual([
+      ...SCHOLARLY_DIFFERENCE_IDS,
+    ]);
+  });
+
+  it("resolves an id to the entry recorded under it", () => {
+    for (const id of SCHOLARLY_DIFFERENCE_IDS) {
+      expect(scholarlyDifferenceById(id).id).toBe(id);
+    }
+
+    expect(scholarlyDifferenceById("fi-sabilillah-tamlik").topic).toBe(
+      "tamlik on project campaigns",
+    );
   });
 
   it("covers the territories the research brief marks as contested", () => {
