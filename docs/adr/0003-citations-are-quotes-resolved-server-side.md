@@ -56,3 +56,34 @@ than it would be with fuzzy matching, and prompt work has to carry the verbatim 
 That brittleness is the guarantee doing its job. We also accept that a quote occurring
 twice resolves to its first occurrence, which is deterministic and lands the reviewer on
 identical text either way.
+
+## Addendum 2026-08-19: one re-ask, with the failure named
+
+The brittleness above turned up in the eval gate as thrown fixtures rather than as wrong
+findings. Across runs, three cases threw: `eval_0003` failed extraction on a paraphrased quote
+for the second run in a row, and `eval_0007` and `eval_0015` failed mapping schema validation.
+A thrown fixture fails every dimension it is scored on, so the three of them took
+missing-evidence coverage to 76.9% against an 80% floor. The failures were also mute: the SDK
+reports a rejected response as "no object generated" and buries the zod error two causes down,
+so a run said which fixture died and not which field killed it.
+
+`extractFacts` and `mapCategories` now re-ask once. A response that fails validation is handed
+back to the model with the failure named in it, the field, the rule and the offending value,
+and the same request is asked again. A second failure throws the same typed error as before.
+A call that never completed is not re-asked, because it produced no answer to correct and
+retrying transport belongs to the SDK. The zod issues are lifted out of the cause chain into
+the thrown error's own message, so a live failure now names its cause instead of inviting a
+guess at it.
+
+This is not the fuzzy rescue rejected above, and the distinction is worth stating precisely.
+Rescue accepts a quote the story does not contain by deciding a near miss was close enough,
+which puts text the organizer never wrote in citation position. A re-ask accepts nothing: the
+schema is the same schema, the verbatim check is the same check, and the only thing that
+changed is that the model gets to read its own failure and answer the same question again. The
+contract is untouched, byte-exact or refuse. What moved is the number of chances, from one to
+two.
+
+The cost is one extra model call on a failing case, and the risk taken with it is that a model
+handed its own failure produces a differently wrong answer twice. That costs a call and lands
+where it landed before, on the error, which is why the count is fixed at two and not left to a
+loop.

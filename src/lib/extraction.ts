@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { CampaignInput } from "./campaign";
 import { locateQuote } from "./quotes";
+import { describeValidationIssues } from "./validation-detail";
 
 const Quote = z.string().min(1).describe("A verbatim substring of the campaign story.");
 
@@ -113,31 +114,42 @@ function quoteSites(facts: ExtractedFacts): QuoteSite[] {
 }
 
 /**
- * Extracts the factual claims a campaign story makes, each one anchored to the span of
- * text that carries it.
+ * What one ask of the model produced: the facts, or the failure a second ask can correct.
  *
- * A quote that is not a verbatim span of the story is treated as a hard failure rather
- * than a blemish to be tidied up. The whole point of the record is that a reviewer can
- * follow every claim back to the words the organizer wrote; a quote the model composed
- * looks identical to a real one on the page, so accepting it would silently break the
- * only guarantee this module offers. For the same reason there is no repair pass and no
- * retry against a looser schema: a caller gets valid, cited facts or an error.
- *
- * The campaign is re-parsed on the way in. This is the module boundary, where a raw
- * request body can arrive already cast to the type, and a story that is missing has to
- * surface as a schema error naming the field rather than as a `TypeError` thrown much
- * later inside quote validation.
+ * A failed call is not in this union. It is thrown from inside the attempt, because a call that
+ * never reached the provider produced no response to correct and re-asking it would be a retry
+ * of the transport, which the SDK already owns.
  */
-export async function extractFacts(
-  campaign: CampaignInput,
-  model?: LanguageModel,
-): Promise<ExtractedFacts> {
-  const input = CampaignInput.parse(campaign);
+type ExtractionAttempt = { facts: ExtractedFacts } | { failure: ExtractionError };
+
+/**
+ * The rejected response handed back to the model, in the words validation used to reject it.
+ *
+ * The correction names the rule that failed and the value that failed it, and it asks for the
+ * same object against the same schema. It is deliberately not a hint about how to write a
+ * better quote: what the first attempt lacked was the failure, not the instructions, which it
+ * already had in full above this text.
+ */
+function correctionPrompt(failure: ExtractionError): string[] {
+  return [
+    "",
+    "Your previous response to this exact request was rejected by validation, so it is not",
+    `recorded anywhere and the request stands. It failed as ${failure.reason}: ${failure.message}`,
+    "Answer the request again in full, with that failure corrected. The schema, the rules and",
+    "the story are unchanged, and nothing in them has been relaxed for this attempt.",
+  ];
+}
+
+async function attemptExtraction(
+  input: CampaignInput,
+  model: LanguageModel,
+  correction: ExtractionError | null,
+): Promise<ExtractionAttempt> {
   let facts: ExtractedFacts;
 
   try {
     const result = await generateObject({
-      model: model ?? anthropic("claude-sonnet-5"),
+      model,
       schema: ExtractedFacts,
       system: SYSTEM_PROMPT,
       prompt: [
@@ -147,16 +159,21 @@ export async function extractFacts(
         "",
         "Campaign story:",
         input.story,
+        ...(correction === null ? [] : correctionPrompt(correction)),
       ].join("\n"),
     });
     facts = result.object;
   } catch (cause) {
     if (NoObjectGeneratedError.isInstance(cause)) {
-      throw new ExtractionError(
-        "schema_validation_failed",
-        `The model response for campaign ${input.id} did not satisfy the ExtractedFacts schema.`,
-        { cause },
-      );
+      const issues = describeValidationIssues(cause);
+
+      return {
+        failure: new ExtractionError(
+          "schema_validation_failed",
+          `The model response for campaign ${input.id} did not satisfy the ExtractedFacts schema${issues === null ? "." : `: ${issues}`}`,
+          { cause },
+        ),
+      };
     }
     throw new ExtractionError(
       "model_call_failed",
@@ -171,11 +188,58 @@ export async function extractFacts(
 
   if (fabricated.length > 0) {
     const detail = fabricated.map((site) => `${site.path}: ${JSON.stringify(site.quote)}`);
-    throw new ExtractionError(
-      "quote_not_verbatim",
-      `The model response for campaign ${input.id} contains quotes that are not verbatim spans of the story: ${detail.join("; ")}`,
-    );
+
+    return {
+      failure: new ExtractionError(
+        "quote_not_verbatim",
+        `The model response for campaign ${input.id} contains quotes that are not verbatim spans of the story: ${detail.join("; ")}`,
+      ),
+    };
   }
 
-  return facts;
+  return { facts };
+}
+
+/**
+ * Extracts the factual claims a campaign story makes, each one anchored to the span of
+ * text that carries it.
+ *
+ * A quote that is not a verbatim span of the story is treated as a hard failure rather
+ * than a blemish to be tidied up. The whole point of the record is that a reviewer can
+ * follow every claim back to the words the organizer wrote; a quote the model composed
+ * looks identical to a real one on the page, so accepting it would silently break the
+ * only guarantee this module offers. For the same reason there is no repair pass and no
+ * retry against a looser schema.
+ *
+ * There is one re-ask, and it loosens nothing. A response that fails validation is handed
+ * back to the model with the failure named in it, against the same schema and the same
+ * rules, and a second failure throws exactly what a first failure used to throw. The
+ * difference between that and the fuzzy rescue ADR-0003 rejects is that the model corrects
+ * its own answer against the story; nothing here decides that a near miss was close enough.
+ *
+ * The campaign is re-parsed on the way in. This is the module boundary, where a raw
+ * request body can arrive already cast to the type, and a story that is missing has to
+ * surface as a schema error naming the field rather than as a `TypeError` thrown much
+ * later inside quote validation.
+ */
+export async function extractFacts(
+  campaign: CampaignInput,
+  model?: LanguageModel,
+): Promise<ExtractedFacts> {
+  const input = CampaignInput.parse(campaign);
+  const resolved = model ?? anthropic("claude-sonnet-5");
+
+  const first = await attemptExtraction(input, resolved, null);
+
+  if ("facts" in first) {
+    return first.facts;
+  }
+
+  const second = await attemptExtraction(input, resolved, first.failure);
+
+  if ("facts" in second) {
+    return second.facts;
+  }
+
+  throw second.failure;
 }

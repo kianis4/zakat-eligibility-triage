@@ -126,16 +126,34 @@ function modelMapping(overrides: Record<string, ModelFindingPayload> = {}) {
 }
 
 function modelReturning(payload: unknown): MockLanguageModelV3 {
+  return modelReturningInTurn(payload);
+}
+
+/**
+ * A model whose responses are scripted call by call, so a test can say what the re-ask gets.
+ *
+ * A call past the end of the script returns the last payload again rather than throwing, which
+ * keeps a test that over-calls failing on the call count it is actually asserting instead of on
+ * a mock that ran out.
+ */
+function modelReturningInTurn(...payloads: readonly unknown[]): MockLanguageModelV3 {
+  let call = 0;
+
   return new MockLanguageModelV3({
-    doGenerate: async () => ({
-      content: [{ type: "text" as const, text: JSON.stringify(payload) }],
-      finishReason: { unified: "stop" as const, raw: undefined },
-      usage: {
-        inputTokens: { total: 0, noCache: 0, cacheRead: 0, cacheWrite: 0 },
-        outputTokens: { total: 0, text: 0, reasoning: 0 },
-      },
-      warnings: [],
-    }),
+    doGenerate: async () => {
+      const payload = payloads[Math.min(call, payloads.length - 1)];
+      call += 1;
+
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(payload) }],
+        finishReason: { unified: "stop" as const, raw: undefined },
+        usage: {
+          inputTokens: { total: 0, noCache: 0, cacheRead: 0, cacheWrite: 0 },
+          outputTokens: { total: 0, text: 0, reasoning: 0 },
+        },
+        warnings: [],
+      };
+    },
   });
 }
 
@@ -609,6 +627,118 @@ describe("mapCategories", () => {
     expect(call).toContain("tamlik on project campaigns");
     expect(call).toContain("You do not determine zakat eligibility");
     expect(call).toContain("never for a religious opinion");
+  });
+});
+
+/**
+ * One re-ask, with the validation failure named in it, and then the same error as before.
+ *
+ * Both of the failures the mapper can correct are covered: a response the schema rejects, and a
+ * quote that is not a span of the story. Neither re-ask loosens anything, and the call counts
+ * are asserted because the extra call is the whole cost of the behaviour.
+ */
+describe("mapCategories re-asking once", () => {
+  const fabricatedQuote = modelMapping({
+    "al-gharimin": {
+      status: "supported",
+      quotes: ["the family has been in debt since 2019"],
+      rationale: "The story states a long-standing debt.",
+      scholarlyDifference: null,
+    },
+  });
+
+  const missingCategory = {
+    ...modelMapping(),
+    findings: modelMapping().findings.filter((finding) => finding.category !== "ibn-al-sabil"),
+  };
+
+  const wellFormed = modelMapping({ "al-gharimin": supportedDebtFinding });
+
+  it("recovers an unresolvable quote on the second ask, with exactly two calls", async () => {
+    const model = modelReturningInTurn(fabricatedQuote, wellFormed);
+
+    const mapping = await mapCategories(campaign, facts, model);
+
+    expect(mapping.categories["al-gharimin"].status).toBe("supported");
+    expect(model.doGenerateCalls).toHaveLength(2);
+  });
+
+  it("recovers a schema failure on the second ask, with exactly two calls", async () => {
+    const model = modelReturningInTurn(missingCategory, wellFormed);
+
+    const mapping = await mapCategories(campaign, facts, model);
+
+    expect(mapping.categories["ibn-al-sabil"].status).toBe("insufficient_evidence");
+    expect(model.doGenerateCalls).toHaveLength(2);
+  });
+
+  it("hands the model the quote it could not cite, in the second prompt", async () => {
+    const model = modelReturningInTurn(fabricatedQuote, wellFormed);
+    await mapCategories(campaign, facts, model);
+
+    const retry = JSON.stringify(model.doGenerateCalls[1]?.prompt);
+
+    expect(retry).toContain("citation_unresolvable");
+    expect(retry).toContain("the family has been in debt since 2019");
+  });
+
+  it("hands the model the schema failure it produced, in the second prompt", async () => {
+    const model = modelReturningInTurn(missingCategory, wellFormed);
+    await mapCategories(campaign, facts, model);
+
+    const retry = JSON.stringify(model.doGenerateCalls[1]?.prompt);
+
+    expect(retry).toContain("schema_validation_failed");
+    expect(retry).toContain("ibn-al-sabil");
+  });
+
+  it("throws the same error as before when the second ask fails too", async () => {
+    const model = modelReturningInTurn(fabricatedQuote, fabricatedQuote);
+
+    const error = await mapCategories(campaign, facts, model).catch((thrown: unknown) => thrown);
+
+    expect(error).toBeInstanceOf(MappingError);
+    expect((error as MappingError).reason).toBe("citation_unresolvable");
+    expect(model.doGenerateCalls).toHaveLength(2);
+  });
+
+  it("names the underlying schema issues in the error it throws", async () => {
+    const jargon = modelMapping({
+      "fi-sabilillah": {
+        status: "insufficient_evidence",
+        rationale: "The story claims a general public benefit and names no beneficiary.",
+        missingFact: "Who receives the money.",
+        questionForOrganizer: "Does this campaign qualify under fi-sabilillah?",
+        scholarlyDifference: null,
+      },
+    });
+    const model = modelReturningInTurn(jargon, jargon);
+
+    const error = await mapCategories(campaign, facts, model).catch((thrown: unknown) => thrown);
+
+    expect(error).toBeInstanceOf(MappingError);
+    expect((error as MappingError).reason).toBe("schema_validation_failed");
+    expect((error as MappingError).message).toContain("questionForOrganizer");
+    expect(model.doGenerateCalls).toHaveLength(2);
+  });
+
+  /**
+   * A call that never reached the provider produced no response to correct, so re-asking it
+   * would be a retry of the transport rather than of the model's answer. The SDK owns that.
+   */
+  it("does not re-ask a call that failed to complete", async () => {
+    const unreachable = new MockLanguageModelV3({
+      doGenerate: async () => {
+        throw new Error("connect ECONNREFUSED");
+      },
+    });
+
+    const error = await mapCategories(campaign, facts, unreachable).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect((error as MappingError).reason).toBe("model_call_failed");
+    expect(unreachable.doGenerateCalls).toHaveLength(1);
   });
 });
 

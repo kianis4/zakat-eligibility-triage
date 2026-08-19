@@ -15,6 +15,7 @@ import {
 import type { ExtractedFacts } from "./extraction";
 import { modelProse } from "./model-prose";
 import { locateQuote } from "./quotes";
+import { describeValidationIssues } from "./validation-detail";
 
 /**
  * A span of campaign story standing behind a claim about it.
@@ -683,28 +684,43 @@ function foldFindings(campaignId: string, story: string, findings: readonly Mode
 }
 
 /**
- * Maps a campaign's text against each of the eight recipient categories, with the span of
- * story behind every supported mapping.
+ * What one ask of the model produced: the mapping, or the failure a second ask can correct.
  *
- * The model returns quotes; the offsets are resolved here (ADR-0003) and the assembled
- * mapping is parsed before it is returned, so what a caller receives has already been
- * checked against the schema that forbids an uncited supported finding. An unresolvable
- * quote fails the whole mapping rather than costing that one finding its citation.
- *
- * The campaign is re-parsed on the way in for the same reason extraction does it: this is
- * a module boundary, and a story that is missing has to surface as a schema error.
+ * A failed call is not in this union. It is thrown from inside the attempt, because a call that
+ * never reached the provider produced no response to correct and re-asking it would be a retry
+ * of the transport, which the SDK already owns.
  */
-export async function mapCategories(
-  campaign: CampaignInput,
+type MappingAttempt = { mapping: CategoryMapping } | { failure: MappingError };
+
+/**
+ * The rejected response handed back to the model, in the words validation used to reject it.
+ *
+ * The correction names the rule that failed and the value that failed it, and it asks for the
+ * same object against the same schema. It is deliberately not a hint about how to write a
+ * better quote or a better rationale: what the first attempt lacked was the failure, not the
+ * instructions, which it already had in full above this text.
+ */
+function correctionPrompt(failure: MappingError): string[] {
+  return [
+    "",
+    "Your previous response to this exact request was rejected by validation, so it is not",
+    `recorded anywhere and the request stands. It failed as ${failure.reason}: ${failure.message}`,
+    "Answer the request again in full, with that failure corrected. The schema, the rules and",
+    "the story are unchanged, and nothing in them has been relaxed for this attempt.",
+  ];
+}
+
+async function attemptMapping(
+  input: CampaignInput,
   facts: ExtractedFacts,
-  model?: LanguageModel,
-): Promise<CategoryMapping> {
-  const input = CampaignInput.parse(campaign);
+  model: LanguageModel,
+  correction: MappingError | null,
+): Promise<MappingAttempt> {
   let mapping: ModelMapping;
 
   try {
     const result = await generateObject({
-      model: model ?? anthropic("claude-sonnet-5"),
+      model,
       schema: ModelMapping,
       system: SYSTEM_PROMPT,
       prompt: [
@@ -720,16 +736,21 @@ export async function mapCategories(
         "<<<STORY",
         input.story,
         "STORY>>>",
+        ...(correction === null ? [] : correctionPrompt(correction)),
       ].join("\n"),
     });
     mapping = result.object;
   } catch (cause) {
     if (NoObjectGeneratedError.isInstance(cause)) {
-      throw new MappingError(
-        "schema_validation_failed",
-        `The model response for campaign ${input.id} did not satisfy the category mapping schema.`,
-        { cause },
-      );
+      const issues = describeValidationIssues(cause);
+
+      return {
+        failure: new MappingError(
+          "schema_validation_failed",
+          `The model response for campaign ${input.id} did not satisfy the category mapping schema${issues === null ? "." : `: ${issues}`}`,
+          { cause },
+        ),
+      };
     }
     throw new MappingError(
       "model_call_failed",
@@ -738,12 +759,63 @@ export async function mapCategories(
     );
   }
 
-  const categories = foldFindings(input.id, input.story, mapping.findings);
+  try {
+    const categories = foldFindings(input.id, input.story, mapping.findings);
 
-  const mixedUseSignals = mapping.mixedUseSignals.map((signal) => ({
-    description: signal.description,
-    citations: signal.quotes.map((quote) => resolveCitation(input.story, quote)),
-  }));
+    const mixedUseSignals = mapping.mixedUseSignals.map((signal) => ({
+      description: signal.description,
+      citations: signal.quotes.map((quote) => resolveCitation(input.story, quote)),
+    }));
 
-  return CategoryMapping.parse({ policyVersion: POLICY_VERSION, categories, mixedUseSignals });
+    return {
+      mapping: CategoryMapping.parse({ policyVersion: POLICY_VERSION, categories, mixedUseSignals }),
+    };
+  } catch (cause) {
+    if (cause instanceof MappingError) {
+      return { failure: cause };
+    }
+    throw cause;
+  }
+}
+
+/**
+ * Maps a campaign's text against each of the eight recipient categories, with the span of
+ * story behind every supported mapping.
+ *
+ * The model returns quotes; the offsets are resolved here (ADR-0003) and the assembled
+ * mapping is parsed before it is returned, so what a caller receives has already been
+ * checked against the schema that forbids an uncited supported finding. An unresolvable
+ * quote fails the whole mapping rather than costing that one finding its citation.
+ *
+ * There is one re-ask, and it loosens nothing. A response the schema rejects, and a quote
+ * that is not a span of the story, are both handed back to the model with the failure named
+ * in them, against the same schema and the same rules; a second failure throws exactly what
+ * a first failure used to throw. The difference between that and the fuzzy rescue ADR-0003
+ * rejects is that the model corrects its own answer against the story, and nothing here
+ * decides that a near miss was close enough.
+ *
+ * The campaign is re-parsed on the way in for the same reason extraction does it: this is
+ * a module boundary, and a story that is missing has to surface as a schema error.
+ */
+export async function mapCategories(
+  campaign: CampaignInput,
+  facts: ExtractedFacts,
+  model?: LanguageModel,
+): Promise<CategoryMapping> {
+  const input = CampaignInput.parse(campaign);
+  const resolved = model ?? anthropic("claude-sonnet-5");
+
+  const first = await attemptMapping(input, facts, resolved, null);
+
+  if ("mapping" in first) {
+    return first.mapping;
+  }
+
+  const second = await attemptMapping(input, facts, resolved, first.failure);
+
+  if ("mapping" in second) {
+    return second.mapping;
+  }
+
+  throw second.failure;
 }
