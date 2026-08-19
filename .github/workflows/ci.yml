@@ -81,4 +81,8 @@ jobs:
         with:
           name: eval-report
           path: evals/report.md
+          # Long enough to survive a weekend and a round of review, short enough that a
+          # gitignored artifact does not accumulate indefinitely. A failed gate is only
+          # actionable while its report is still fetchable.
+          retention-days: 14
           if-no-files-found: warn
