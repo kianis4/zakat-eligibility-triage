@@ -45,9 +45,20 @@ async function resolveSpecifier(fromFile: string, specifier: string): Promise<st
  * what it connects.
  *
  * Package specifiers are skipped, since the rule being guarded is about this repository's
- * own modules. Specifiers are matched textually rather than parsed into an AST, so a
- * string in a comment can be picked up as an edge. That direction is the safe one: the
- * guard reports a link that is not there rather than missing one that is.
+ * own modules.
+ *
+ * What textual matching guarantees is narrower than it looks, and the limit is worth
+ * stating because a guard is only as good as its weakest edge case. It finds specifiers
+ * written as literal strings, in either quote style. It over-reports, since a specifier
+ * inside a comment or a string still counts as an edge, which is the harmless direction.
+ * It also under-reports, and that direction is not harmless: a template literal such as
+ * ``import(`./precedent`)``, a concatenated specifier, or anything else computed at
+ * runtime is invisible here, because the specifier is not a literal in the source.
+ *
+ * The under-reporting is closed by the caller rather than by more regular expressions.
+ * `src/lib/__tests__/precedent-isolation.test.ts` separately asserts that no module in
+ * the fenced graph contains a dynamic import expression at all, so there is nothing of
+ * that shape for this walker to miss.
  */
 export async function collectImportGraph(entry: string): Promise<string[]> {
   const seen = new Set<string>();

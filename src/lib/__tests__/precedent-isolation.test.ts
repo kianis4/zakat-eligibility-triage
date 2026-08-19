@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 import { MockLanguageModelV3 } from "ai/test";
@@ -193,6 +194,19 @@ describe("the generation modules cannot reach the precedent store", () => {
     expect(graph).toContain(`${SRC}lib/quotes.ts`);
     expect(graph.some((file) => file.startsWith(`${SRC}db/`))).toBe(false);
     expect(graph).not.toContain(`${SRC}lib/precedent.ts`);
+  });
+
+  it("leaves no dynamic import for the walker to miss", async () => {
+    const fenced = new Set([
+      ...(await collectImportGraph(`${SRC}lib/extraction.ts`)),
+      ...(await collectImportGraph(`${SRC}lib/mapping.ts`)),
+    ]);
+
+    expect(fenced.size).toBeGreaterThan(3);
+
+    for (const file of fenced) {
+      expect(await readFile(file, "utf8")).not.toMatch(/\bimport\s*\(/);
+    }
   });
 
   it("detects the edge when one genuinely exists", async () => {
