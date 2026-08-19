@@ -85,6 +85,43 @@ describe("the labelled eval corpus", () => {
     }
   });
 
+  it("stays the size a hand-written corpus can be kept honest at", () => {
+    expect(fixtures.length).toBeGreaterThanOrEqual(14);
+    expect(fixtures.length).toBeLessThanOrEqual(18);
+  });
+
+  it("carries cases at all three difficulties, three of them ambiguous at least", () => {
+    const byDifficulty = fixtures.map((fixture) => fixture.label.difficulty);
+
+    expect(byDifficulty.filter((difficulty) => difficulty === "clean").length).toBeGreaterThan(0);
+    expect(byDifficulty.filter((difficulty) => difficulty === "flagged").length).toBeGreaterThan(0);
+    expect(
+      byDifficulty.filter((difficulty) => difficulty === "ambiguous").length,
+    ).toBeGreaterThanOrEqual(3);
+  });
+
+  it("exercises every condition the refusal gate can fire on", () => {
+    const named = new Set(fixtures.flatMap((fixture) => fixture.label.expectedEscalation.kinds));
+
+    expect(named).toEqual(new Set(ESCALATION_REASON_KINDS));
+  });
+
+  it("expects no refusal on a case it calls clean", () => {
+    for (const fixture of fixtures) {
+      if (fixture.label.difficulty !== "clean") {
+        continue;
+      }
+
+      expect(fixture.label.expectedEscalation.expected, fixture.id).toBe(false);
+    }
+  });
+
+  it("records why each case is labelled the way it is", () => {
+    for (const fixture of fixtures) {
+      expect(fixture.label.notes.length, fixture.id).toBeGreaterThan(300);
+    }
+  });
+
   it("asks the organizer only about categories it also expects unresolved", () => {
     for (const fixture of fixtures) {
       for (const category of fixture.label.expectedMissingEvidence) {
