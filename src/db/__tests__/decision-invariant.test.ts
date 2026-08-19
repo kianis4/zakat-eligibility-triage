@@ -1,4 +1,4 @@
-import { getTableColumns, getTableName, is } from "drizzle-orm";
+import { eq, getTableColumns, getTableName, is } from "drizzle-orm";
 import { PgTable, pgTable, text } from "drizzle-orm/pg-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -170,6 +170,49 @@ describe("what the decisions table refuses to store", () => {
     );
 
     expect(refusal).toContain("decisions_reviewer_is_named");
+  });
+
+  /**
+   * A blank that is not an ASCII blank still names nobody.
+   *
+   * A non-breaking space is one keystroke on a Mac, survives a copy out of a rich-text field,
+   * and renders as a reviewer whose name is a gap. The application layer trims it, because
+   * JavaScript's `trim` knows about it, so a constraint that does not is a claim about the
+   * database the database does not honour.
+   */
+  it("refuses a reviewer of non-breaking spaces", async () => {
+    const refusal = await refusalFrom(
+      database.db
+        .insert(decisions)
+        .values({ ...decision, id: "dec_nbsp", reviewer: "\u00A0\u00A0" }),
+    );
+
+    expect(refusal).toContain("decisions_reviewer_is_named");
+  });
+
+  it("refuses a note of the wider Unicode blanks", async () => {
+    const refusal = await refusalFrom(
+      database.db.insert(decisions).values({
+        ...decision,
+        id: "dec_blank",
+        note: "\u3000\u2009\u200B\uFEFF\u202F",
+      }),
+    );
+
+    expect(refusal).toContain("decisions_note_carries_reasoning");
+  });
+
+  it("keeps a reviewer whose name has a non-breaking space inside it", async () => {
+    await database.db
+      .insert(decisions)
+      .values({ ...decision, id: "dec_inner_nbsp", reviewer: "Amina\u00A0Suleiman" });
+
+    const [stored] = await database.db
+      .select()
+      .from(decisions)
+      .where(eq(decisions.id, "dec_inner_nbsp"));
+
+    expect(stored?.reviewer).toBe("Amina\u00A0Suleiman");
   });
 
   it("refuses a decision with no reasoning behind it", async () => {

@@ -164,6 +164,35 @@ export const triageRuns = pgTable(
 );
 
 /**
+ * Every character that can make a field look filled while saying nothing.
+ *
+ * Enumerated by codepoint rather than matched by a character class, and that is a measured
+ * choice rather than a stylistic one. Under PGlite a non-breaking space matches neither the
+ * POSIX `[[:space:]]` class nor the `\s` shorthand, both of which follow the database ctype
+ * and do not know the Unicode blanks, so a regex check written either way accepts a reviewer
+ * named by one. `btrim` takes a literal set of characters and has no such opinion.
+ *
+ * The set is JavaScript's `String.prototype.trim`, which is what `DecisionInput` applies at
+ * the application boundary, so both layers agree on what blank means. It adds the zero width
+ * space and the byte order mark, which `trim` leaves alone: both are invisible, and a
+ * database stricter than the form in front of it fails loudly rather than storing a name
+ * nobody can read.
+ *
+ * Written as codepoints because the alternative is pasting invisible characters into a source
+ * file, where nobody reviewing this can see what the set contains or notice one going missing.
+ */
+const BLANK_CODEPOINTS = [
+  0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x20,
+  0xa0, 0x1680,
+  0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009, 0x200a,
+  0x200b, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff,
+] as const;
+
+const BLANKS = sql.raw(
+  `E'${BLANK_CODEPOINTS.map((point) => `\\u${point.toString(16).padStart(4, "0")}`).join("")}'`,
+);
+
+/**
  * What a reviewer may record, and the whole vocabulary of it.
  *
  * `request_info` is a decision and not a deferral of one: the reviewer read the file, found
@@ -232,14 +261,8 @@ export const decisions = pgTable(
       "decisions_action_is_recorded",
       sql`${table.action} in ('approve', 'request_info', 'escalate')`,
     ),
-    check(
-      "decisions_reviewer_is_named",
-      sql`length(btrim(${table.reviewer}, E' \\t\\n\\r\\f\\v')) > 0`,
-    ),
-    check(
-      "decisions_note_carries_reasoning",
-      sql`length(btrim(${table.note}, E' \\t\\n\\r\\f\\v')) > 0`,
-    ),
+    check("decisions_reviewer_is_named", sql`length(btrim(${table.reviewer}, ${BLANKS})) > 0`),
+    check("decisions_note_carries_reasoning", sql`length(btrim(${table.note}, ${BLANKS})) > 0`),
   ],
 );
 

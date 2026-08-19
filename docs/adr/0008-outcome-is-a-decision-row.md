@@ -28,8 +28,12 @@ shorter path, because there is no other place a verdict can be written down.
 `decisions` carries the reviewer's name and their note, both `NOT NULL` and both checked
 non-blank in the database, so the two decisions worth nothing are unrepresentable rather than
 discouraged: an anonymous one records no one and is not an audit trail, and an unreasoned one
-records a verdict while losing the only part a later reader can weigh. `triage_run_id` is
-`NOT NULL`, so a decision always names the agent file it was taken against.
+records a verdict while losing the only part a later reader can weigh. Blank means the set
+JavaScript's `trim` strips, enumerated by codepoint, because Postgres character classes follow
+the database ctype and do not cover the Unicode blanks: a reviewer named by a non-breaking
+space passes `[[:space:]]` and `\s` alike, and a constraint that lets one through is a claim
+the database does not honour. `triage_run_id` is `NOT NULL`, so a decision always names the
+agent file it was taken against.
 
 `triage_runs` is the agent's file, written once. There is no update path to it in this
 repository, and re-running a campaign appends a row rather than replacing one, so a decision
