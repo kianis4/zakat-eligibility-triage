@@ -2,9 +2,10 @@
 
 Twelve previously adjudicated campaigns, every one of them synthetic and written by hand
 for this repository. There is no real campaign, no real organization, no real person and
-no scraped text in this directory. Names, places, sums and dates were invented to be
-plausible; where a file names a trust or a village, that trust and that village do not
-exist.
+no scraped text in this directory. Real geographic names may appear as plausible
+settings, and a place name invented for a file may well collide with a real one
+somewhere; no case, organization, person, sum or date is real, and where a file names a
+trust or a village committee, that body does not exist.
 
 They are fixtures for a retrieval index, not a labelled ground truth. Nothing in this
 corpus is evidence of how any real platform decides anything, and no accuracy claim can
@@ -30,16 +31,22 @@ Deliberately, so retrieval has something to be right and wrong about:
 - **Clearly eligible, with documentation noted** (0001, 0002, 0003). Rent arrears with
   statements and a tenancy on file, a hospital debt that is currently due and quantified,
   a family cut off from assets they own but cannot reach.
-- **Clearly ineligible** (0004, 0005, 0006, 0007). A public amenity with no beneficiary in
-  need, a building project under the narrow reading of fi sabilillah, a balance that is
-  mostly accrued interest, a profitable trading business.
+- **Clearly ineligible** (0004, 0007). A public amenity with no beneficiary in need and no
+  transfer to anyone, and a trading business the copy says is profitable. Nothing in
+  either engages a category, so nothing in either was contested.
+- **Declined, but not clear-cut** (0005, 0006). A building project, declined because the
+  platform's own policy does not extend fi sabilillah to construction, on ground where the
+  note itself records that recognised bodies have reached opposite conclusions: the
+  decision is a policy being applied and the note says so. And a balance that is mostly
+  rolled-over charges, declined as submitted while the debt line stays unresolved, because
+  a principal exists and the lender's paperwork does not quantify it.
 - **Underspecified, so information was requested** (0008, 0009, 0010). Hardship asserted
   and nothing stated, an undisclosed administrative deduction, a debt whose currency and
   the household's means are both unresolved. `info_requested` is a real outcome and not a
   pending state: the reviewer read the file and recorded that it cannot be adjudicated
   until a specific fact arrives.
-- **Routed on a scholarly difference** (0011, 0012). A water point under fi sabilillah,
-  where the determinative question is who owns the asset afterwards, and a support fund
+- **Routed on a scholarly difference** (0011, 0012). A water point, where who owns the
+  asset afterwards decides which heading it is adjudicated under, and a support fund
   resting on a category whose operation contemporary bodies dispute. Both notes record
   that an advisor was consulted, what scoped question was put, and what the reviewer did
   and did not conclude from the answer.
