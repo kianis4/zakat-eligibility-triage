@@ -19,7 +19,7 @@ One JSON object per adjudication, matching the `precedents` table in `src/db/sch
 | ------------------ | -------------------------------------------------------------------- |
 | `id`               | Stable key. The seed script upserts on it, so re-seeding is safe.     |
 | `title`, `story`   | The campaign as submitted. Embedded together for retrieval.           |
-| `categoryOutcomes` | How the adjudication came out per recipient category, using the same three statuses as `CategoryVerdict`. Partial: only the categories the reviewer engaged with. |
+| `categoryOutcomes` | How the adjudication came out per recipient category, using the same three statuses as `CategoryFinding`. Partial: only the categories the reviewer engaged with. |
 | `decision`         | `approved`, `declined` or `info_requested`.                           |
 | `reviewerNote`     | The reviewer's own recorded reasoning, written to be read by the next reviewer. |
 | `decidedAt`        | When the decision was recorded.                                       |

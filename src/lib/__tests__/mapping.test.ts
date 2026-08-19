@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 
 import type { CampaignInput } from "../campaign";
-import { RECIPIENT_CATEGORY_IDS } from "../categories";
+import { POLICY_VERSION, RECIPIENT_CATEGORY_IDS, scholarlyDifferenceById } from "../categories";
 import type { ExtractedFacts } from "../extraction";
-import { CategoryVerdict, MappingError, mapCategories, resolveCitation } from "../mapping";
+import { CategoryFinding, MappingError, mapCategories, resolveCitation } from "../mapping";
 
 const story =
   "We are stranded in Cairo with no way home. We are stranded and the embassy has no funds left for us.";
@@ -98,9 +98,9 @@ const facts: ExtractedFacts = {
 
 const debtQuote = "borrowed 9,000 JOD from relatives to cover the treatment and cannot repay it";
 
-type ModelVerdictPayload = Record<string, unknown>;
+type ModelFindingPayload = Record<string, unknown>;
 
-function modelMapping(overrides: Record<string, ModelVerdictPayload> = {}) {
+function modelMapping(overrides: Record<string, ModelFindingPayload> = {}) {
   const categories = Object.fromEntries(
     RECIPIENT_CATEGORY_IDS.map((id) => [
       id,
@@ -140,7 +140,18 @@ function modelReturning(payload: unknown): MockLanguageModelV3 {
   });
 }
 
-const supportedDebtVerdict = {
+const tamlikSelection = {
+  status: "insufficient_evidence",
+  rationale: "The generator is a communal asset and the story does not say who owns it.",
+  missingFact: "Whether ownership of the generator transfers to the community.",
+  questionForOrganizer: "Once the new generator is installed, who will own it and be responsible for it?",
+  scholarlyDifference: {
+    id: "fi-sabilillah-tamlik",
+    whyThisApplies: "The campaign buys a generator the clinic keeps afterward.",
+  },
+};
+
+const supportedDebtFinding = {
   status: "supported",
   quotes: [debtQuote],
   rationale: "The story states a debt the family says it cannot repay.",
@@ -148,51 +159,69 @@ const supportedDebtVerdict = {
 };
 
 describe("mapCategories", () => {
-  it("returns a verdict for every one of the eight categories", async () => {
+  it("returns a finding for every one of the eight categories", async () => {
     const mapping = await mapCategories(
       campaign,
       facts,
-      modelReturning(modelMapping({ "al-gharimin": supportedDebtVerdict })),
+      modelReturning(modelMapping({ "al-gharimin": supportedDebtFinding })),
     );
 
     expect(Object.keys(mapping.categories).sort()).toEqual([...RECIPIENT_CATEGORY_IDS].sort());
+  });
+
+  it("stamps the mapping with the policy version it was produced under", async () => {
+    const mapping = await mapCategories(campaign, facts, modelReturning(modelMapping()));
+
+    expect(mapping.policyVersion).toBe(POLICY_VERSION);
+  });
+
+  /**
+   * The stamp says which guidance the pipeline mapped against, so it has to come from the
+   * guidance rather than from the thing being checked against it. A model that could set it
+   * could date its own output to a policy it never read.
+   */
+  it("ignores a policy version the model supplies", async () => {
+    const forged = { ...modelMapping(), policyVersion: "000000000000" };
+    const mapping = await mapCategories(campaign, facts, modelReturning(forged));
+
+    expect(mapping.policyVersion).toBe(POLICY_VERSION);
   });
 
   it("carries a citation that resolves to a real span of the story", async () => {
     const mapping = await mapCategories(
       campaign,
       facts,
-      modelReturning(modelMapping({ "al-gharimin": supportedDebtVerdict })),
+      modelReturning(modelMapping({ "al-gharimin": supportedDebtFinding })),
     );
 
-    const verdict = mapping.categories["al-gharimin"];
+    const finding = mapping.categories["al-gharimin"];
 
-    expect(verdict.status).toBe("supported");
-    if (verdict.status !== "supported") return;
+    expect(finding.status).toBe("supported");
+    if (finding.status !== "supported") return;
 
-    const [citation] = verdict.citations;
+    const [citation] = finding.citations;
     expect(campaign.story.slice(citation.start, citation.end)).toBe(citation.quote);
     expect(citation.quote).toBe(debtQuote);
   });
 
-  it("keeps the missing fact on an insufficient-evidence verdict", async () => {
+  it("keeps the missing fact on an insufficient-evidence finding", async () => {
     const mapping = await mapCategories(campaign, facts, modelReturning(modelMapping()));
 
-    const verdict = mapping.categories["fi-sabilillah"];
+    const finding = mapping.categories["fi-sabilillah"];
 
-    expect(verdict.status).toBe("insufficient_evidence");
-    if (verdict.status !== "insufficient_evidence") return;
-    expect(verdict.missingFact.length).toBeGreaterThan(0);
+    expect(finding.status).toBe("insufficient_evidence");
+    if (finding.status !== "insufficient_evidence") return;
+    expect(finding.missingFact.length).toBeGreaterThan(0);
   });
 
   it("carries the organizer question beside the missing fact", async () => {
     const mapping = await mapCategories(campaign, facts, modelReturning(modelMapping()));
 
-    const verdict = mapping.categories["fi-sabilillah"];
+    const finding = mapping.categories["fi-sabilillah"];
 
-    expect(verdict.status).toBe("insufficient_evidence");
-    if (verdict.status !== "insufficient_evidence") return;
-    expect(verdict.questionForOrganizer).toBe(
+    expect(finding.status).toBe("insufficient_evidence");
+    if (finding.status !== "insufficient_evidence") return;
+    expect(finding.questionForOrganizer).toBe(
       "Could you tell us who will receive this money and what it will be spent on?",
     );
   });
@@ -220,27 +249,72 @@ describe("mapCategories", () => {
     const mapping = await mapCategories(
       campaign,
       facts,
-      modelReturning(
-        modelMapping({
-          "fi-sabilillah": {
-            status: "insufficient_evidence",
-            rationale: "The generator is a communal asset and the story does not say who owns it.",
-            missingFact: "Whether ownership of the generator transfers to the community.",
-            questionForOrganizer:
-              "Once the new generator is installed, who will own it and be responsible for it?",
-            scholarlyDifference: {
-              topic: "tamlik on project campaigns",
-              note: "Hanafi positions require transfer of ownership to a needy person; other bodies accept community ownership or a wakalah agreement.",
-            },
-          },
-        }),
-      ),
+      modelReturning(modelMapping({ "fi-sabilillah": tamlikSelection })),
     );
 
-    expect(mapping.categories["fi-sabilillah"].scholarlyDifference?.topic).toBe(
+    expect(mapping.categories["fi-sabilillah"].scholarlyDifference?.entry.topic).toBe(
       "tamlik on project campaigns",
     );
     expect(mapping.categories["al-gharimin"].scholarlyDifference).toBeUndefined();
+  });
+
+  /**
+   * The difference the reviewer reads is the one in the corpus, byte for byte. That is what
+   * makes it checkable: a summary the model wrote would be a description of a scholarly
+   * position with nothing to diff it against, which is what ADR-0007 forbids.
+   */
+  it("resolves the selected id to the recorded entry rather than to anything the model wrote", async () => {
+    const mapping = await mapCategories(
+      campaign,
+      facts,
+      modelReturning(modelMapping({ "fi-sabilillah": tamlikSelection })),
+    );
+
+    const difference = mapping.categories["fi-sabilillah"].scholarlyDifference;
+
+    expect(difference?.entry).toEqual(scholarlyDifferenceById("fi-sabilillah-tamlik"));
+    expect(difference?.whyThisApplies).toBe(
+      "The campaign buys a generator the clinic keeps afterward.",
+    );
+  });
+
+  it("fails the mapping when the model names a difference the corpus does not record", async () => {
+    const invented = modelMapping({
+      "fi-sabilillah": {
+        ...tamlikSelection,
+        scholarlyDifference: {
+          id: "fi-sabilillah-mosques",
+          whyThisApplies: "The campaign buys a generator the clinic keeps afterward.",
+        },
+      },
+    });
+
+    const error = await mapCategories(campaign, facts, modelReturning(invented)).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(MappingError);
+    expect((error as MappingError).reason).toBe("schema_validation_failed");
+  });
+
+  it("fails the mapping when the model writes an account of the difference instead of one sentence", async () => {
+    const described = modelMapping({
+      "fi-sabilillah": {
+        ...tamlikSelection,
+        scholarlyDifference: {
+          id: "fi-sabilillah-tamlik",
+          whyThisApplies:
+            "The Hanafi position requires transfer of ownership to a needy person. Other bodies accept community ownership.",
+        },
+      },
+    });
+
+    const error = await mapCategories(campaign, facts, modelReturning(described)).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(MappingError);
+    expect((error as MappingError).reason).toBe("schema_validation_failed");
   });
 
   it("resolves the citations behind a mixed-use signal", async () => {
@@ -252,7 +326,7 @@ describe("mapCategories", () => {
     expect(campaign.story.slice(citation.start, citation.end)).toBe(citation.quote);
   });
 
-  it("rejects a supported verdict that cites nothing, at the schema level", async () => {
+  it("rejects a supported finding that cites nothing, at the schema level", async () => {
     const uncited = modelMapping({
       "al-gharimin": {
         status: "supported",
@@ -334,6 +408,77 @@ describe("mapCategories", () => {
     expect((error as MappingError).reason).toBe("schema_validation_failed");
   });
 
+  /**
+   * These four payloads all mapped cleanly before the shape guard reached the fields the
+   * model writes prose into. Each one puts fabricated scripture somewhere a reviewer reads:
+   * the rationale beside the citations, the missing fact, the question that gets forwarded
+   * to the organizer untouched, and the description that becomes the mixed-use question.
+   */
+  const fabricated = {
+    rationale: {
+      "al-gharimin": {
+        status: "supported",
+        quotes: [debtQuote],
+        rationale:
+          'The story describes a family in debt, and Quran 9:60 says "zakat is for the poor and those in debt" which covers them.',
+        scholarlyDifference: null,
+      },
+    },
+    missingFact: {
+      "al-gharimin": {
+        status: "insufficient_evidence",
+        rationale: "The story does not say when the debt falls due.",
+        missingFact:
+          "Whether the debt is currently due, since the Prophet said a debt not yet due does not qualify.",
+        questionForOrganizer: "When does the repayment you mention fall due?",
+        scholarlyDifference: null,
+      },
+    },
+    questionForOrganizer: {
+      "al-gharimin": {
+        status: "insufficient_evidence",
+        rationale: "The story does not say what the family has already done about the debt.",
+        missingFact: "What steps the family has taken toward the debt.",
+        questionForOrganizer:
+          'The Prophet said "the upper hand is better than the lower hand", so can you tell us what you have already tried?',
+        scholarlyDifference: null,
+      },
+    },
+  };
+
+  for (const [field, override] of Object.entries(fabricated)) {
+    it(`fails the mapping when the model puts a fabricated source in ${field}`, async () => {
+      const error = await mapCategories(
+        campaign,
+        facts,
+        modelReturning(modelMapping(override)),
+      ).catch((thrown: unknown) => thrown);
+
+      expect(error).toBeInstanceOf(MappingError);
+      expect((error as MappingError).reason).toBe("schema_validation_failed");
+    });
+  }
+
+  it("fails the mapping when the model puts a fabricated source in a mixed-use description", async () => {
+    const cited = {
+      ...modelMapping(),
+      mixedUseSignals: [
+        {
+          description:
+            "Half the money clears the debt and half funds the hall, per Surah 2 verse 271 on public giving.",
+          quotes: ["Any surplus will go to the clinic's new generator"],
+        },
+      ],
+    };
+
+    const error = await mapCategories(campaign, facts, modelReturning(cited)).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(MappingError);
+    expect((error as MappingError).reason).toBe("schema_validation_failed");
+  });
+
   it("distinguishes a failed model call from a malformed response", async () => {
     const unreachable = new MockLanguageModelV3({
       doGenerate: async () => {
@@ -386,7 +531,7 @@ describe("a question the reviewer cannot send as it stands", () => {
   }
 
   it("accepts a question addressed to the organizer in their own terms", () => {
-    const parsed = CategoryVerdict.safeParse(
+    const parsed = CategoryFinding.safeParse(
       withQuestion("Who will receive the money you raise, and how will it reach them?"),
     );
 
@@ -394,7 +539,7 @@ describe("a question the reviewer cannot send as it stands", () => {
   });
 
   it("rejects a question that is not asked as a question", () => {
-    const parsed = CategoryVerdict.safeParse(
+    const parsed = CategoryFinding.safeParse(
       withQuestion("Tell us who will receive the money you raise."),
     );
 
@@ -402,7 +547,7 @@ describe("a question the reviewer cannot send as it stands", () => {
   });
 
   it("rejects a question naming one of the eight categories", () => {
-    const parsed = CategoryVerdict.safeParse(
+    const parsed = CategoryFinding.safeParse(
       withQuestion("Is the money you raise going to al-gharimin?"),
     );
 
@@ -410,7 +555,7 @@ describe("a question the reviewer cannot send as it stands", () => {
   });
 
   it("rejects a question carrying our own status vocabulary", () => {
-    const parsed = CategoryVerdict.safeParse(
+    const parsed = CategoryFinding.safeParse(
       withQuestion("Our reviewer marked this insufficient_evidence, can you say more?"),
     );
 
@@ -418,19 +563,19 @@ describe("a question the reviewer cannot send as it stands", () => {
   });
 
   it("rejects an empty question", () => {
-    expect(CategoryVerdict.safeParse(withQuestion("")).success).toBe(false);
+    expect(CategoryFinding.safeParse(withQuestion("")).success).toBe(false);
   });
 
   it("rejects a question padded with the whitespace of the template around it", () => {
-    const parsed = CategoryVerdict.safeParse(
+    const parsed = CategoryFinding.safeParse(
       withQuestion("\n  Who will receive the money you raise?  "),
     );
 
     expect(parsed.success).toBe(false);
   });
 
-  it("rejects an insufficient-evidence verdict carrying no question at all", () => {
-    const parsed = CategoryVerdict.safeParse({
+  it("rejects an insufficient-evidence finding carrying no question at all", () => {
+    const parsed = CategoryFinding.safeParse({
       status: "insufficient_evidence",
       rationale: "The story does not say who receives the money.",
       missingFact: "Who receives the money.",

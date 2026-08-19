@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { CampaignInput } from "./campaign";
-import { RECIPIENT_CATEGORY_IDS, SCHOLARLY_DIFFERENCES } from "./categories";
+import { RECIPIENT_CATEGORY_IDS } from "./categories";
 import type { ExtractedFacts } from "./extraction";
 import { type CategoryMapping, Citation, resolveCitation } from "./mapping";
 
@@ -28,7 +28,7 @@ export const ESCALATION_REASON_KINDS = [
  * So every reason here names something specific the reviewer can answer, and carries the
  * spans of story that put the question on the table.
  *
- * The citation list can be empty, unlike a supported verdict's. Some refusals are triggered
+ * The citation list can be empty, unlike a supported finding's. Some refusals are triggered
  * by the absence of text rather than by the presence of it, and an absence has no span.
  */
 export const EscalationReason = z.object({
@@ -96,10 +96,11 @@ function mixedUseReasons(mapping: CategoryMapping): EscalationReason[] {
 /**
  * The category's application turns on a disagreement between recognised scholars.
  *
- * Both positions are stated from what is already recorded: the note the mapping step wrote
- * while the story was in front of it, and the entry in `SCHOLARLY_DIFFERENCES` that names
- * the holders. Nothing is summarised afresh here, because a fresh summary of a disagreement
- * is where a lean enters.
+ * The positions come from the versioned entry the mapping step selected by id, quoted as it
+ * is written in `SCHOLARLY_DIFFERENCES`. The model's contribution is the one sentence saying
+ * what this campaign does that puts it inside that difference, and it travels as that rather
+ * than as an account of the disagreement. Nothing is summarised afresh here, and under
+ * ADR-0007 nothing about the disagreement is authored anywhere in the pipeline.
  *
  * The question asks which position platform policy applies to this campaign. It never asks
  * the reviewer to settle the fiqh: that is not a question a triage file gets to put, and
@@ -108,27 +109,23 @@ function mixedUseReasons(mapping: CategoryMapping): EscalationReason[] {
  */
 function scholarlyDifferenceReasons(mapping: CategoryMapping): EscalationReason[] {
   return RECIPIENT_CATEGORY_IDS.flatMap((category) => {
-    const verdict = mapping.categories[category];
-    const difference = verdict.scholarlyDifference;
+    const finding = mapping.categories[category];
+    const difference = finding.scholarlyDifference;
 
     if (difference === undefined) {
       return [];
     }
 
-    const documented = SCHOLARLY_DIFFERENCES.find(
-      (entry) => entry.category === category && entry.topic === difference.topic,
-    );
-
     return [
       {
         kind: "scholarly_difference" as const,
         question: [
-          `Recognised scholars differ on ${difference.topic}, and this campaign sits inside that difference.`,
-          sentence(difference.note),
-          ...(documented === undefined ? [] : [sentence(documented.summary)]),
+          `Recognised scholars differ on ${difference.entry.topic}, and this campaign sits inside that difference.`,
+          sentence(difference.whyThisApplies),
+          sentence(difference.entry.summary),
           "Which of those positions does platform policy apply to this campaign?",
         ].join(" "),
-        citations: verdict.status === "supported" ? [...verdict.citations] : [],
+        citations: finding.status === "supported" ? [...finding.citations] : [],
       },
     ];
   });

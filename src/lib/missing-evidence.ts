@@ -45,24 +45,24 @@ function normalizeQuestion(question: string): string {
  * Builds the missing-evidence report from a mapping.
  *
  * Deterministic and pure: same mapping in, same report out, no model call and no clock. The
- * mapping has already been parsed, so every insufficient_evidence verdict is carrying both
+ * mapping has already been parsed, so every insufficient_evidence finding is carrying both
  * its missing fact and a question the schema has already checked is sendable. This step
  * gathers them and nothing more, which is the point. The reviewer's work is deciding, and
  * what this hands them is the list of what to ask first.
  */
 export function buildMissingEvidenceReport(mapping: CategoryMapping): MissingEvidenceReport {
   const items = RECIPIENT_CATEGORY_IDS.flatMap((category) => {
-    const verdict = mapping.categories[category];
+    const finding = mapping.categories[category];
 
-    if (verdict.status !== "insufficient_evidence") {
+    if (finding.status !== "insufficient_evidence") {
       return [];
     }
 
     return [
       {
         category,
-        missingFact: verdict.missingFact,
-        questionForOrganizer: verdict.questionForOrganizer,
+        missingFact: finding.missingFact,
+        questionForOrganizer: finding.questionForOrganizer,
       },
     ];
   });

@@ -4,12 +4,16 @@ import { z } from "zod";
 
 import { CampaignInput } from "./campaign";
 import {
+  POLICY_VERSION,
   RECIPIENT_CATEGORIES,
   RECIPIENT_CATEGORY_IDS,
   SCHOLARLY_DIFFERENCES,
+  SCHOLARLY_DIFFERENCE_IDS,
+  scholarlyDifferenceById,
   type RecipientCategory,
 } from "./categories";
 import type { ExtractedFacts } from "./extraction";
+import { modelProse } from "./model-prose";
 import { locateQuote } from "./quotes";
 
 /**
@@ -46,8 +50,8 @@ export class MappingError extends Error {
  * Turns a quote the model produced into a citation into the story.
  *
  * A quote that cannot be found is a hard failure. There is no nearest-match rescue and
- * no quiet demotion of the verdict to an uncited one: a quote that has to be rescued is
- * not a quote from the story, and a verdict that loses its citation on the way out is
+ * no quiet demotion of the finding to an uncited one: a quote that has to be rescued is
+ * not a quote from the story, and a finding that loses its citation on the way out is
  * exactly the uncited assertion this pipeline exists to refuse.
  *
  * The result is parsed before it is returned, so this exported helper cannot hand back a
@@ -71,17 +75,76 @@ export function resolveCitation(story: string, quote: string): Citation {
 }
 
 /**
- * A disagreement between recognised scholars that this verdict sits inside.
+ * The model's one sentence on why this campaign sits inside a recorded difference.
  *
- * The note states the difference and stops there. Adjudicating it is a reviewer's work,
- * and a note that leaned would be an adjudication wearing a neutral label.
+ * It is about the campaign rather than about the disagreement: the positions come from the
+ * corpus, and this field is the model saying what the campaign does that lands it there. The
+ * length bound is what keeps it that way, because one sentence has no room for an account of
+ * a school's reasoning. The shape guard it shares with every other model-authored field is
+ * in `./model-prose`. See ADR-0007.
  */
-export const ScholarlyDifferenceNote = z.object({
-  topic: z.string().min(1),
-  note: z.string().min(1),
+const WhyThisApplies = modelProse(
+  z
+    .string()
+    .min(12)
+    .max(240)
+    .refine((why) => why === why.trim(), {
+      message: "The sentence is stored as it will be read, without surrounding whitespace.",
+    })
+    .refine((why) => (why.match(/[.!?](\s|$)/g) ?? []).length <= 1, {
+      message: "Why a campaign sits inside a difference is one sentence, not an account of it.",
+    }),
+);
+
+/**
+ * The corpus entry as it is carried into the output, with the id it was selected by.
+ *
+ * The fields mirror `ScholarlyDifference` in `./categories` because this is that value,
+ * not a restatement of it. Parsing enforces the identity: an entry whose text differs from
+ * what the corpus holds under its id is rejected, so a summary cannot be edited on the way
+ * through by a model, a fixture, or a JSON round-trip.
+ */
+const ResolvedScholarlyDifference = z
+  .object({
+    id: z.enum(SCHOLARLY_DIFFERENCE_IDS),
+    category: z.enum(RECIPIENT_CATEGORY_IDS),
+    topic: z.string().min(1),
+    summary: z.string().min(1),
+  })
+  .refine(
+    (entry) => {
+      const recorded = SCHOLARLY_DIFFERENCES.find((difference) => difference.id === entry.id);
+
+      return (
+        recorded !== undefined &&
+        recorded.category === entry.category &&
+        recorded.topic === entry.topic &&
+        recorded.summary === entry.summary
+      );
+    },
+    {
+      message:
+        "A scholarly difference is the entry recorded under its id, word for word, not a description of one.",
+    },
+  );
+
+/**
+ * A disagreement between recognised scholars that this finding sits inside.
+ *
+ * The difference itself is reference data: human-authored, versioned in `./categories`, and
+ * reached by id, so nothing in citation position was written by a model. The model selects
+ * which entry applies and says in one sentence what the campaign does that puts it there.
+ * That sentence is model prose like the rationale and the organizer question: shape-guarded
+ * against quotation and citation by `./model-prose`, not proof against a paraphrase, and to
+ * be rendered as the model's own words rather than as a quotation. ADR-0007 argues the split
+ * and states what it does not cover.
+ */
+export const ScholarlyDifferenceReference = z.object({
+  entry: ResolvedScholarlyDifference,
+  whyThisApplies: WhyThisApplies,
 });
 
-export type ScholarlyDifferenceNote = z.infer<typeof ScholarlyDifferenceNote>;
+export type ScholarlyDifferenceReference = z.infer<typeof ScholarlyDifferenceReference>;
 
 /**
  * The vocabulary this pipeline uses to talk to itself, none of which an organizer can act on.
@@ -99,6 +162,18 @@ const INTERNAL_VOCABULARY: readonly string[] = [
 ];
 
 /**
+ * What the model says about the campaign, in its own words, under the shape guard.
+ *
+ * Every field the model writes prose into runs through `modelProse`, on the model-facing
+ * schema and on the output schema both. The rationale matters most of the four: rule 6 sends
+ * unresolved discussion of a difference into it, so it is the field most likely to reach for
+ * a source, and until this guard it was a bare `z.string().min(1)`.
+ */
+const Rationale = modelProse(z.string().min(1));
+
+const MissingFact = modelProse(z.string().min(1));
+
+/**
  * A question a reviewer can forward to the organizer exactly as it stands.
  *
  * Most of what makes the question sendable cannot be checked here. Whether it is polite,
@@ -108,25 +183,27 @@ const INTERNAL_VOCABULARY: readonly string[] = [
  * an organizer's inbox unnoticed: a statement dressed as a request, whitespace from whatever
  * assembled it, and our internal vocabulary leaking out of the file it belongs in.
  */
-export const OrganizerQuestion = z
-  .string()
-  .min(1)
-  .refine((question) => question === question.trim(), {
-    message: "A question that is forwarded untouched carries no surrounding whitespace.",
-  })
-  .refine((question) => question.endsWith("?"), {
-    message: "A question a reviewer sends to the organizer ends with a question mark.",
-  })
-  .refine(
-    (question) => {
-      const lowered = question.toLowerCase();
-      return !INTERNAL_VOCABULARY.some((term) => lowered.includes(term));
-    },
-    {
-      message:
-        "A question to the organizer names no recipient category and no verdict status of ours.",
-    },
-  );
+export const OrganizerQuestion = modelProse(
+  z
+    .string()
+    .min(1)
+    .refine((question) => question === question.trim(), {
+      message: "A question that is forwarded untouched carries no surrounding whitespace.",
+    })
+    .refine((question) => question.endsWith("?"), {
+      message: "A question a reviewer sends to the organizer ends with a question mark.",
+    })
+    .refine(
+      (question) => {
+        const lowered = question.toLowerCase();
+        return !INTERNAL_VOCABULARY.some((term) => lowered.includes(term));
+      },
+      {
+        message:
+          "A question to the organizer names no recipient category and no finding status of ours.",
+      },
+    ),
+);
 
 export type OrganizerQuestion = z.infer<typeof OrganizerQuestion>;
 
@@ -134,42 +211,42 @@ export type OrganizerQuestion = z.infer<typeof OrganizerQuestion>;
  * What the campaign text does or does not say about one recipient category.
  *
  * The union is the enforcement mechanism, not documentation of one: `supported` carries a
- * citation list typed as non-empty, so a supported verdict with nothing behind it cannot
+ * citation list typed as non-empty, so a supported finding with nothing behind it cannot
  * be constructed, in TypeScript or at parse time. `insufficient_evidence` carries the
- * specific fact that is missing and the question that would obtain it, so the verdict a
+ * specific fact that is missing and the question that would obtain it, so the finding a
  * reviewer cannot act on is the one status that cannot exist without the way to resolve it.
  *
- * No verdict carries a score. A number here would be a determination with a decimal point
+ * No finding carries a score. A number here would be a determination with a decimal point
  * in it, and ADR-0001 rules that out.
  */
-export const CategoryVerdict = z.discriminatedUnion("status", [
+export const CategoryFinding = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("supported"),
     citations: z.tuple([Citation], Citation),
-    rationale: z.string().min(1),
-    scholarlyDifference: ScholarlyDifferenceNote.optional(),
+    rationale: Rationale,
+    scholarlyDifference: ScholarlyDifferenceReference.optional(),
   }),
   z.object({
     status: z.literal("not_supported"),
-    rationale: z.string().min(1),
-    scholarlyDifference: ScholarlyDifferenceNote.optional(),
+    rationale: Rationale,
+    scholarlyDifference: ScholarlyDifferenceReference.optional(),
   }),
   z.object({
     status: z.literal("insufficient_evidence"),
-    rationale: z.string().min(1),
-    missingFact: z.string().min(1),
+    rationale: Rationale,
+    missingFact: MissingFact,
     questionForOrganizer: OrganizerQuestion,
-    scholarlyDifference: ScholarlyDifferenceNote.optional(),
+    scholarlyDifference: ScholarlyDifferenceReference.optional(),
   }),
 ]);
 
-export type CategoryVerdict = z.infer<typeof CategoryVerdict>;
+export type CategoryFinding = z.infer<typeof CategoryFinding>;
 
 /**
  * A span suggesting the campaign splits its funds across distinct uses, some of which may
  * belong to different categories or to none. Escalation logic reads these directly.
  *
- * The citation list is non-empty for the same reason a supported verdict's is. A signal is
+ * The citation list is non-empty for the same reason a supported finding's is. A signal is
  * a claim about the campaign, and a claim about the campaign with no span behind it is the
  * thing this pipeline does not emit, whether it sits beside a category or outside all eight.
  */
@@ -184,12 +261,14 @@ export type CategoryVerdict = z.infer<typeof CategoryVerdict>;
  * description can name two things at all; the length minimum catches the abbreviations that
  * clear that bar and still say nothing.
  */
-export const MixedUseDescription = z
-  .string()
-  .min(12, { message: "A description of a split says what the money is split between." })
-  .refine((description) => (description.match(/\p{L}{2,}/gu) ?? []).length >= 2, {
-    message: "A description of a split names the distinct uses the money goes to.",
-  });
+export const MixedUseDescription = modelProse(
+  z
+    .string()
+    .min(12, { message: "A description of a split says what the money is split between." })
+    .refine((description) => (description.match(/\p{L}{2,}/gu) ?? []).length >= 2, {
+      message: "A description of a split names the distinct uses the money goes to.",
+    }),
+);
 
 export type MixedUseDescription = z.infer<typeof MixedUseDescription>;
 
@@ -200,44 +279,62 @@ export const MixedUseSignal = z.object({
 
 export type MixedUseSignal = z.infer<typeof MixedUseSignal>;
 
+/**
+ * The eight findings, the mixed-use signals, and the policy the whole thing was produced
+ * against.
+ *
+ * `policyVersion` is stamped server-side from the corpus in `./categories` and is absent
+ * from the model-facing schema, so it records what the pipeline read rather than what the
+ * model says it read. Without it a mapping is undated against a moving corpus, and a policy
+ * change leaves no way to tell which stored outputs it invalidated.
+ */
 export const CategoryMapping = z.object({
-  categories: z.record(z.enum(RECIPIENT_CATEGORY_IDS), CategoryVerdict),
+  policyVersion: z.string().regex(/^[0-9a-f]{12}$/),
+  categories: z.record(z.enum(RECIPIENT_CATEGORY_IDS), CategoryFinding),
   mixedUseSignals: z.array(MixedUseSignal),
 });
 
 export type CategoryMapping = z.infer<typeof CategoryMapping>;
 
 /**
- * The model is asked for quotes and never for offsets (ADR-0003), and is asked to state
- * the absence of a scholarly difference rather than to omit the field, so that silence
- * cannot be mistaken for a considered null.
+ * The model is asked for quotes and never for offsets (ADR-0003), for the id of a scholarly
+ * difference and never for an account of one (ADR-0007), and is asked to state the absence
+ * of a difference rather than to omit the field, so that silence cannot be mistaken for a
+ * considered null.
  */
-const ModelScholarlyDifference = ScholarlyDifferenceNote.nullable().describe(
-  "The scholarly disagreement this verdict sits inside, stated neutrally, or null.",
-);
+const ModelScholarlyDifference = z
+  .object({
+    id: z
+      .enum(SCHOLARLY_DIFFERENCE_IDS)
+      .describe("The id of the recorded difference this campaign sits inside."),
+    whyThisApplies: WhyThisApplies.describe(
+      "One sentence on what this campaign does that puts it inside that difference. Write about the campaign only. Do not state the difference, the positions, or who holds them, and quote nothing.",
+    ),
+  })
+  .nullable()
+  .describe("The recorded difference this finding sits inside, selected by id, or null.");
 
-const ModelVerdict = z.discriminatedUnion("status", [
+const ModelFinding = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("supported"),
     quotes: z
       .array(z.string().min(1))
       .min(1)
       .describe("Verbatim spans of the story that support this category. At least one."),
-    rationale: z.string().min(1).describe("What the quoted text says, in one or two sentences."),
+    rationale: Rationale.describe("What the quoted text says, in one or two sentences."),
     scholarlyDifference: ModelScholarlyDifference,
   }),
   z.object({
     status: z.literal("not_supported"),
-    rationale: z.string().min(1).describe("Why the story does not bear on this category."),
+    rationale: Rationale.describe("Why the story does not bear on this category."),
     scholarlyDifference: ModelScholarlyDifference,
   }),
   z.object({
     status: z.literal("insufficient_evidence"),
-    rationale: z.string().min(1).describe("What is unresolved about this category."),
-    missingFact: z
-      .string()
-      .min(1)
-      .describe("The one specific fact the story does not state, in a single sentence."),
+    rationale: Rationale.describe("What is unresolved about this category."),
+    missingFact: MissingFact.describe(
+      "The one specific fact the story does not state, in a single sentence.",
+    ),
     questionForOrganizer: OrganizerQuestion.describe(
       "The question a reviewer sends the organizer, word for word, to obtain that fact.",
     ),
@@ -245,11 +342,15 @@ const ModelVerdict = z.discriminatedUnion("status", [
   }),
 ]);
 
-const ModelMapping = z.object({
+/**
+ * Everything the model is permitted to return, and the surface a test reads to check that
+ * the permission is what ADR-0007 says it is.
+ */
+export const ModelMapping = z.object({
   categories: z.object(
-    Object.fromEntries(RECIPIENT_CATEGORY_IDS.map((id) => [id, ModelVerdict])) as Record<
+    Object.fromEntries(RECIPIENT_CATEGORY_IDS.map((id) => [id, ModelFinding])) as Record<
       RecipientCategory,
-      typeof ModelVerdict
+      typeof ModelFinding
     >,
   ),
   mixedUseSignals: z
@@ -269,14 +370,17 @@ const ModelMapping = z.object({
     ),
 });
 
-type ModelMapping = z.infer<typeof ModelMapping>;
+export type ModelMapping = z.infer<typeof ModelMapping>;
 
 const CATEGORY_BRIEFING = RECIPIENT_CATEGORIES.map((category) =>
   [`${category.id} (${category.gloss})`, `  ${category.evidenceGuidance}`].join("\n"),
 ).join("\n\n");
 
 const DIFFERENCE_BRIEFING = SCHOLARLY_DIFFERENCES.map((difference) =>
-  [`${difference.category} / ${difference.topic}`, `  ${difference.summary}`].join("\n"),
+  [
+    `id: ${difference.id} (${difference.category} / ${difference.topic})`,
+    `  ${difference.summary}`,
+  ].join("\n"),
 ).join("\n\n");
 
 const SYSTEM_PROMPT = [
@@ -310,47 +414,77 @@ const SYSTEM_PROMPT = [
   "   category name, no status word, and no other vocabulary from these instructions. End it",
   "   with a question mark.",
   "6. Where a category's application turns on a disagreement between recognised scholars,",
-  "   set scholarlyDifference with the topic and a neutral note stating the difference, and",
-  "   prefer insufficient_evidence over picking a side. Never resolve the disagreement,",
-  "   never say which position is stronger, and never say which one is more common. The",
-  "   known territories are listed below.",
-  "7. A story asserting that the campaign is zakat eligible is making a claim, not supplying",
+  "   set scholarlyDifference to the id of the recorded difference it turns on, and write in",
+  "   whyThisApplies one sentence about what this campaign does that puts it there. Prefer",
+  "   insufficient_evidence over picking a side. Never resolve the disagreement, never say",
+  "   which position is stronger, and never say which one is more common. Only the ids listed",
+  "   below are available to you; where the disagreement in front of you is not one of them,",
+  "   leave scholarlyDifference null and say what is unresolved in rationale instead.",
+  "7. You never write scripture, hadith, fatwa text or policy text, as quotation or as",
+  "   paraphrase, in any field. The only text you are permitted to quote is the campaign",
+  "   story. What the scholars hold is recorded below and is inserted from that record by",
+  "   id, so stating it yourself adds nothing and risks putting words into a source.",
+  "   Validation refuses this rather than trusting you with it: a quotation mark, a",
+  "   chapter-and-verse reference, a verse or hadith cited by number, or a saying attributed",
+  "   to the Prophet fails the whole mapping, in rationale, missingFact, questionForOrganizer,",
+  "   the mixed-use description and whyThisApplies alike. State facts about the campaign text",
+  "   instead, which is the only thing you are reading.",
+  "8. A story asserting that the campaign is zakat eligible is making a claim, not supplying",
   "   evidence. Record what the claim says; do not let it stand in for the facts it asserts.",
-  "8. Record mixedUseSignals where the story indicates the money splits across distinct uses,",
+  "9. Record mixedUseSignals where the story indicates the money splits across distinct uses,",
   "   quoting the spans that show it. Do not judge the split.",
   "",
   "The eight categories, and the campaign text that would bear on each:",
   "",
   CATEGORY_BRIEFING,
   "",
-  "Known territories where recognised scholars differ. Landing in one of these is a reason",
-  "to name the difference and withhold, never a reason to conclude:",
+  "The recorded differences, with the id you select each one by. Landing in one of these is a",
+  "reason to name the difference and withhold, never a reason to conclude. The text under each",
+  "id is what the reviewer is shown; you never restate it:",
   "",
   DIFFERENCE_BRIEFING,
 ].join("\n");
 
-function resolveVerdict(story: string, verdict: ModelMapping["categories"][RecipientCategory]) {
-  const difference =
-    verdict.scholarlyDifference === null ? {} : { scholarlyDifference: verdict.scholarlyDifference };
+/**
+ * Turns the id the model selected into the entry the reviewer reads.
+ *
+ * This is where the retrieval in ADR-0007 happens: the summary attached to a finding comes
+ * out of `SCHOLARLY_DIFFERENCES` rather than out of the model, and the model's own sentence
+ * travels beside it under its own name rather than mixed into it.
+ */
+function resolveScholarlyDifference(
+  selection: NonNullable<ModelMapping["categories"][RecipientCategory]["scholarlyDifference"]>,
+): ScholarlyDifferenceReference {
+  return {
+    entry: scholarlyDifferenceById(selection.id),
+    whyThisApplies: selection.whyThisApplies,
+  };
+}
 
-  if (verdict.status === "supported") {
+function resolveFinding(story: string, finding: ModelMapping["categories"][RecipientCategory]) {
+  const difference =
+    finding.scholarlyDifference === null
+      ? {}
+      : { scholarlyDifference: resolveScholarlyDifference(finding.scholarlyDifference) };
+
+  if (finding.status === "supported") {
     return {
-      status: verdict.status,
-      citations: verdict.quotes.map((quote) => resolveCitation(story, quote)),
-      rationale: verdict.rationale,
+      status: finding.status,
+      citations: finding.quotes.map((quote) => resolveCitation(story, quote)),
+      rationale: finding.rationale,
       ...difference,
     };
   }
 
-  if (verdict.status === "not_supported") {
-    return { status: verdict.status, rationale: verdict.rationale, ...difference };
+  if (finding.status === "not_supported") {
+    return { status: finding.status, rationale: finding.rationale, ...difference };
   }
 
   return {
-    status: verdict.status,
-    rationale: verdict.rationale,
-    missingFact: verdict.missingFact,
-    questionForOrganizer: verdict.questionForOrganizer,
+    status: finding.status,
+    rationale: finding.rationale,
+    missingFact: finding.missingFact,
+    questionForOrganizer: finding.questionForOrganizer,
     ...difference,
   };
 }
@@ -361,8 +495,8 @@ function resolveVerdict(story: string, verdict: ModelMapping["categories"][Recip
  *
  * The model returns quotes; the offsets are resolved here (ADR-0003) and the assembled
  * mapping is parsed before it is returned, so what a caller receives has already been
- * checked against the schema that forbids an uncited supported verdict. An unresolvable
- * quote fails the whole mapping rather than costing that one verdict its citation.
+ * checked against the schema that forbids an uncited supported finding. An unresolvable
+ * quote fails the whole mapping rather than costing that one finding its citation.
  *
  * The campaign is re-parsed on the way in for the same reason extraction does it: this is
  * a module boundary, and a story that is missing has to surface as a schema error.
@@ -412,7 +546,7 @@ export async function mapCategories(
   }
 
   const categories = Object.fromEntries(
-    RECIPIENT_CATEGORY_IDS.map((id) => [id, resolveVerdict(input.story, mapping.categories[id])]),
+    RECIPIENT_CATEGORY_IDS.map((id) => [id, resolveFinding(input.story, mapping.categories[id])]),
   );
 
   const mixedUseSignals = mapping.mixedUseSignals.map((signal) => ({
@@ -420,5 +554,5 @@ export async function mapCategories(
     citations: signal.quotes.map((quote) => resolveCitation(input.story, quote)),
   }));
 
-  return CategoryMapping.parse({ categories, mixedUseSignals });
+  return CategoryMapping.parse({ policyVersion: POLICY_VERSION, categories, mixedUseSignals });
 }

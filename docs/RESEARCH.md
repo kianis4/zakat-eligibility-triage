@@ -622,6 +622,53 @@ here, not more.
   conditions. It was fetched and does **not** contain a clause specifically on AI issuing fatwa.
   **VERIFIED**, including the negative finding (https://iifa-aifi.org/en/56035.html)
 
+### 5.6 Measured LLM performance on fiqh tasks
+
+Section 5.5 records a normative argument: bodies that issue fatwa hold that machines must not.
+There is a separate empirical record, added here because it says the failure is measured rather
+than feared. Two benchmarks published in 2025 evaluate models on Islamic legal questions, and
+both were fetched in full, the abstract pages and the arXiv HTML renderings of the papers.
+
+- Bouchekif, Rashwani, Sbahi, Gaben, al-Khatib and Ghaly, "Assessing Large Language Models on
+  Islamic Legal Reasoning: Evidence from Inheritance Law Evaluation" (arXiv:2509.01081, 2025-09-01,
+  v2 2025-09-17). Seven LLMs over a benchmark of 1,000 multiple-choice questions on 'ilm
+  al-mawarith. The abstract reports that "o3 and Gemini 2.5 achieved accuracies above 90%, whereas
+  ALLaM, Fanar, LLaMA, and Mistral scored below 50%". **VERIFIED**
+  (https://arxiv.org/abs/2509.01081)
+- The same paper's error analysis, section 4.4.1, on open-source models: "Some models base their
+  reasoning on fabricated Quranic verses or prophetic narrations that do not appear in any
+  canonical collection, often resulting in incorrect distribution of inheritance shares." Its
+  section 5 adds that "performance evaluations must account for reasoning quality, as accuracy
+  alone provides an incomplete and potentially misleading assessment of a model's capabilities in
+  this domain". Table 1 records GPT-4.5 at 74.0% overall, 86.8% on beginner items and 61.2% on
+  advanced ones. The dataset was built by converting fatwas into questions with Gemini 2.5 Pro and
+  was then "reviewed by four experts in Islamic studies". **VERIFIED**
+  (https://arxiv.org/html/2509.01081v2)
+- Atif, Askarbekuly, Darwish and Choudhury, "Sacred or Synthetic? Evaluating LLM Reliability and
+  Abstention for Religious Questions" (arXiv:2508.08287, 2025-08-04), AIES 2025. Introduces FiqhQA,
+  rulings "explicitly categorized by the four major Sunni schools of thought, in both Arabic and
+  English", and evaluates abstention as well as accuracy: "While GPT-4o outperforms all other
+  models in accuracy, Gemini and Fanar demonstrate superior abstention behavior critical for
+  minimizing confident incorrect answers", and "all models exhibit a performance drop in Arabic".
+  **VERIFIED** (https://arxiv.org/abs/2508.08287)
+- The same paper's full text: the dataset is 960 question-answer pairs; in English "GPT-4o stands
+  out as the top overall performer with 46% of the answers being fully correct", and in Arabic
+  "GPT-4o and Fanar are tied for the top spot (28%)". Under basic abstention prompting, "For
+  English, GPT-4o exhibits no abstention, producing outputs for all inputs". On the school-level
+  spread the authors write that they "speculate that this result is likely due to the greater
+  availability of Hanafi-related data in public Islamic resources like IslamQA.org", which is
+  offered as a speculation rather than as a measured cause. **VERIFIED**
+  (https://arxiv.org/html/2508.08287v1)
+
+**INFERENCE**, and it is the argument made in issue #14 rather than a finding either paper states.
+Inheritance law is the most algorithmic area of fiqh available to test: fixed shares, arithmetic,
+little discretion. Fabrication of scripture on that sub-domain is therefore a floor rather than a
+ceiling for a discretionary, school-contingent task like reading a campaign story, so the prior for
+this system's domain is worse and not better. The abstention result binds a design decision in the
+same way: a model that will not decline when it is asked to cannot be relied on to decline when it
+matters, which is why abstention here is a property of the output type rather than a behaviour
+requested in a prompt. Both are recorded in ADR-0007.
+
 ---
 
 ## 6. The failure-mode asymmetry

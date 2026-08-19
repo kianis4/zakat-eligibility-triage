@@ -25,7 +25,8 @@ construction rather than by inspection.
 A quote that cannot be located is a hard failure: `MappingError('citation_unresolvable')`.
 The verdict does not survive without its citation.
 
-The type system carries the rule as well. `CategoryVerdict` is a discriminated union on
+The type system carries the rule as well. `CategoryFinding`, named `CategoryVerdict` when
+this was written and renamed by ADR-0007, is a discriminated union on
 `status`, and the `supported` member requires a non-empty citation array in both the zod
 schema and the TypeScript type. An uncited supported verdict is not discouraged, it is
 unconstructable, so the guarantee holds against future code that has not read this ADR.
