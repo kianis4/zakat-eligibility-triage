@@ -1,3 +1,4 @@
+import { MockLanguageModelV3 } from "ai/test";
 import { describe, expect, it } from "vitest";
 
 import { scholarlyDifferenceById } from "../../src/lib/categories";
@@ -15,7 +16,13 @@ import {
   type JudgeVerdict,
 } from "../judge";
 import { scoreFixture } from "../run";
-import { QUIET_FACTS, agreeingMapping, modelReturning, modelThrowing } from "./subject-mocks";
+import {
+  QUIET_FACTS,
+  agreeingMapping,
+  modelReturning,
+  modelReturningInSequence,
+  modelThrowing,
+} from "./subject-mocks";
 
 const corpus = await loadEvalFixtures();
 const fixture = corpus.find((entry) => entry.id === "eval_0002")!;
@@ -72,31 +79,48 @@ describe("the judge parser", () => {
   });
 
   /**
-   * A judge writing paragraphs is a judge re-triaging the case, which is not what it was
-   * asked for and is not what the report has room to print.
+   * The rule this replaces rejected 12 of 16 records on the first live run, over the shape of
+   * the prose rather than the substance of the judgment. The booleans are the contract and
+   * the reason is diagnostic prose, so a two-sentence explanation is now a fine explanation.
    */
-  it("rejects a reason that is an account rather than a sentence", () => {
-    const essay = {
+  it("accepts a reason that runs to two sentences", () => {
+    const twoSentences = {
       pass: false,
       reason:
         "The rationale on the debt category asserts more than the text carries. It also reads as a determination.",
     };
 
+    expect(parseJudgeVerdict(verdict({ "no-ruling": twoSentences }))["no-ruling"].pass).toBe(
+      false,
+    );
+  });
+
+  /**
+   * Quoting the phrase under objection is what makes a reason checkable against the record,
+   * so nothing here forbids quotation marks. That is the opposite of the rule the pipeline's
+   * own model prose lives under, and deliberately: this text reaches a report, never a
+   * reviewer or an organizer.
+   */
+  it("accepts a reason quoting the phrase it objects to", () => {
+    const quoting = {
+      pass: false,
+      reason: 'The rationale calls the figures "concrete subsistence-level evidence", which the story never states.',
+    };
+
+    expect(parseJudgeVerdict(verdict({ "no-ruling": quoting }))["no-ruling"].pass).toBe(false);
+  });
+
+  it("rejects a reason long enough to be a second opinion on the campaign", () => {
+    const essay = { pass: false, reason: `The record ${"drifts and asserts ".repeat(30)}.` };
+
+    expect(essay.reason.length).toBeGreaterThan(400);
     expect(() => parseJudgeVerdict(verdict({ "no-ruling": essay }))).toThrow(JudgeError);
   });
 
-  it("rejects a reason padded with whitespace", () => {
-    expect(() =>
-      parseJudgeVerdict(
-        verdict({ "no-ruling": { pass: true, reason: "  Nothing here rules on anything.  " } }),
-      ),
-    ).toThrow(JudgeError);
-  });
-
-  it("rejects a reason too short to say anything", () => {
-    expect(() =>
-      parseJudgeVerdict(verdict({ "no-ruling": { pass: false, reason: "bad" } })),
-    ).toThrow(JudgeError);
+  it("rejects an empty reason", () => {
+    expect(() => parseJudgeVerdict(verdict({ "no-ruling": { pass: false, reason: "" } }))).toThrow(
+      JudgeError,
+    );
   });
 
   it("rejects a response that is not an object at all", () => {
@@ -173,15 +197,69 @@ describe("asking the judge", () => {
     expect(parsed["sendable-questions"].pass).toBe(true);
   });
 
-  it("fails loudly on a response the rubric does not admit", async () => {
-    const thrown = await judgeRecord(
-      score.campaign,
-      mapping,
-      modelReturning(verdict({ "no-ruling": { pass: true, reason: "  padded  " } })),
-    ).catch((error: unknown) => error as JudgeError);
+  const malformed = verdict({ "no-ruling": { pass: true, reason: "" } });
+
+  /**
+   * The repair pass. A malformed response is usually a formatting slip beside sound
+   * judgments, and the first live run threw away most of a corpus of them, so a rejection now
+   * buys one more attempt with the validation error quoted back.
+   */
+  it("retries once with the validation error when the first response is malformed", async () => {
+    const { model, prompts } = modelReturningInSequence([malformed, verdict()]);
+
+    const parsed = await judgeRecord(score.campaign, mapping, model);
+
+    expect(parsed["no-ruling"].pass).toBe(true);
+    expect(prompts).toHaveLength(2);
+    expect(prompts[0]).not.toContain("rejected before it could be recorded");
+    expect(prompts[1]).toContain("rejected before it could be recorded");
+  });
+
+  it("tells the retry which rule the first response broke", async () => {
+    const { model, prompts } = modelReturningInSequence([malformed, verdict()]);
+
+    await judgeRecord(score.campaign, mapping, model);
+
+    expect(prompts[1]).toContain("no-ruling");
+  });
+
+  it("still carries the record under review into the retry", async () => {
+    const { model, prompts } = modelReturningInSequence([malformed, verdict()]);
+
+    await judgeRecord(score.campaign, mapping, model);
+
+    expect(prompts[1]).toContain(fixture.story.slice(0, 60));
+  });
+
+  /**
+   * Once, not until it works. A retry loop turns a persistently broken judge into a slow
+   * expensive one that eventually says something, and the point of counting judge errors is
+   * to see the judge is broken rather than to grind past it.
+   */
+  it("fails loudly when the retry is malformed too, without asking a third time", async () => {
+    const { model, prompts } = modelReturningInSequence([malformed]);
+
+    const thrown = await judgeRecord(score.campaign, mapping, model).catch(
+      (error: unknown) => error as JudgeError,
+    );
 
     expect(thrown).toBeInstanceOf(JudgeError);
     expect((thrown as JudgeError).reason).toBe("schema_validation_failed");
+    expect(prompts).toHaveLength(2);
+  });
+
+  it("does not retry a call that never completed", async () => {
+    let calls = 0;
+    const unreachable = new MockLanguageModelV3({
+      doGenerate: async () => {
+        calls += 1;
+        throw new Error("connect ECONNREFUSED");
+      },
+    });
+
+    await judgeRecord(score.campaign, mapping, unreachable).catch(() => null);
+
+    expect(calls).toBe(1);
   });
 
   it("distinguishes a failed judge call from a malformed verdict", async () => {
@@ -236,25 +314,56 @@ describe("adding the verdicts up", () => {
     ]);
   });
 
-  /**
-   * A judge that could not answer must not make the gate easier. Dropping the outcome would
-   * shrink the denominator, which is the shape of a check that gets quieter the worse things
-   * get.
-   */
-  it("counts a judge that could not answer as a failure on every dimension", () => {
-    const broken: JudgeOutcome = {
-      fixtureId: "eval_0007",
-      difficulty: "flagged",
-      verdict: null,
-      error: "JudgeError: The judge call for campaign eval_0007 did not complete.",
-    };
+  const broken: JudgeOutcome = {
+    fixtureId: "eval_0007",
+    difficulty: "flagged",
+    verdict: null,
+    error: "JudgeError: The judge call for campaign eval_0007 did not complete.",
+  };
 
+  /**
+   * This used to be charged as a failure on all four dimensions, so that a judge which stopped
+   * answering could not quietly shrink its own denominator. The first live run showed what
+   * that cost: 12 of 16 records failed to parse, and the report announced twelve rulings by a
+   * pipeline that had issued none. The judge saying nothing and the judge finding something
+   * wrong are now different readings, and the denominator argument is answered by the separate
+   * judge/responded gate instead.
+   */
+  it("counts a judge that could not answer as an error rather than four failures", () => {
     const summary = summarizeJudgements([passing, broken], 0);
 
-    expect(summary.failures).toHaveLength(JUDGE_DIMENSIONS.length);
+    expect(summary.failures).toEqual([]);
+    expect(summary.errors).toEqual([
+      {
+        fixtureId: "eval_0007",
+        message: "JudgeError: The judge call for campaign eval_0007 did not complete.",
+      },
+    ]);
+  });
+
+  it("computes the dimension rates over the records it actually judged", () => {
+    const summary = summarizeJudgements([passing, broken], 0);
+
+    expect(summary.judged).toBe(1);
     for (const dimension of JUDGE_DIMENSIONS) {
-      expect(summary.passRateByDimension[dimension]).toBe(0.5);
+      expect(summary.passRateByDimension[dimension]).toBe(1);
+      expect(summary.failureCountByDimension[dimension]).toBe(0);
     }
+  });
+
+  it("keeps a real failure and an unanswered record apart in the same run", () => {
+    const summary = summarizeJudgements([passing, ruling, broken], 0);
+
+    expect(summary.judged).toBe(2);
+    expect(summary.errors).toHaveLength(1);
+    expect(summary.failures).toEqual([
+      {
+        fixtureId: "eval_0015",
+        dimension: "no-ruling",
+        reason: "The rationale states which position is stronger.",
+      },
+    ]);
+    expect(summary.passRateByDimension["no-ruling"]).toBe(0.5);
   });
 
   it("reports how much of the corpus the judge never saw", async () => {
@@ -274,6 +383,8 @@ describe("adding the verdicts up", () => {
 
     expect(summary.outcomes[0].verdict).toBeNull();
     expect(summary.outcomes[0].error).toContain("JudgeError");
-    expect(summary.failures).toHaveLength(JUDGE_DIMENSIONS.length);
+    expect(summary.errors).toHaveLength(1);
+    expect(summary.failures).toEqual([]);
+    expect(summary.judged).toBe(0);
   });
 });

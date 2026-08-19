@@ -119,19 +119,28 @@ export function renderReport(run: EvalRun): string {
     "## Judge",
     "",
     judge.skipped === 0
-      ? `The judge read all ${judge.outcomes.length} records.`
-      : `The judge read ${judge.outcomes.length} records. ${judge.skipped} fixture${
+      ? `The judge was given all ${judge.outcomes.length} records.`
+      : `The judge was given ${judge.outcomes.length} records. ${judge.skipped} fixture${
           judge.skipped === 1 ? "" : "s"
         } produced no record for it to read, having thrown in the pipeline.`,
     "",
+    /**
+     * The denominator is stated before the table rather than left to be inferred from it. A
+     * rate over four records and a rate over eighteen are different claims, and the run that
+     * forced this section apart printed the first while looking like the second.
+     */
+    judge.errors.length === 0
+      ? `It returned a usable verdict on every one, so the rates below are over ${judge.judged}.`
+      : `It returned a usable verdict on ${judge.judged} of them. The other ${judge.errors.length} produced no verdict even after a repair attempt, and are counted as judge errors rather than as failures: the judge said nothing about those records, which is not the same event as the judge finding something wrong. Every rate below is over the ${judge.judged} it did judge.`,
+    "",
     table(
-      ["dimension", "passed", "failed"],
+      ["dimension", `passed (of ${judge.judged})`, "failed"],
       JUDGE_DIMENSIONS.map((dimension) => {
         const failures = judge.failureCountByDimension[dimension];
 
         return [
           `${dimension} (${formatRate(judge.passRateByDimension[dimension])})`,
-          String(judge.outcomes.length - failures),
+          String(judge.judged - failures),
           String(failures),
         ];
       }),
@@ -146,6 +155,17 @@ export function renderReport(run: EvalRun): string {
       : judge.failures
           .map((failure) => `- \`${failure.fixtureId}\` · ${failure.dimension}: ${failure.reason}`)
           .join("\n"),
+    "",
+    "### Records the judge returned no verdict on",
+    "",
+    judge.errors.length === 0
+      ? "None."
+      : [
+          "These are harness faults, not findings about the pipeline. Each one was retried once",
+          "with the validation error quoted back before being counted here.",
+          "",
+          ...judge.errors.map((error) => `- \`${error.fixtureId}\`: ${error.message}`),
+        ].join("\n"),
     "",
     "## What this run does not measure",
     "",
@@ -188,6 +208,19 @@ export function renderSummary(run: EvalRun): string {
     lines.push(
       `${threw.length} fixture${threw.length === 1 ? "" : "s"} threw in the pipeline:`,
       ...threw.map((fixture) => `  ${fixture.id}: ${fixture.failure}`),
+      "",
+    );
+  }
+
+  /**
+   * Printed beside the pipeline throws and apart from the gate lines, because it is the same
+   * kind of news: something in the harness did not work. Reading it as a finding about the
+   * pipeline is the mistake the first live run made on a whole page of output.
+   */
+  if (run.judge.errors.length > 0) {
+    lines.push(
+      `${run.judge.errors.length} record${run.judge.errors.length === 1 ? "" : "s"} the judge returned no verdict on, after a repair attempt each:`,
+      ...run.judge.errors.map((error) => `  ${error.fixtureId}: ${error.message}`),
       "",
     );
   }

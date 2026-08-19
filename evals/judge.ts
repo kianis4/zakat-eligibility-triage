@@ -74,23 +74,22 @@ export class JudgeError extends Error {
 }
 
 /**
- * One sentence saying what the judge saw, bounded the way the pipeline's own model prose is.
+ * What the judge saw, bounded by length and by nothing else.
  *
- * The bound is the point rather than the tidiness. A reason with room for a paragraph becomes
- * a second opinion on the campaign, and the judge is being asked about the record's prose, not
- * invited to re-triage the case. One sentence is also the unit a human reads when scanning a
- * report of eighteen verdicts.
+ * This was a one-sentence rule, enforced by counting terminal punctuation, and the first live
+ * run showed why that was the wrong instrument: 12 of 16 records were rejected by it, and the
+ * judgments inside them were sound. The rule was validating the wrong thing. A pass or fail
+ * boolean is the contract this harness gates on; the reason beside it is diagnostic prose for
+ * a report, read by a person deciding whether a gate moved for a good cause. Rejecting a whole
+ * verdict because its explanation ran to two sentences discards four sound judgments to
+ * enforce a preference about prose.
+ *
+ * The length cap survives, at 400 characters, because it still does the job the sentence rule
+ * was reaching for: it keeps the reason an observation about the record rather than a second
+ * opinion on the campaign. Nothing here forbids quotation marks, deliberately. The judge
+ * quoting the phrase it objects to is what makes a reason checkable against the record.
  */
-const Reason = z
-  .string()
-  .min(12)
-  .max(300)
-  .refine((reason) => reason === reason.trim(), {
-    message: "The sentence is stored as it will be read, without surrounding whitespace.",
-  })
-  .refine((reason) => (reason.match(/[.!?](\s|$)/g) ?? []).length <= 1, {
-    message: "A judgment on one dimension is one sentence, not an account of the case.",
-  });
+const Reason = z.string().min(1).max(400);
 
 /**
  * Pass or fail, and why, with no number anywhere.
@@ -119,18 +118,20 @@ export type JudgeVerdict = z.infer<typeof JudgeVerdict>;
  * What the judge is asked for, which is looser than what the harness accepts.
  *
  * The split is the one `mapping.ts` makes between `ModelMapping` and `CategoryMapping`, for
- * the same reason. A refinement has no JSON-schema rendering, so a one-sentence rule sent to
- * a model arrives as nothing and comes back enforced only as an opaque generation failure.
- * Asking in the description and checking in `parseJudgeVerdict` gives the model a schema it
- * can satisfy and gives a human a message that names the field and the rule it broke.
+ * the same reason: a bound stated in a description is a request, and a bound stated in the
+ * parser is a check, and a human debugging a rejected verdict wants a message naming the
+ * field and the rule it broke rather than an opaque generation failure.
+ *
+ * Both sides now carry the same length bound, since the only rule left is one a JSON schema
+ * can express.
  */
 const ModelDimension = z.object({
   pass: z.boolean().describe("Whether the record passes this dimension."),
   reason: z
     .string()
-    .min(12)
-    .max(300)
-    .describe("One sentence, no surrounding whitespace, saying what you saw."),
+    .min(1)
+    .max(400)
+    .describe("One or two sentences saying what you saw. At most 400 characters."),
 });
 
 const ModelVerdict = z.object(
@@ -239,11 +240,11 @@ const SYSTEM_PROMPT = [
   "whether you agree with the statuses. You are being asked whether the prose the system wrote",
   "holds up on four specific dimensions.",
   "",
-  "For each dimension, return pass or fail and one sentence saying what you saw. Write exactly",
-  "one sentence, and do not put a full stop inside a fragment you quote. Judge the record in",
-  "front of you against the campaign text in front of you, and nothing else: you have not been",
-  "shown an expected answer or any previously decided case, and you should not reason as though",
-  "you had.",
+  "For each dimension, return pass or fail and a short reason saying what you saw. One or two",
+  "sentences, at most 400 characters, and quote the phrase you are objecting to where that",
+  "makes the reason easier to check. Judge the record in front of you against the campaign text",
+  "in front of you, and nothing else: you have not been shown an expected answer or any",
+  "previously decided case, and you should not reason as though you had.",
   "",
   "Fail a dimension when the record fails it anywhere, not on balance. One question a reviewer",
   "would have to rewrite is a failure of that dimension, and one sentence that settles a",
@@ -262,9 +263,9 @@ const SYSTEM_PROMPT = [
  * read as a set a reviewer would send are both invisible from inside a single category, and
  * eight calls would cost eight times as much to answer a worse version of the question.
  */
-export async function judgeRecord(
+async function askJudge(
   campaign: CampaignInput,
-  mapping: CategoryMapping,
+  prompt: string,
   model: LanguageModel,
 ): Promise<JudgeVerdict> {
   try {
@@ -272,7 +273,7 @@ export async function judgeRecord(
       model,
       schema: ModelVerdict,
       system: SYSTEM_PROMPT,
-      prompt: reviewBrief(campaign, mapping),
+      prompt,
     });
 
     return parseJudgeVerdict(result.object);
@@ -295,6 +296,50 @@ export async function judgeRecord(
   }
 }
 
+export async function judgeRecord(
+  campaign: CampaignInput,
+  mapping: CategoryMapping,
+  model: LanguageModel,
+): Promise<JudgeVerdict> {
+  const brief = reviewBrief(campaign, mapping);
+
+  try {
+    return await askJudge(campaign, brief, model);
+  } catch (thrown: unknown) {
+    if (!(thrown instanceof JudgeError) || thrown.reason !== "schema_validation_failed") {
+      throw thrown;
+    }
+
+    /**
+     * One repair attempt, with the validation error quoted back. A malformed response is
+     * usually a formatting slip rather than a judge with nothing to say, and the first live
+     * run was mostly this: sound judgments discarded over the shape of the prose beside them.
+     * Telling the model exactly which field broke which rule is the cheapest thing that has a
+     * chance of fixing it.
+     *
+     * Once, not until it works. A retry loop turns a persistently broken judge into a slow
+     * expensive one that eventually says something, and the point of counting judge errors is
+     * to see that the judge is broken rather than to grind past it. Only a schema failure is
+     * retried; a call that did not complete is the AI SDK's own retry to make, and repeating
+     * it here would stack two backoffs.
+     */
+    return askJudge(
+      campaign,
+      [
+        brief,
+        "",
+        "Your previous response to this was rejected before it could be recorded. The",
+        "judgments themselves were not the problem; the response did not satisfy the required",
+        "shape. Send the same judgments again in a response that does. The validation error",
+        "was:",
+        "",
+        thrown.message,
+      ].join("\n"),
+      model,
+    );
+  }
+}
+
 export type JudgeOutcome = {
   readonly fixtureId: string;
   readonly difficulty: FixtureScore["difficulty"];
@@ -308,9 +353,24 @@ export type JudgeFailure = {
   readonly reason: string;
 };
 
+/**
+ * A record the judge never returned a usable verdict on, after its repair attempt.
+ *
+ * Kept apart from `JudgeFailure` because it is a different kind of event. A failure is the
+ * judge saying the record fell short. This is the judge saying nothing at all, and the two
+ * were indistinguishable in the report until a live run made the difference impossible to
+ * miss.
+ */
+export type JudgeErrorRecord = {
+  readonly fixtureId: string;
+  readonly message: string;
+};
+
 export type JudgeSummary = {
   readonly outcomes: readonly JudgeOutcome[];
   readonly skipped: number;
+  readonly judged: number;
+  readonly errors: readonly JudgeErrorRecord[];
   readonly failures: readonly JudgeFailure[];
   readonly passRateByDimension: Readonly<Record<JudgeDimension, number>>;
   readonly failureCountByDimension: Readonly<Record<JudgeDimension, number>>;
@@ -319,27 +379,45 @@ export type JudgeSummary = {
 /**
  * Turns per-fixture verdicts into the per-dimension numbers the gates read.
  *
- * A judge call that threw counts as a failure on all four rather than being dropped. The
- * alternative rewards a broken judge with a smaller denominator, which is the shape of a
- * gate that gets quieter the worse things get.
+ * A judge call that produced no verdict is counted as its own thing and gated on its own
+ * threshold, rather than charged as a failure on all four dimensions. It used to be charged,
+ * on the argument that dropping it shrinks the denominator and makes a gate quieter the worse
+ * things get. The first live run showed the cost of that argument: 12 of 16 records failed to
+ * parse over a formatting rule, every dimension went deep red, and the report said the
+ * pipeline had adjudicated a scholarly difference twelve times. It had not. Nothing about the
+ * pipeline was measured at all, and the number that said otherwise was the loudest one on the
+ * page.
  *
- * A fixture the pipeline itself failed on is skipped instead, and counted separately. There
- * is no prose to judge, and charging that fixture again here would move two gates for one
- * defect. The count is reported so a reader can see how much of the corpus the judge
- * actually saw.
+ * So infrastructure failure and behavioural failure are now separate readings. The dimension
+ * rates compute over the records that were actually judged, with that denominator printed
+ * everywhere the rate is, and the count of unjudged records is its own gate. The denominator
+ * argument is answered by that gate rather than by contaminating these: a judge that stops
+ * answering fails the run, and it fails it under a name that says what went wrong.
+ *
+ * A fixture the pipeline itself failed on is skipped rather than counted as either. There is
+ * no prose to judge, and charging that fixture again here would move two gates for one defect.
  */
 export function summarizeJudgements(
   outcomes: readonly JudgeOutcome[],
   skipped: number,
 ): JudgeSummary {
   const failures: JudgeFailure[] = [];
+  const errors: JudgeErrorRecord[] = [];
   const passes = new Map<JudgeDimension, number>(JUDGE_DIMENSIONS.map((id) => [id, 0]));
 
   for (const outcome of outcomes) {
-    for (const dimension of JUDGE_DIMENSIONS) {
-      const judgment = outcome.verdict?.[dimension];
+    if (outcome.verdict === null) {
+      errors.push({
+        fixtureId: outcome.fixtureId,
+        message: outcome.error ?? "No verdict was produced and no error was recorded.",
+      });
+      continue;
+    }
 
-      if (judgment !== undefined && judgment.pass) {
+    for (const dimension of JUDGE_DIMENSIONS) {
+      const judgment = outcome.verdict[dimension];
+
+      if (judgment.pass) {
         passes.set(dimension, (passes.get(dimension) ?? 0) + 1);
         continue;
       }
@@ -347,10 +425,12 @@ export function summarizeJudgements(
       failures.push({
         fixtureId: outcome.fixtureId,
         dimension,
-        reason: judgment?.reason ?? (outcome.error ?? "No verdict was produced."),
+        reason: judgment.reason,
       });
     }
   }
+
+  const judged = outcomes.length - errors.length;
 
   const byDimension = <Value>(pick: (dimension: JudgeDimension) => Value) =>
     Object.fromEntries(JUDGE_DIMENSIONS.map((id) => [id, pick(id)])) as Record<
@@ -361,13 +441,13 @@ export function summarizeJudgements(
   return {
     outcomes,
     skipped,
+    judged,
+    errors,
     failures,
     passRateByDimension: byDimension((dimension) =>
-      outcomes.length === 0 ? 1 : (passes.get(dimension) ?? 0) / outcomes.length,
+      judged === 0 ? 1 : (passes.get(dimension) ?? 0) / judged,
     ),
-    failureCountByDimension: byDimension(
-      (dimension) => outcomes.length - (passes.get(dimension) ?? 0),
-    ),
+    failureCountByDimension: byDimension((dimension) => judged - (passes.get(dimension) ?? 0)),
   };
 }
 

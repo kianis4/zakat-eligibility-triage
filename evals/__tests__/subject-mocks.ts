@@ -26,6 +26,36 @@ export function modelReturning(payload: unknown): MockLanguageModelV3 {
   });
 }
 
+/**
+ * A model that answers differently each time it is called, and records how often it was.
+ *
+ * The repair retry cannot be tested without this. A judge that fails and then succeeds is two
+ * different responses to the same prompt, and the thing under test is that the second one is
+ * asked for at all. The last payload repeats once the list runs out, so a test wanting "always
+ * malformed" passes a single entry.
+ */
+export function modelReturningInSequence(payloads: readonly unknown[]) {
+  const prompts: string[] = [];
+  const model = new MockLanguageModelV3({
+    doGenerate: async (options) => {
+      const index = Math.min(prompts.length, payloads.length - 1);
+      prompts.push(JSON.stringify(options.prompt));
+
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(payloads[index]) }],
+        finishReason: { unified: "stop" as const, raw: undefined },
+        usage: {
+          inputTokens: { total: 0, noCache: 0, cacheRead: 0, cacheWrite: 0 },
+          outputTokens: { total: 0, text: 0, reasoning: 0 },
+        },
+        warnings: [],
+      };
+    },
+  });
+
+  return { model, prompts };
+}
+
 export function modelThrowing(message: string): MockLanguageModelV3 {
   return new MockLanguageModelV3({
     doGenerate: async () => {

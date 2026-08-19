@@ -162,7 +162,7 @@ describe("the judge gates", () => {
     const ruling = gate(clean, "judge/no-ruling", outcomes);
 
     expect(ruling.passed).toBe(false);
-    expect(ruling.observed).toBe("1 of 20 records");
+    expect(ruling.observed).toBe("1 of 20 judged records");
     expect(exitCode(gatesFor(clean, outcomes))).toBe(1);
   });
 
@@ -216,7 +216,67 @@ describe("a run that breaks several things at once", () => {
     expect(exitCode(gatesFor(fixtures))).toBe(1);
   });
 
-  it("evaluates one gate per deterministic dimension and one per judge dimension", () => {
-    expect(gatesFor(clean)).toHaveLength(4 + JUDGE_DIMENSIONS.length);
+  it("evaluates one gate per deterministic dimension, one per judge dimension, and the judge-responded gate", () => {
+    expect(gatesFor(clean)).toHaveLength(4 + 1 + JUDGE_DIMENSIONS.length);
+  });
+});
+
+/**
+ * The gate the first live run did not have. Twelve of sixteen records failed to parse, and
+ * with nowhere of their own to be counted they were charged as failures on all four
+ * dimensions, so the report announced twelve rulings by a pipeline that had issued none.
+ */
+describe("the judge-responded gate", () => {
+  function unanswered(count: number): JudgeOutcome[] {
+    return Array.from({ length: 18 }, (_, index) =>
+      index < count
+        ? {
+            fixtureId: `f${index}`,
+            difficulty: "clean" as const,
+            verdict: null,
+            error: "JudgeError: The judge response did not satisfy the rubric schema.",
+          }
+        : outcome(`f${index}`),
+    );
+  }
+
+  it("tolerates two unjudged records", () => {
+    const responded = gate(clean, "judge/responded", unanswered(2));
+
+    expect(responded.observed).toBe("2 of 18 records unjudged");
+    expect(responded.passed).toBe(true);
+    expect(exitCode(gatesFor(clean, unanswered(2)))).toBe(0);
+  });
+
+  it("flips the build at three", () => {
+    const responded = gate(clean, "judge/responded", unanswered(3));
+
+    expect(responded.passed).toBe(false);
+    expect(responded.shortfall).toContain("3 records produced no usable verdict");
+    expect(exitCode(gatesFor(clean, unanswered(3)))).toBe(1);
+  });
+
+  /**
+   * The behavioural gates must stay quiet while the infrastructure gate speaks. This is the
+   * whole point of the split: an unanswered record is not evidence that the pipeline ruled on
+   * anything.
+   */
+  it("does not turn unjudged records into dimension failures", () => {
+    const gates = gatesFor(clean, unanswered(12));
+    const failed = failedGates(gates).map((entry) => entry.id);
+
+    expect(failed).toEqual(["judge/responded"]);
+    expect(gate(clean, "judge/no-ruling", unanswered(12)).passed).toBe(true);
+    expect(gate(clean, "judge/no-ruling", unanswered(12)).observed).toBe("0 of 6 judged records");
+  });
+
+  it("computes the dimension rates over the records that were judged", () => {
+    const outcomes = [
+      ...unanswered(2).slice(0, 2),
+      ...Array.from({ length: 15 }, (_, index) => outcome(`g${index}`)),
+      outcome("g15", ["sendable-questions"]),
+    ];
+
+    expect(gate(clean, "judge/sendable-questions", outcomes).observed).toBe("93.8% (15 of 16)");
   });
 });

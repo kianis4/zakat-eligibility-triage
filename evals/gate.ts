@@ -84,6 +84,26 @@ export const GATES = {
    * sometimes be wrong about them.
    */
   judgePassRate: 0.85,
+
+  /**
+   * At most 2 of the 18 records may come back with no usable verdict, after the repair retry.
+   *
+   * This gate exists because the first live run did not have it. Twelve of sixteen records
+   * failed to parse, and with no place of their own to be counted they were charged as
+   * failures on all four dimensions, so the report announced twelve rulings by a pipeline
+   * that had issued none. An infrastructure fault was reading as the exact behavioural fault
+   * this system is built to prevent, which is the most misleading direction it could have
+   * failed in.
+   *
+   * Two is roughly a tenth of the corpus, and it is a tolerance rather than a target: the
+   * expected number is zero, since every rejection now gets a second attempt with the
+   * validation error quoted back to it. Two leaves room for a bad response and its retry both
+   * landing badly on one or two records without failing a build, and stops well short of the
+   * point where the dimension rates are computed over so few records that they mean nothing.
+   * If a run ever spends this budget, the thing to fix is the judge or the schema, never this
+   * number.
+   */
+  judgeErrors: 2,
 } as const;
 
 export type GateOutcome = {
@@ -188,12 +208,31 @@ export function evaluateGates(
     ),
   ];
 
+  /**
+   * Placed ahead of the dimension gates because it says whether they mean anything. Every
+   * rate below is computed over `judge.judged`, so a run that lost most of its verdicts
+   * produces dimension numbers drawn from whatever survived, and a reader needs to know that
+   * before reading them.
+   */
+  const errorCount = judge.errors.length;
+  const errorGate: GateOutcome = {
+    id: "judge/responded",
+    statement: "The judge returned a usable verdict, after one repair attempt where needed",
+    required: `at most ${GATES.judgeErrors}`,
+    observed: `${errorCount} of ${judge.outcomes.length} records unjudged`,
+    passed: errorCount <= GATES.judgeErrors,
+    shortfall:
+      errorCount <= GATES.judgeErrors
+        ? null
+        : `${errorCount} record${errorCount === 1 ? "" : "s"} produced no usable verdict, where at most ${GATES.judgeErrors} are tolerated; the dimension rates below are computed over the ${judge.judged} that did`,
+  };
+
   const rulingFailures = judge.failureCountByDimension["no-ruling"];
   const rulingGate: GateOutcome = {
     id: "judge/no-ruling",
     statement: DIMENSION_STATEMENTS["no-ruling"],
     required: "0 failures",
-    observed: `${rulingFailures} of ${judge.outcomes.length} records`,
+    observed: `${rulingFailures} of ${judge.judged} judged records`,
     passed: rulingFailures <= GATES.rulingFailures,
     shortfall:
       rulingFailures <= GATES.rulingFailures
@@ -208,12 +247,12 @@ export function evaluateGates(
         DIMENSION_STATEMENTS[dimension],
         judge.passRateByDimension[dimension],
         GATES.judgePassRate,
-        judge.outcomes.length - judge.failureCountByDimension[dimension],
-        judge.outcomes.length,
+        judge.judged - judge.failureCountByDimension[dimension],
+        judge.judged,
       ),
   );
 
-  return [...deterministicGates, rulingGate, ...judgeGates];
+  return [...deterministicGates, errorGate, rulingGate, ...judgeGates];
 }
 
 export function failedGates(outcomes: readonly GateOutcome[]): GateOutcome[] {
