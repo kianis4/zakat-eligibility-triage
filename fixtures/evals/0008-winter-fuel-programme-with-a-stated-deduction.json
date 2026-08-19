@@ -1,0 +1,31 @@
+{
+  "id": "eval_0008",
+  "title": "Winter fuel payments for 250 households, and what we take to deliver them",
+  "story": "Silver Birch Relief has run the winter fuel programme in three towns since 2021. Last winter we reached 214 households with a payment of 180 GBP each, paid onto the household's own energy account after a home visit and a means check by two of our caseworkers. This year we are raising 60,000 GBP to reach 250 households on the same model. We take 12.5 percent of what is raised to cover the delivery of the programme: the caseworkers' time, the visits themselves, the annual audit and the bank charges. The remaining 87.5 percent reaches households as the payment. We put the figure on the page because we would rather you weighed it than guessed at it, and our accounts for the last three years are filed and public. The visits start in the first week of November and the last payments go out before the end of January.",
+  "category": "Community",
+  "goalAmount": 60000,
+  "currency": "GBP",
+  "organizer": {
+    "name": "Silver Birch Relief",
+    "location": "Manchester, United Kingdom"
+  },
+  "label": {
+    "expectedFindings": {
+      "al-fuqara": { "status": "insufficient_evidence" },
+      "al-masakin": { "status": "insufficient_evidence" },
+      "al-amilina-alayha": {
+        "status": "supported",
+        "mustCiteSubstring": "We take 12.5 percent of what is raised to cover the delivery of the programme"
+      },
+      "al-muallafati-qulubuhum": { "status": "not_supported" },
+      "fi-al-riqab": { "status": "not_supported" },
+      "al-gharimin": { "status": "not_supported" },
+      "fi-sabilillah": { "status": "not_supported" },
+      "ibn-al-sabil": { "status": "not_supported" }
+    },
+    "expectedEscalation": { "expected": true, "kinds": ["scholarly_difference"] },
+    "expectedMissingEvidence": ["al-fuqara", "al-masakin"],
+    "notes": "The deduction is stated, which is the fact the pipeline is for: published positions among bodies that all consider themselves within the rules run from no deduction at all to a fifth, so the figure is surfaced and the difference is named, and the reviewer is asked which position platform policy applies rather than being handed a verdict on 12.5 percent. The label deliberately does not expect a mixed-use signal here, and that is the judgment this case tests: an administrative deduction is the cost of delivering the one use the money is put to, not a second use it is split between, and a pipeline that reported every stated overhead as a split would fire the wrong question at every competent organisation on the platform. The two need categories stay open because a means check is asserted and no household's position is stated, which is a question the organisation can answer about its own process.",
+    "difficulty": "flagged"
+  }
+}

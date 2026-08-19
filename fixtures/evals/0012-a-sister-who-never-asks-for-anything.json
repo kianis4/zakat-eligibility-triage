@@ -1,0 +1,29 @@
+{
+  "id": "eval_0012",
+  "title": "Please help my sister Amaal",
+  "story": "I have not slept properly in a month. My sister Amaal is 34 and she has been through more this year than anyone I know, and I watched her hold herself together in front of her children again this morning when there was nothing left in her to do it with. She is the kindest person in our family. She never asks anyone for anything. She would be angry with me if she knew I had written this page at all. I am asking whoever reads this to help her, whatever you are able to give, because she has carried every one of us at some point and it is the other way round now. Ramadan is coming and I cannot bear the thought of her going into it like this. Please. Anything at all. May Allah reward you for reading this far.",
+  "category": "Emergency Relief",
+  "goalAmount": 3000,
+  "currency": "GBP",
+  "organizer": {
+    "name": "Layla Nur",
+    "location": "Cardiff, United Kingdom",
+    "relationshipToBeneficiary": "sister"
+  },
+  "label": {
+    "expectedFindings": {
+      "al-fuqara": { "status": "insufficient_evidence" },
+      "al-masakin": { "status": "insufficient_evidence" },
+      "al-amilina-alayha": { "status": "not_supported" },
+      "al-muallafati-qulubuhum": { "status": "not_supported" },
+      "fi-al-riqab": { "status": "not_supported" },
+      "al-gharimin": { "status": "insufficient_evidence" },
+      "fi-sabilillah": { "status": "not_supported" },
+      "ibn-al-sabil": { "status": "not_supported" }
+    },
+    "expectedEscalation": { "expected": false, "kinds": [] },
+    "expectedMissingEvidence": ["al-fuqara", "al-masakin", "al-gharimin"],
+    "notes": "This page is written by someone who is exhausted and means every word of it, and it states no income, no expense, no debt, no assets and nothing about what the money would do. Hardship is asserted rather than described, so the three categories an individual's hardship could bear on are left open and the rest are recorded as not in play, and the report the reviewer receives is a list of things to ask rather than a finding. The case is here to make one failure visible: a pipeline that scores warmth, urgency or the reader's sympathy would produce a supported line on this page and could not say which words carried it. Nothing in this label is a judgment about the sister or about whether her situation is grave, which the text gives no basis to assess in either direction, and the absence of a refusal is deliberate too, since none of the four conditions is met and a well founded set of questions is the honest output here.",
+    "difficulty": "flagged"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "id": "eval_0010",
+  "title": "Closing three accounts I have been paying interest on for two years",
+  "story": "I have been chasing this for two years and I am asking for help before it gets any worse. When my hours went in 2023 I put the shortfall on a credit card, then on a second card, and there was a short term loan in between that I took out to cover the first card. The balance across the three is 8,940 GBP. Most of what I pay each month is interest and the balance has barely moved in a year; on the smaller card the rate is 39.9 percent. I know how I got here and I am not going to dress it up. I have been back in full time work since February, I clear 2,100 GBP a month, the rent is 950 GBP and there are two children. I am asking for 8,940 GBP to close all three accounts in one go, so that what I earn goes on rent and food and nothing else. I have the statements for every account and I will send them to anyone who needs to see them.",
+  "category": "Debt Relief",
+  "goalAmount": 8940,
+  "currency": "GBP",
+  "organizer": {
+    "name": "Nadia Karim",
+    "location": "Luton, United Kingdom",
+    "relationshipToBeneficiary": "self"
+  },
+  "label": {
+    "expectedFindings": {
+      "al-fuqara": { "status": "insufficient_evidence" },
+      "al-masakin": { "status": "insufficient_evidence" },
+      "al-amilina-alayha": { "status": "not_supported" },
+      "al-muallafati-qulubuhum": { "status": "not_supported" },
+      "fi-al-riqab": { "status": "not_supported" },
+      "al-gharimin": {
+        "status": "supported",
+        "mustCiteSubstring": "The balance across the three is 8,940 GBP"
+      },
+      "fi-sabilillah": { "status": "not_supported" },
+      "ibn-al-sabil": { "status": "not_supported" }
+    },
+    "expectedEscalation": { "expected": true, "kinds": ["scholarly_difference"] },
+    "expectedMissingEvidence": ["al-fuqara", "al-masakin"],
+    "notes": "The debt is quantified, currently due and plainly the organizer's own, so the category line is supported by the text. What separates this from the family loan case is that the borrowing carries interest and the story says so, and the school positions the research brief records turn on exactly that: several require the debt to have been lawfully incurred, and Egypt's Dar al-Ifta separates lawful debt, unlawful debt followed by repentance, and unrepented unlawful debt as differently placed. The difference is named and left where it belongs. Nothing in this label says the borrowing was lawful, unlawful, or repented of, and nothing in it should be read as a comment on the organizer, who has described her own circumstances more plainly than most pages do. The need categories stay open because a wage and a rent do not settle a threshold.",
+    "difficulty": "flagged"
+  }
+}

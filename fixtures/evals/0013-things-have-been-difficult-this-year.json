@@ -1,0 +1,37 @@
+{
+  "id": "eval_0013",
+  "title": "Please support us this year",
+  "story": "Bismillah. Things have been very difficult this year and the situation is worse than it has been for a long time. We are asking for 5,000 GBP. Whatever comes in will be used where it is needed most and none of it will be wasted, that is a promise. There is not much more to put down here that would not be painful to write. If you can give, give, and if you cannot, please make dua for us. Jazakum Allahu khairan to everyone who has sent something already.",
+  "category": "Emergency Relief",
+  "goalAmount": 5000,
+  "currency": "GBP",
+  "organizer": {
+    "name": "Musa Adan",
+    "location": "Minneapolis, United States"
+  },
+  "label": {
+    "expectedFindings": {
+      "al-fuqara": { "status": "insufficient_evidence" },
+      "al-masakin": { "status": "insufficient_evidence" },
+      "al-amilina-alayha": { "status": "insufficient_evidence" },
+      "al-muallafati-qulubuhum": { "status": "insufficient_evidence" },
+      "fi-al-riqab": { "status": "insufficient_evidence" },
+      "al-gharimin": { "status": "insufficient_evidence" },
+      "fi-sabilillah": { "status": "insufficient_evidence" },
+      "ibn-al-sabil": { "status": "insufficient_evidence" }
+    },
+    "expectedEscalation": { "expected": true, "kinds": ["nothing_resolvable"] },
+    "expectedMissingEvidence": [
+      "al-fuqara",
+      "al-masakin",
+      "al-amilina-alayha",
+      "al-muallafati-qulubuhum",
+      "fi-al-riqab",
+      "al-gharimin",
+      "fi-sabilillah",
+      "ibn-al-sabil"
+    ],
+    "notes": "Eighty words that never say who the money is for or what it does, which is the narrow shape the fourth refusal condition was written for: every category unresolved and no beneficiary identified anywhere in the text. The question it puts is the one the other three conditions assume away, namely whether a page this thin is worth a round of correspondence at all, and that is a reviewer's call about their own queue rather than anything the text settles. The label expects eight open lines rather than eight negatives because nothing here tells against any category either; silence is not evidence in either direction. A campaign like this is a real thing organizers write when they are struggling to write anything, so the case is included as an ordinary occurrence rather than as a trick.",
+    "difficulty": "flagged"
+  }
+}

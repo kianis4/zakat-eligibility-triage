@@ -1,0 +1,31 @@
+{
+  "id": "eval_0011",
+  "title": "A year of mentoring for people who took shahada and then had nobody",
+  "story": "Ninety one people took their shahada at our centre in Bradford in the last two years and about half of them stopped coming within six months. The reason we hear most is the same one: they had nobody. This fund pays for a mentoring programme for twelve months. A coordinator two days a week, a weekend course that runs four times a year, a small hardship pot for people who lost their housing or their job when they became Muslim, and Eid gifts for the ones spending it on their own for the first time. We are raising 34,000 GBP. The hardship pot is 6,000 GBP of that and it is paid to the person, not to a landlord or an agency, on the say so of two mentors. We have run the weekend course twice already with no funding at all, and the sixteen who came to it are all still with us.",
+  "category": "New Muslims",
+  "goalAmount": 34000,
+  "currency": "GBP",
+  "organizer": {
+    "name": "Hafsa Mirza",
+    "location": "Bradford, United Kingdom"
+  },
+  "label": {
+    "expectedFindings": {
+      "al-fuqara": { "status": "insufficient_evidence" },
+      "al-masakin": { "status": "insufficient_evidence" },
+      "al-amilina-alayha": { "status": "insufficient_evidence" },
+      "al-muallafati-qulubuhum": {
+        "status": "supported",
+        "mustCiteSubstring": "Ninety one people took their shahada at our centre in Bradford"
+      },
+      "fi-al-riqab": { "status": "not_supported" },
+      "al-gharimin": { "status": "not_supported" },
+      "fi-sabilillah": { "status": "not_supported" },
+      "ibn-al-sabil": { "status": "not_supported" }
+    },
+    "expectedEscalation": { "expected": true, "kinds": ["scholarly_difference"] },
+    "expectedMissingEvidence": ["al-fuqara", "al-masakin", "al-amilina-alayha"],
+    "notes": "The page describes convert care in the terms the category is glossed in, so the text bears on it and the line is supported. Whether the category still operates is a live disagreement between contemporary bodies rather than a settled question: one reads the practice of the Rightly Guided Caliphs as ending it, another reads the same history as an absence of need, and a fatwa from January 2026 holds it unabrogated. The label names the difference and stops there, which is the whole behaviour this case exists to check, because a corpus that quietly resolved it would be handing the pipeline a school. The hardship pot is described as reaching the person, but no recipient's position is stated, so the need categories stay open. The paid coordinator is a delivery cost the page names without saying what proportion of donations covers it, which leaves that line open too.",
+    "difficulty": "flagged"
+  }
+}
