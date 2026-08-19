@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import type { EscalationReason } from "../../src/lib/escalation";
 import { evaluateGates } from "../gate";
 import { summarizeJudgements, type JudgeOutcome } from "../judge";
 import { renderReport, renderSummary, type EvalRun } from "../report";
 import { summarize, type FixtureScore } from "../run";
 import { outcome, score } from "./score-builders";
+
+type EscalationKind = EscalationReason["kind"];
 
 function run(fixtures: readonly FixtureScore[], outcomes: readonly JudgeOutcome[]): EvalRun {
   const deterministic = summarize(fixtures);
@@ -72,6 +75,77 @@ describe("a report on a failing run", () => {
     expect(summary).toContain("FAIL  citation-validity");
     expect(summary).toContain("citation-validity: 50.0 points below the 100.0% floor");
     expect(summary).toContain("judge/no-ruling:");
+  });
+});
+
+/**
+ * "differs" on its own says a set comparison failed and nothing about which way, and the two
+ * directions are opposite defects: a condition that never fired is a recall bug, one that
+ * fired spuriously is a noise bug. A reader deciding whether the label or the pipeline is
+ * wrong cannot start without knowing which.
+ */
+describe("an escalation mismatch", () => {
+  function mismatch(expected: readonly string[], actual: readonly string[]): FixtureScore {
+    return {
+      ...score("eval_0006"),
+      escalation: {
+        passed: false,
+        expected: expected as EscalationKind[],
+        actual: actual as EscalationKind[],
+      },
+    };
+  }
+
+  it("names the kinds on both sides in the report", () => {
+    const rendered = renderReport(
+      run([mismatch(["mixed_use"], ["mixed_use", "scholarly_difference"])], [outcome("eval_0006")]),
+    );
+
+    expect(rendered).toContain("escalation: expected [mixed_use], got [mixed_use, scholarly_difference]");
+  });
+
+  it("distinguishes a condition that never fired from one that fired spuriously", () => {
+    const missing = renderReport(run([mismatch(["mixed_use"], [])], [outcome("eval_0006")]));
+    const spurious = renderReport(run([mismatch([], ["mixed_use"])], [outcome("eval_0006")]));
+
+    expect(missing).toContain("escalation: expected [mixed_use], got [none]");
+    expect(spurious).toContain("escalation: expected [none], got [mixed_use]");
+  });
+
+  it("names the kinds in the terminal summary too", () => {
+    const summary = renderSummary(
+      run([mismatch(["mixed_use"], ["scholarly_difference"])], [outcome("eval_0006")]),
+    );
+
+    expect(summary).toContain("1 fixture refused on different grounds than the corpus expects:");
+    expect(summary).toContain("eval_0006: escalation: expected [mixed_use], got [scholarly_difference]");
+  });
+
+  it("keeps the category disagreements beside it rather than replacing them", () => {
+    const both: FixtureScore = {
+      ...mismatch(["mixed_use"], []),
+      categoryAgreement: {
+        agreed: 7,
+        total: 8,
+        disagreements: [
+          { category: "al-gharimin", expected: "supported", actual: "not_supported" },
+        ],
+      },
+    };
+
+    const rendered = renderReport(run([both], [outcome("eval_0006")]));
+
+    expect(rendered).toContain("al-gharimin: expected supported, got not_supported");
+    expect(rendered).toContain("escalation: expected [mixed_use], got [none]");
+  });
+
+  it("says nothing about escalation on a fixture that matched", () => {
+    const rendered = renderReport(run([score("eval_0001")], [outcome("eval_0001")]));
+
+    expect(rendered).not.toContain("escalation: expected");
+    expect(renderSummary(run([score("eval_0001")], [outcome("eval_0001")]))).not.toContain(
+      "refused on different grounds",
+    );
   });
 });
 

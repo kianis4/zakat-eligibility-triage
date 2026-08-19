@@ -18,6 +18,24 @@ function table(headers: readonly string[], rows: readonly (readonly string[])[])
   return [row(headers), row(headers.map(() => "---")), ...rows.map(row)].join("\n");
 }
 
+/**
+ * Names the refusal kinds behind an escalation mismatch.
+ *
+ * "differs" on its own says a set comparison failed and nothing about which way. Extra kinds
+ * and missing kinds are opposite defects: the first is a pipeline refusing on something the
+ * corpus does not expect, the second is a condition the corpus expects that never fired, and a
+ * reader deciding whether a label or the gate is wrong needs to know which happened. Both
+ * lists are printed rather than only the difference, because the expected set is small and the
+ * comparison is exact-match, so seeing both is how the mismatch is read at a glance.
+ */
+function escalationDifference(fixture: FixtureScore): string {
+  const set = (kinds: readonly string[]) => (kinds.length === 0 ? "none" : kinds.join(", "));
+
+  return `escalation: expected [${set(fixture.escalation.expected)}], got [${set(
+    fixture.escalation.actual,
+  )}]`;
+}
+
 function fixtureRow(fixture: FixtureScore): readonly string[] {
   if (fixture.outcome === "failed") {
     return [
@@ -40,6 +58,13 @@ function fixtureRow(fixture: FixtureScore): readonly string[] {
       ? "none expected"
       : `${fixture.missingEvidence.covered}/${fixture.missingEvidence.expected}`;
 
+  const differences = [
+    ...fixture.categoryAgreement.disagreements.map(
+      (entry) => `${entry.category}: expected ${entry.expected}, got ${entry.actual}`,
+    ),
+    ...(fixture.escalation.passed ? [] : [escalationDifference(fixture)]),
+  ];
+
   return [
     fixture.id,
     fixture.difficulty,
@@ -47,9 +72,7 @@ function fixtureRow(fixture: FixtureScore): readonly string[] {
     citations,
     fixture.escalation.passed ? "match" : "differs",
     questions,
-    fixture.categoryAgreement.disagreements
-      .map((entry) => `${entry.category}: expected ${entry.expected}, got ${entry.actual}`)
-      .join("; "),
+    differences.join("; "),
   ];
 }
 
@@ -208,6 +231,25 @@ export function renderSummary(run: EvalRun): string {
     lines.push(
       `${threw.length} fixture${threw.length === 1 ? "" : "s"} threw in the pipeline:`,
       ...threw.map((fixture) => `  ${fixture.id}: ${fixture.failure}`),
+      "",
+    );
+  }
+
+  /**
+   * The escalation gate is the one whose number says least on its own. It is scored per
+   * fixture on an exact set match, so a failing rate names how many fixtures disagreed and
+   * nothing about how, and the difference between a condition that never fired and one that
+   * fired spuriously is the difference between a recall bug and a noise bug. Naming the kinds
+   * in the terminal is what saves a reader opening the report to learn which they have.
+   */
+  const mismatched = run.deterministic.fixtures.filter(
+    (fixture) => fixture.outcome === "scored" && !fixture.escalation.passed,
+  );
+
+  if (mismatched.length > 0) {
+    lines.push(
+      `${mismatched.length} fixture${mismatched.length === 1 ? "" : "s"} refused on different grounds than the corpus expects:`,
+      ...mismatched.map((fixture) => `  ${fixture.id}: ${escalationDifference(fixture)}`),
       "",
     );
   }
