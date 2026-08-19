@@ -63,6 +63,18 @@ subject. They are written to the constraints the rest of the repository works un
    the range of published overhead positions, the tamlik question on project campaigns and
    the live disagreement over reconciled hearts all trace to section 2, 3 or 4.
 
+## Where this synthetic platform's policy diverges from the researched one
+
+The notes speak for a platform that does not exist, and its policy is not a copy of the
+one section 1.2 of `docs/RESEARCH.md` documents. One divergence is load-bearing enough to
+name: the researched platform does not verify traveller campaigns at all, on the stated
+practical ground that a genuinely stranded person is unlikely to be able to run one.
+Case 0003 is verified here, which is a deliberate choice made for this corpus so that the
+category appears in it, and the note says so. Section 3.5 of the research is the reason
+it can be a choice: that refusal is a platform position taken on practical grounds rather
+than doctrinal ones, and it should not be read as a third opinion alongside the positions
+that are scholarly.
+
 ## The rule that governs this directory
 
 These notes are rendered to a human reviewer and are never serialized into a model
