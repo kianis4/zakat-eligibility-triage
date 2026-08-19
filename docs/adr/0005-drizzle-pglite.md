@@ -51,5 +51,7 @@ Hard: drizzle-kit does not emit `CREATE EXTENSION vector`, so the first migratio
 that line by hand and a future contributor regenerating from scratch has to re-add it.
 PGlite is a WASM Postgres and is not byte-identical to the server build, so it is a strong
 check rather than a proof; anything version-specific still needs a real instance. We also
-carry drizzle-kit as a dev dependency with a known esbuild dev-server advisory in its
-tree, which is a local tool rather than a shipped path.
+carry drizzle-kit as a dev dependency: `npm audit` reports four moderate advisories, all
+of them the esbuild development-server issue reaching us through
+`drizzle-kit -> @esbuild-kit/esm-loader -> @esbuild-kit/core-utils`, and
+`npm audit --omit=dev` reports none, so nothing in that tree is on a shipped path.
