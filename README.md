@@ -37,7 +37,38 @@ passes measures self-consistency rather than accuracy.
 Run `npm test` and `npm run typecheck`, both. Part of the suite is enforced by the compiler
 rather than by the test runner: `src/lib/__tests__/mapping-types.test.ts` proves that a
 supported finding with no citation does not typecheck, and a proof of that shape only fails
-under `tsc`.
+under `tsc`. Neither command touches the network, including the tests of the eval harness
+itself, which drive the real pipeline against mock models.
+
+The eval run does touch the network, because measuring the pipeline means running it:
+
+```sh
+export ANTHROPIC_API_KEY=...   # a missing key fails the run rather than skipping it
+npm run evals
+```
+
+It takes the eighteen labelled campaigns in `fixtures/evals/`, runs each one through
+extraction, mapping, the missing-evidence report and the refusal gate, scores four things a
+label can be right about, then asks a second model for a pass or fail on four things a label
+cannot see. It writes `evals/report.md`, which is gitignored, prints the gate arithmetic to
+the terminal, and exits non-zero if any gate was missed.
+
+| Gate | Bar |
+| --- | --- |
+| Citation validity | 100%, every citation slicing its own quote back out of the story and landing where the label says |
+| Category agreement | 80% of the 144 category judgments |
+| Escalation agreement | 75% of fixtures, on an exact match of the refusal-kind set |
+| Missing-evidence coverage | 80% of the categories the corpus expects a question on |
+| Judge: nothing adjudicates or rules | zero failures, no rate |
+| Judge: the other three dimensions | 85% each, gated separately |
+
+Citation validity is the only bar at 100 because a citation is the one output that is either
+true or a fabrication that looks identical to a real one on the page. The rest sit well below
+it on purpose, since five of the eighteen cases are labelled ambiguous precisely because two
+qualified reviewers could read them differently. Every number is a first calibration and moves
+only in a commit that argues from a report. `docs/adr/0009-eval-design.md` sets out why the
+deterministic and judged halves are split, why the judge is never shown the label or the
+precedent corpus, and what a fully passing run would and would not prove.
 
 ## Data
 
