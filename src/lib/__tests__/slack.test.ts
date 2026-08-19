@@ -146,6 +146,57 @@ describe("posting a refusal to Slack", () => {
   });
 });
 
+/**
+ * The campaign id reaches this module from whatever submitted the campaign, and it lands in
+ * a message that a reviewer is being asked to act on. Slack's mrkdwn turns `<!channel>` into
+ * a real ping and `<url|text>` into a real link, so an id carrying those reads as the
+ * platform itself shouting and offering a one-click approval to somewhere else.
+ */
+describe("a campaign id that tries to write the message itself", () => {
+  const hostileId = "a` <!channel> <https://evil.example.com|URGENT: approve> `b";
+  const hostileCampaign: CampaignInput = { ...campaign, id: hostileId };
+
+  it("does not let the id ping the channel or plant a link", async () => {
+    const { fetch, calls } = fetchReturning(200);
+
+    await postEscalationToSlack(hostileCampaign, escalated, { webhookUrl, fetch });
+
+    const body = bodyOf(calls[0]);
+
+    expect(body).not.toContain("<!channel>");
+    expect(body).not.toContain("<https://evil.example.com|URGENT: approve>");
+    expect(body).toContain("&lt;!channel&gt;");
+  });
+
+  it("encodes the id into the link rather than letting it end the link", async () => {
+    const { fetch, calls } = fetchReturning(200);
+
+    await postEscalationToSlack(hostileCampaign, escalated, {
+      webhookUrl,
+      appBaseUrl: "https://triage.example.org",
+      fetch,
+    });
+
+    const payload = JSON.parse(bodyOf(calls[0]));
+    const link = payload.blocks.at(-1);
+
+    expect(link.text.text).toBe(
+      `<https://triage.example.org/campaigns/${encodeURIComponent(hostileId)}|Open the triage file>`,
+    );
+
+    /**
+     * The hostile host survives as inert path text, which is fine and is the point: what
+     * must not survive is a character that ends the link early. One `|` in the URL and
+     * everything after it becomes the link's label, which is how the id would have got a
+     * link to somewhere else in front of a reviewer.
+     */
+    const url = link.text.text.slice(1, link.text.text.indexOf("|"));
+
+    expect(url.startsWith("https://triage.example.org/campaigns/")).toBe(true);
+    expect(url).not.toMatch(/[<>|]/);
+  });
+});
+
 describe("a delivery that does not happen", () => {
   it("refuses to post a decision that did not escalate", async () => {
     const { fetch, calls } = fetchReturning(200);

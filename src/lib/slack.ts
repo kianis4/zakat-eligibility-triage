@@ -44,9 +44,30 @@ const REASON_LABELS: Record<EscalationReason["kind"], string> = {
  * Slack reads `&`, `<` and `>` as markup, so campaign text containing them would render as
  * something the organizer did not write. The quoted spans are the part of this message a
  * reviewer is meant to trust as verbatim, so they have to survive the trip intact.
+ *
+ * This applies to the campaign id as much as to the story. The id arrives from whatever
+ * submitted the campaign, and `<!channel>` and `<url|text>` are live mrkdwn: an id carrying
+ * them turns the escalation into a channel-wide ping offering a one-click link somewhere
+ * else, inside a message whose whole purpose is that a reviewer trusts what it says.
  */
 function escapeForSlack(text: string): string {
   return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+/**
+ * Builds the reviewer-facing link.
+ *
+ * The id is percent-encoded rather than mrkdwn-escaped, because it is going into a URL and
+ * the two escapes protect against different things. `&lt;` inside a path is a literal
+ * four-character path segment, and a raw `|` or `>` would close the mrkdwn link early and
+ * leave the rest of the id rendering as text after it.
+ */
+function linkFor(campaign: CampaignInput, appBaseUrl: string | undefined): string | null {
+  if (appBaseUrl === undefined || appBaseUrl === "") {
+    return null;
+  }
+
+  return `${appBaseUrl.replace(/\/+$/, "")}/campaigns/${encodeURIComponent(campaign.id)}`;
 }
 
 function sectionFor(reason: EscalationReason) {
@@ -65,7 +86,10 @@ function blocksFor(campaign: CampaignInput, reasons: readonly EscalationReason[]
       type: "header",
       text: { type: "plain_text", text: `Escalated, not determined: ${campaign.title}` },
     },
-    { type: "context", elements: [{ type: "mrkdwn", text: `Campaign \`${campaign.id}\`` }] },
+    {
+      type: "context",
+      elements: [{ type: "mrkdwn", text: `Campaign \`${escapeForSlack(campaign.id)}\`` }],
+    },
     ...reasons.map(sectionFor),
     ...(link === null
       ? []
@@ -109,11 +133,7 @@ export async function postEscalationToSlack(
     );
   }
 
-  const appBaseUrl = options.appBaseUrl ?? process.env.APP_BASE_URL;
-  const link =
-    appBaseUrl === undefined || appBaseUrl === ""
-      ? null
-      : `${appBaseUrl.replace(/\/+$/, "")}/campaigns/${campaign.id}`;
+  const link = linkFor(campaign, options.appBaseUrl ?? process.env.APP_BASE_URL);
 
   const post = options.fetch ?? globalThis.fetch;
 
