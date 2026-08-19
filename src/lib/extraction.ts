@@ -3,6 +3,7 @@ import { generateObject, NoObjectGeneratedError, type LanguageModel } from "ai";
 import { z } from "zod";
 
 import { CampaignInput } from "./campaign";
+import { locateQuote } from "./quotes";
 
 const Quote = z.string().min(1).describe("A verbatim substring of the campaign story.");
 
@@ -160,7 +161,9 @@ export async function extractFacts(
     );
   }
 
-  const fabricated = quoteSites(facts).filter((site) => !input.story.includes(site.quote));
+  const fabricated = quoteSites(facts).filter(
+    (site) => locateQuote(input.story, site.quote) === null,
+  );
 
   if (fabricated.length > 0) {
     const detail = fabricated.map((site) => `${site.path}: ${JSON.stringify(site.quote)}`);
