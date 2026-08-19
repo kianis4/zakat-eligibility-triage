@@ -12,6 +12,10 @@ function gatesFor(
   return evaluateGates(summarize(fixtures), summarizeJudgements(outcomes, 0));
 }
 
+function sumAgreed(fixtures: readonly FixtureScore[]): number {
+  return fixtures.reduce((total, fixture) => total + fixture.categoryAgreement.agreed, 0);
+}
+
 function gate(fixtures: readonly FixtureScore[], id: string, outcomes?: readonly JudgeOutcome[]) {
   const found = gatesFor(fixtures, outcomes).find((entry) => entry.id === id);
 
@@ -67,6 +71,32 @@ describe("the category agreement gate", () => {
 
     expect(gate(fixtures, "category-agreement").observed).toBe("80.0% (32 of 40)");
     expect(gate(fixtures, "category-agreement").passed).toBe(true);
+  });
+
+  /**
+   * The comment on `GATES.categoryAgreement` argues from a specific miss budget over the real
+   * corpus, and a comment doing arithmetic is a comment that can be wrong about it. This pins
+   * the boundary the comment claims, so the number and the justification cannot drift apart
+   * again without a test going red.
+   */
+  it("tolerates exactly 28 misses across the corpus of 144 category judgments", () => {
+    const spread = (misses: number) =>
+      Array.from({ length: 18 }, (_, index) => {
+        const taken = Math.min(8, Math.max(0, misses - index * 8));
+
+        return score(`f${index}`, { agreed: 8 - taken });
+      });
+
+    const tolerated = spread(28);
+    const tooMany = spread(29);
+
+    expect(sumAgreed(tolerated)).toBe(144 - 28);
+    expect(gate(tolerated, "category-agreement").observed).toBe("80.6% (116 of 144)");
+    expect(gate(tolerated, "category-agreement").passed).toBe(true);
+
+    expect(sumAgreed(tooMany)).toBe(144 - 29);
+    expect(gate(tooMany, "category-agreement").observed).toBe("79.9% (115 of 144)");
+    expect(gate(tooMany, "category-agreement").passed).toBe(false);
   });
 
   it("fails one category below the floor", () => {

@@ -23,14 +23,20 @@ export const GATES = {
   citationValidity: 1,
 
   /**
-   * 80 percent of the 144 category judgments in the corpus.
+   * 80 percent of the 144 category judgments in the corpus, which is 18 fixtures at 8 each.
    *
-   * Deliberately well below 100. Five of the eighteen cases are labelled ambiguous precisely
-   * because two qualified reviewers could read them differently, so a gate demanding
-   * agreement everywhere would be demanding that the pipeline agree with one author's reading
-   * of cases that author wrote down as contestable. Eighteen wrong out of 144 is roughly the
-   * whole ambiguous tier reading differently on two categories each, which is a bad run worth
-   * failing on and a plausible one worth not failing on.
+   * The bar needs 116 agreements: 115 of 144 is 79.9 percent and fails, 116 is 80.6 and
+   * holds. So it tolerates 28 category misses and no more.
+   *
+   * That budget is sized against the corpus's own tiers, which are 5 clean, 8 flagged and 5
+   * ambiguous. Twenty-eight is exactly the whole ambiguous tier reading differently on half
+   * its categories, at 5 times 4, plus every flagged case missing one, at 8 times 1. The
+   * ambiguous five were labelled that way precisely because two qualified reviewers could
+   * read them differently, so a gate demanding agreement everywhere would demand that the
+   * pipeline agree with one author's reading of the cases that author wrote down as
+   * contestable. A run that loses more than that budget has stopped disagreeing about
+   * contestable cases and started getting straightforward ones wrong, which is worth failing
+   * a build over.
    */
   categoryAgreement: 0.8,
 
