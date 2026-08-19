@@ -147,9 +147,65 @@ output on the judge, for a whole run. The money is small enough that it is not w
 often this runs; wall clock and provider rate limits are, which is why `scoreCorpus` and
 `judgeCorpus` work four fixtures at a time rather than one or eighteen.
 
-Reproducibility is bounded. Both models run at temperature zero, applied through AI SDK
-middleware so no pipeline signature had to change to accommodate the harness. That buys
-reproducibility, not determinism: the same campaign can still map differently on two runs, so a
-threshold sitting one fixture above the bar will eventually cross it for no reason anyone
-changed. That is an argument for the bars being where they are rather than tight, and it is
-also the reason a report exists to be argued from when one moves.
+Reproducibility is bounded. The harness asks for temperature zero through AI SDK middleware,
+so no pipeline signature had to change to accommodate it. It does not get it: see the addendum
+below. Either way the same campaign can map differently on two runs, so a threshold sitting one
+fixture above the bar will eventually cross it for no reason anyone changed. That is an
+argument for the bars being where they are rather than tight, and it is also the reason a
+report exists to be argued from when one moves.
+
+## Addendum, 2026-08-19: what the first two live runs changed
+
+The design above was written before the harness had ever run against a real model. Two full
+runs then falsified two of its claims. Recorded here rather than edited into the text above,
+so the correction is legible as a correction.
+
+**An infrastructure failure was reading as the behavioural failure this system exists to
+prevent.** On the first run, 12 of 16 judged records failed schema validation, on the rule
+requiring the judge's reason to be a single sentence. Because a response that failed to parse
+was charged as a failure on all four rubric dimensions, the report stated that the pipeline had
+adjudicated a scholarly difference twelve times. It had not adjudicated anything; the judge's
+answers had simply not been recorded. The four responses that did parse contained specific,
+checkable findings, so the judge was working whenever it was heard from.
+
+Three things follow, and all three are now in the code.
+
+1. **The one-sentence rule is gone**, replaced by a 400-character cap. It was validating the
+   wrong thing. The pass and fail booleans are the contract the gates read; the reason beside
+   them is diagnostic prose for a person deciding whether a gate moved for a good cause, and
+   discarding four sound judgments to enforce a preference about prose is a bad trade. Nothing
+   forbids quotation marks in it, which is the opposite of the rule the pipeline's own model
+   prose lives under: this text reaches a report and never a reviewer, and the judge quoting
+   the phrase it objects to is what makes the reason checkable against the record.
+2. **A rejected response buys one repair attempt** with the validation error quoted back. Once,
+   not until it works, because a retry loop turns a persistently broken judge into a slow
+   expensive one that eventually says something, and seeing that the judge is broken is the
+   point of counting these at all.
+3. **A response that survives the retry is a judge error, not four dimension failures.** It is
+   gated separately, at most 2 of 18, and reported in its own section. The original argument
+   for the all-four charge was that dropping the outcome would shrink the denominator and make
+   the gate quieter the worse things got. That concern was real and the answer was wrong: it is
+   now answered by the separate gate, while the dimension rates compute over the records
+   actually judged, with that denominator printed wherever a rate appears.
+
+The general form of the mistake is worth keeping. **A harness that cannot distinguish "the
+measurement failed" from "the thing measured is bad" will report the second when it means the
+first**, and it will do so most loudly on the dimension that matters most, because that is the
+one with the strictest gate. The deterministic half already had this right, counting a thrown
+`ExtractionError` as a fixture failure while never letting it touch citation validity. The
+judge half did not, and now does.
+
+**Temperature zero is requested and not honoured.** Both runs logged, once per call,
+that `temperature is not supported by claude-sonnet-5` and the same for `claude-opus-5`, and
+that the value would be ignored. So the sentence above about both models running at temperature
+zero was never true in practice. The middleware is kept, since it is free and correct if
+support returns, but no reproducibility claim rests on it: run-to-run variation is a property
+of these models that this harness cannot currently turn off. That strengthens rather than
+weakens the case for the thresholds being loose and for a report existing to argue from.
+
+Two further findings from those runs are recorded here as observations for whoever calibrates
+next, not as changes. The deterministic gates failed well short of their bars, at 62.5 percent
+category agreement against an 80 percent floor. And two fixtures threw in the pipeline rather
+than being scored, one on a fabricated extraction quote and one on a mapping schema failure.
+Whether those are pipeline defects, prompt defects or labels that are wrong is exactly the
+question a calibration commit has to argue, and it is not answered here.

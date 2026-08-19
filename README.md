@@ -61,12 +61,19 @@ the terminal, and exits non-zero if any gate was missed.
 | Missing-evidence coverage | 80% of the categories the corpus expects a question on |
 | Judge: nothing adjudicates or rules | zero failures, no rate |
 | Judge: the other three dimensions | 85% each, gated separately |
+| Judge: records it returned a verdict on | at most 2 of 18 unjudged, after one repair attempt each |
 
 Citation validity is the only bar at 100 because a citation is the one output that is either
 true or a fabrication that looks identical to a real one on the page. The rest sit well below
 it on purpose, since five of the eighteen cases are labelled ambiguous precisely because two
 qualified reviewers could read them differently. Every number is a first calibration and moves
-only in a commit that argues from a report. `docs/adr/0009-eval-design.md` sets out why the
+only in a commit that argues from a report.
+
+A record the judge returned no usable verdict on is counted as a judge error, never as a
+finding against the pipeline, and the dimension rates are computed over the records that were
+actually judged with that denominator printed beside them. The first live run did it the other
+way and reported twelve rulings by a pipeline that had issued none, which is the story in the
+ADR addendum. `docs/adr/0009-eval-design.md` sets out why the
 deterministic and judged halves are split, why the judge is never shown the label or the
 precedent corpus, and what a fully passing run would and would not prove.
 
