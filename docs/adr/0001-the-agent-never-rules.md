@@ -1,7 +1,7 @@
 # ADR-0001: The agent never issues a religious ruling
 
 Date: 2026-08-19
-Status: accepted
+Status: accepted (output schema refined by ADR-0002)
 
 ## Context
 Zakat eligibility is a religious determination. Automated fatwa generation is widely regarded
