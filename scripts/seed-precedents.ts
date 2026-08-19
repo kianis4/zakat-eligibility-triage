@@ -7,7 +7,13 @@ import { embedWithOpenAI } from "../src/lib/embedding";
  * precedents table. Run with `npm run seed:precedents`, with DATABASE_URL and
  * OPENAI_API_KEY set.
  */
-const seeded = await seedPrecedents(getDatabase(), embedWithOpenAI);
+async function main() {
+  const seeded = await seedPrecedents(getDatabase(), embedWithOpenAI);
+  process.stdout.write(`Seeded ${seeded} adjudicated precedents.\n`);
+  process.exit(0);
+}
 
-process.stdout.write(`Seeded ${seeded} adjudicated precedents.\n`);
-process.exit(0);
+main().catch((error) => {
+  console.error(error instanceof Error ? error.message : error);
+  process.exit(1);
+});
