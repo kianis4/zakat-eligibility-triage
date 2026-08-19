@@ -408,6 +408,77 @@ describe("mapCategories", () => {
     expect((error as MappingError).reason).toBe("schema_validation_failed");
   });
 
+  /**
+   * These four payloads all mapped cleanly before the shape guard reached the fields the
+   * model writes prose into. Each one puts fabricated scripture somewhere a reviewer reads:
+   * the rationale beside the citations, the missing fact, the question that gets forwarded
+   * to the organizer untouched, and the description that becomes the mixed-use question.
+   */
+  const fabricated = {
+    rationale: {
+      "al-gharimin": {
+        status: "supported",
+        quotes: [debtQuote],
+        rationale:
+          'The story describes a family in debt, and Quran 9:60 says "zakat is for the poor and those in debt" which covers them.',
+        scholarlyDifference: null,
+      },
+    },
+    missingFact: {
+      "al-gharimin": {
+        status: "insufficient_evidence",
+        rationale: "The story does not say when the debt falls due.",
+        missingFact:
+          "Whether the debt is currently due, since the Prophet said a debt not yet due does not qualify.",
+        questionForOrganizer: "When does the repayment you mention fall due?",
+        scholarlyDifference: null,
+      },
+    },
+    questionForOrganizer: {
+      "al-gharimin": {
+        status: "insufficient_evidence",
+        rationale: "The story does not say what the family has already done about the debt.",
+        missingFact: "What steps the family has taken toward the debt.",
+        questionForOrganizer:
+          'The Prophet said "the upper hand is better than the lower hand", so can you tell us what you have already tried?',
+        scholarlyDifference: null,
+      },
+    },
+  };
+
+  for (const [field, override] of Object.entries(fabricated)) {
+    it(`fails the mapping when the model puts a fabricated source in ${field}`, async () => {
+      const error = await mapCategories(
+        campaign,
+        facts,
+        modelReturning(modelMapping(override)),
+      ).catch((thrown: unknown) => thrown);
+
+      expect(error).toBeInstanceOf(MappingError);
+      expect((error as MappingError).reason).toBe("schema_validation_failed");
+    });
+  }
+
+  it("fails the mapping when the model puts a fabricated source in a mixed-use description", async () => {
+    const cited = {
+      ...modelMapping(),
+      mixedUseSignals: [
+        {
+          description:
+            "Half the money clears the debt and half funds the hall, per Surah 2 verse 271 on public giving.",
+          quotes: ["Any surplus will go to the clinic's new generator"],
+        },
+      ],
+    };
+
+    const error = await mapCategories(campaign, facts, modelReturning(cited)).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(MappingError);
+    expect((error as MappingError).reason).toBe("schema_validation_failed");
+  });
+
   it("distinguishes a failed model call from a malformed response", async () => {
     const unreachable = new MockLanguageModelV3({
       doGenerate: async () => {

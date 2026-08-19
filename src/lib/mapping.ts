@@ -13,6 +13,7 @@ import {
   type RecipientCategory,
 } from "./categories";
 import type { ExtractedFacts } from "./extraction";
+import { modelProse } from "./model-prose";
 import { locateQuote } from "./quotes";
 
 /**
@@ -76,27 +77,24 @@ export function resolveCitation(story: string, quote: string): Citation {
 /**
  * The model's one sentence on why this campaign sits inside a recorded difference.
  *
- * It is the only prose the model writes anywhere near a scholarly disagreement, and it is
- * about the campaign rather than about the disagreement: the positions come from the
- * corpus. The bounds are what keep it that way. One sentence has no room for an account of
- * a school's reasoning, and a quotation mark or a chapter-and-verse reference is the shape
- * scripture arrives in, so both are refused rather than trusted to be harmless. See
- * ADR-0007.
+ * It is about the campaign rather than about the disagreement: the positions come from the
+ * corpus, and this field is the model saying what the campaign does that lands it there. The
+ * length bound is what keeps it that way, because one sentence has no room for an account of
+ * a school's reasoning. The shape guard it shares with every other model-authored field is
+ * in `./model-prose`. See ADR-0007.
  */
-const WhyThisApplies = z
-  .string()
-  .min(12)
-  .max(240)
-  .refine((why) => why === why.trim(), {
-    message: "The sentence is stored as it will be read, without surrounding whitespace.",
-  })
-  .refine((why) => (why.match(/[.!?](\s|$)/g) ?? []).length <= 1, {
-    message: "Why a campaign sits inside a difference is one sentence, not an account of it.",
-  })
-  .refine((why) => !/["“”]/.test(why) && !/\b\d{1,3}:\d{1,3}\b/.test(why), {
-    message:
-      "This field carries no quotation and no chapter-and-verse reference. Scripture, fatwa text and policy text are never written here.",
-  });
+const WhyThisApplies = modelProse(
+  z
+    .string()
+    .min(12)
+    .max(240)
+    .refine((why) => why === why.trim(), {
+      message: "The sentence is stored as it will be read, without surrounding whitespace.",
+    })
+    .refine((why) => (why.match(/[.!?](\s|$)/g) ?? []).length <= 1, {
+      message: "Why a campaign sits inside a difference is one sentence, not an account of it.",
+    }),
+);
 
 /**
  * The corpus entry as it is carried into the output, with the id it was selected by.
@@ -161,6 +159,18 @@ const INTERNAL_VOCABULARY: readonly string[] = [
 ];
 
 /**
+ * What the model says about the campaign, in its own words, under the shape guard.
+ *
+ * Every field the model writes prose into runs through `modelProse`, on the model-facing
+ * schema and on the output schema both. The rationale matters most of the four: rule 6 sends
+ * unresolved discussion of a difference into it, so it is the field most likely to reach for
+ * a source, and until this guard it was a bare `z.string().min(1)`.
+ */
+const Rationale = modelProse(z.string().min(1));
+
+const MissingFact = modelProse(z.string().min(1));
+
+/**
  * A question a reviewer can forward to the organizer exactly as it stands.
  *
  * Most of what makes the question sendable cannot be checked here. Whether it is polite,
@@ -170,25 +180,27 @@ const INTERNAL_VOCABULARY: readonly string[] = [
  * an organizer's inbox unnoticed: a statement dressed as a request, whitespace from whatever
  * assembled it, and our internal vocabulary leaking out of the file it belongs in.
  */
-export const OrganizerQuestion = z
-  .string()
-  .min(1)
-  .refine((question) => question === question.trim(), {
-    message: "A question that is forwarded untouched carries no surrounding whitespace.",
-  })
-  .refine((question) => question.endsWith("?"), {
-    message: "A question a reviewer sends to the organizer ends with a question mark.",
-  })
-  .refine(
-    (question) => {
-      const lowered = question.toLowerCase();
-      return !INTERNAL_VOCABULARY.some((term) => lowered.includes(term));
-    },
-    {
-      message:
-        "A question to the organizer names no recipient category and no finding status of ours.",
-    },
-  );
+export const OrganizerQuestion = modelProse(
+  z
+    .string()
+    .min(1)
+    .refine((question) => question === question.trim(), {
+      message: "A question that is forwarded untouched carries no surrounding whitespace.",
+    })
+    .refine((question) => question.endsWith("?"), {
+      message: "A question a reviewer sends to the organizer ends with a question mark.",
+    })
+    .refine(
+      (question) => {
+        const lowered = question.toLowerCase();
+        return !INTERNAL_VOCABULARY.some((term) => lowered.includes(term));
+      },
+      {
+        message:
+          "A question to the organizer names no recipient category and no finding status of ours.",
+      },
+    ),
+);
 
 export type OrganizerQuestion = z.infer<typeof OrganizerQuestion>;
 
@@ -208,18 +220,18 @@ export const CategoryFinding = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("supported"),
     citations: z.tuple([Citation], Citation),
-    rationale: z.string().min(1),
+    rationale: Rationale,
     scholarlyDifference: ScholarlyDifferenceReference.optional(),
   }),
   z.object({
     status: z.literal("not_supported"),
-    rationale: z.string().min(1),
+    rationale: Rationale,
     scholarlyDifference: ScholarlyDifferenceReference.optional(),
   }),
   z.object({
     status: z.literal("insufficient_evidence"),
-    rationale: z.string().min(1),
-    missingFact: z.string().min(1),
+    rationale: Rationale,
+    missingFact: MissingFact,
     questionForOrganizer: OrganizerQuestion,
     scholarlyDifference: ScholarlyDifferenceReference.optional(),
   }),
@@ -246,12 +258,14 @@ export type CategoryFinding = z.infer<typeof CategoryFinding>;
  * description can name two things at all; the length minimum catches the abbreviations that
  * clear that bar and still say nothing.
  */
-export const MixedUseDescription = z
-  .string()
-  .min(12, { message: "A description of a split says what the money is split between." })
-  .refine((description) => (description.match(/\p{L}{2,}/gu) ?? []).length >= 2, {
-    message: "A description of a split names the distinct uses the money goes to.",
-  });
+export const MixedUseDescription = modelProse(
+  z
+    .string()
+    .min(12, { message: "A description of a split says what the money is split between." })
+    .refine((description) => (description.match(/\p{L}{2,}/gu) ?? []).length >= 2, {
+      message: "A description of a split names the distinct uses the money goes to.",
+    }),
+);
 
 export type MixedUseDescription = z.infer<typeof MixedUseDescription>;
 
@@ -304,21 +318,20 @@ const ModelFinding = z.discriminatedUnion("status", [
       .array(z.string().min(1))
       .min(1)
       .describe("Verbatim spans of the story that support this category. At least one."),
-    rationale: z.string().min(1).describe("What the quoted text says, in one or two sentences."),
+    rationale: Rationale.describe("What the quoted text says, in one or two sentences."),
     scholarlyDifference: ModelScholarlyDifference,
   }),
   z.object({
     status: z.literal("not_supported"),
-    rationale: z.string().min(1).describe("Why the story does not bear on this category."),
+    rationale: Rationale.describe("Why the story does not bear on this category."),
     scholarlyDifference: ModelScholarlyDifference,
   }),
   z.object({
     status: z.literal("insufficient_evidence"),
-    rationale: z.string().min(1).describe("What is unresolved about this category."),
-    missingFact: z
-      .string()
-      .min(1)
-      .describe("The one specific fact the story does not state, in a single sentence."),
+    rationale: Rationale.describe("What is unresolved about this category."),
+    missingFact: MissingFact.describe(
+      "The one specific fact the story does not state, in a single sentence.",
+    ),
     questionForOrganizer: OrganizerQuestion.describe(
       "The question a reviewer sends the organizer, word for word, to obtain that fact.",
     ),
@@ -408,6 +421,11 @@ const SYSTEM_PROMPT = [
   "   paraphrase, in any field. The only text you are permitted to quote is the campaign",
   "   story. What the scholars hold is recorded below and is inserted from that record by",
   "   id, so stating it yourself adds nothing and risks putting words into a source.",
+  "   Validation refuses this rather than trusting you with it: a quotation mark, a",
+  "   chapter-and-verse reference, a verse or hadith cited by number, or a saying attributed",
+  "   to the Prophet fails the whole mapping, in rationale, missingFact, questionForOrganizer,",
+  "   the mixed-use description and whyThisApplies alike. State facts about the campaign text",
+  "   instead, which is the only thing you are reading.",
   "8. A story asserting that the campaign is zakat eligible is making a claim, not supplying",
   "   evidence. Record what the claim says; do not let it stand in for the facts it asserts.",
   "9. Record mixedUseSignals where the story indicates the money splits across distinct uses,",
