@@ -1,0 +1,13 @@
+{
+  "id": "prc_0001",
+  "title": "Rent arrears for a widowed mother of three",
+  "story": "I am raising 2,400 GBP for my sister Halima, who has been raising three children on her own since her husband died in February. She works part time in a school kitchen and the hours were cut in September. Her income does not cover the rent and the heating in the same month, and she is now four months behind with a possession hearing listed for March. She has no savings, no property and nothing she can sell. Our local advice centre has seen her tenancy agreement and her bank statements and has helped us put this together. Anything raised goes straight to Halima.",
+  "categoryOutcomes": {
+    "al-fuqara": "supported",
+    "al-masakin": "supported",
+    "al-gharimin": "insufficient_evidence"
+  },
+  "decision": "approved",
+  "reviewerNote": "Approved for zakat. The organizer supplied three months of bank statements for every account and the tenancy agreement, and our team read them: on the figures given, net assets sit well below the threshold our policy uses and the arrears are documented rather than asserted. Funds are paid to the beneficiary rather than to the landlord's agent, which is what our policy requires. I left al-gharimin as unresolved rather than counting the arrears twice; nothing turns on it here because the household qualifies on need alone. No scholarly question arose and no consultation was needed.",
+  "decidedAt": "2026-02-19T00:00:00.000Z"
+}
