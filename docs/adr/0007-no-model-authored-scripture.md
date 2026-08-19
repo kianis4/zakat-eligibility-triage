@@ -162,3 +162,30 @@ introduced as a quotation or a citation. That rendering rule has no enforcement 
 because the reviewer UI renders only the campaign and its precedent. It is a requirement on the
 reviewer-UI issue, and the place where this ADR is easiest to violate without touching any of
 the code it constrains.
+
+## Addendum, 2026-08-19: the model-facing schema is a list of findings
+
+Raised in #23. The model-facing schema named the eight categories as eight properties, each a
+three-member union carrying a nullable difference selection. The provider's structured-output
+compiler counts union-typed parameters and refuses a schema that declares too many: thirty-two
+against a limit of sixteen, so every live mapping call failed before the model saw a word of the
+campaign. Unit tests missed it because a mock never compiles a schema.
+
+The model now returns `findings`, a list of one item per category with the category id inside the
+item, so the schema describes one item rather than eight copies of one. The item declares one
+union-typed parameter, the nullable `scholarlyDifference`, and
+`src/lib/__tests__/mapping-types.test.ts` counts them and holds the total under the limit.
+
+Nothing this ADR decides is changed by that. The difference is still selected by id from the
+closed enum and resolved server-side to the corpus entry, `whyThisApplies` is still the one
+bounded sentence, `modelProse` still guards all five prose fields, and `POLICY_VERSION` is still
+stamped server-side and absent from the model-facing schema. The tests that assert those points
+walk the item schema now instead of a per-category property.
+
+Two things move rather than disappear. The per-status field requirement, which the discriminated
+union used to carry as a shape, is a check on the flat item: a supported finding with no quote,
+or an unresolved one missing its fact or its question, fails parsing as it did before. And the
+list can say what the record could not, a category twice or a category not at all, so the fold
+back into `CategoryMapping` refuses both with `MappingError('schema_validation_failed')` rather
+than let a finding be silently overwritten or silently absent. The output type is unchanged;
+`CategoryFinding` remains the discriminated union ADR-0003 relies on.
