@@ -210,6 +210,29 @@ export type OrganizerQuestion = z.infer<typeof OrganizerQuestion>;
 /**
  * What the campaign text does or does not say about one recipient category.
  *
+ * The three statuses are defined here and nowhere else. `SYSTEM_PROMPT` below encodes this
+ * definition, the eval corpus is labelled against it, and every other note in the repository
+ * that names a status points here rather than restating it, because two statements of one
+ * definition drift and the drift is invisible until a label and a finding disagree for a
+ * reason neither of them records. All three are statements about the story. None of them is
+ * a determination of zakat eligibility, which ADR-0001 reserves to the reviewer.
+ *
+ * - `supported`: the story states the qualifying facts the category's `evidenceGuidance` in
+ *   `./categories` asks for, and the spans stating them are cited. Hardship, urgency, a
+ *   sympathetic account and a sum of money are not qualifying facts. Income and rent figures
+ *   that never say the household cannot meet its basic needs do not support al-fuqara.
+ * - `insufficient_evidence`: the story engages the category, or gestures at it, and the
+ *   qualifying facts are missing. The absent fact is named and the question that would obtain
+ *   it travels with it. A story asserting its own zakat eligibility gestures in exactly this
+ *   way: the assertion puts the categories it would cover in play and settles none of them.
+ * - `not_supported`: the story does not engage the category at all, or engages it and points
+ *   away.
+ *
+ * The line between the last two is operational rather than cosmetic. Organizer questions
+ * attach to `insufficient_evidence` alone, in `./missing-evidence`, so silence recorded as
+ * unresolved sends a reviewer a question about something the page never raised, and
+ * engagement recorded as absent withholds the one question that would settle the file.
+ *
  * The union is the enforcement mechanism, not documentation of one: `supported` carries a
  * citation list typed as non-empty, so a supported finding with nothing behind it cannot
  * be constructed, in TypeScript or at parse time. `insufficient_evidence` carries the
@@ -438,19 +461,62 @@ const SYSTEM_PROMPT = [
   "categories, and you do not choose between scholarly positions. A qualified human reviewer",
   "decides, and your output is the evidence they read. Every rule below serves that.",
   "",
+  "Three statuses, each a statement about the story rather than about the campaign's standing.",
+  "supported: the story states the qualifying facts the category's guidance below asks for, and",
+  "you quote the words that state them. insufficient_evidence: the story engages the category,",
+  "or gestures at it, and those facts are missing, so you name the one that is missing.",
+  "not_supported: the story does not engage the category at all, or engages it and points away.",
+  "",
   "Rules, all of them binding:",
   "1. Every quote must be an EXACT VERBATIM substring of the campaign story, copied",
   "   character for character. Do not paraphrase, do not fix spelling, do not join two",
   "   separated fragments with an ellipsis, do not add or remove punctuation. Quote only",
   "   from the story, never from the title, the facts, or your own words.",
-  "2. Use status 'supported' only when the story itself says something that bears on the",
-  "   category, and quote it. A supported status without a quote is not available to you.",
-  "3. Use 'not_supported' when the story bears on the category and tells against it, or when",
-  "   the category is plainly not in play.",
-  "4. Use 'insufficient_evidence' when the category might be in play but the story does not",
-  "   say enough to tell, and name in missingFact the single specific fact that is absent.",
-  "   Most campaign prose warrants this status on most categories. Reaching for it is not a",
-  "   failure, it is the accurate reading.",
+  "2. Use 'supported' only where the story states the qualifying facts the category's guidance",
+  "   below asks for, and quote the words that state them. A supported status without a quote",
+  "   is not available to you. Hardship, urgency, a moving account, a stated goal and a sum of",
+  "   money are not qualifying facts. A story that describes a household in difficulty and",
+  "   gives income, rent or savings figures, but never says that the household cannot meet its",
+  "   basic needs or that what it holds falls below the level at which zakat becomes payable,",
+  "   has not stated the qualifying fact for al-fuqara or al-masakin, and that story is",
+  "   insufficient_evidence on both with the missing fact named. A story that says there is no",
+  "   savings account and nothing left to sell, or that food and the electricity could not",
+  "   both be paid for in the same month, has stated it. Where the qualifying facts are stated,",
+  "   say supported and do not hedge. A category being disputed among scholars, a further",
+  "   detail you would have liked, and the fact that a reviewer still has to decide are none of",
+  "   them reasons to withhold it. A named creditor with a sum, a cause and a date it falls due",
+  "   is supported on al-gharimin, and a public work the campaign says it will carry out is",
+  "   supported on fi-sabilillah. Where a recorded disagreement is live, name it in",
+  "   scholarlyDifference; a difference never moves a status.",
+  "3. Use 'not_supported' where the story does not engage the category at all, or engages it",
+  "   and points away. A campaign that never touches travel, displacement or being cut off",
+  "   from home is not_supported on ibn-al-sabil rather than unresolved on it. A household",
+  "   that accounts for its own position and names nobody it owes is not_supported on",
+  "   al-gharimin. A business the copy calls profitable, a borrower who says he can manage the",
+  "   repayment, and an organizer who says they take nothing and cover the page's fees",
+  "   themselves each engage a category and point away from it.",
+  "   One shape rules nothing out. A page that says neither who receives the money nor what it",
+  "   buys has told against nothing, so every category is insufficient_evidence on it and none",
+  "   is not_supported. An appeal saying only that the year has been hard and that whatever",
+  "   comes in will go where it is needed most leaves a debt, a journey, a detention, convert",
+  "   care, a delivery cost and a public work all equally possible. So does a page that asserts",
+  "   its own zakat eligibility and describes nothing else.",
+  "   A page that names the person the money is for and describes their situation without",
+  "   saying what the money buys is a different shape: there al-fuqara, al-masakin and",
+  "   al-gharimin stay unresolved, because an individual's unexplained hardship bears on all",
+  "   three, and the headings the account passes over are not_supported.",
+  "4. Use 'insufficient_evidence' where the story engages the category, or gestures at it, and",
+  "   the qualifying facts are missing, and name in missingFact the single specific fact that",
+  "   is absent. A story that describes the people a campaign is meant to help and says nothing",
+  "   about their means engages al-fuqara and al-masakin and settles neither. A campaign",
+  "   raising for a programme it will deliver to other people engages al-amilina-alayha",
+  "   wherever it does not say what share of the donations covers that delivery. A story",
+  "   asserting that the campaign is zakat eligible gestures at every category that claim would",
+  "   cover and states the facts of none of them. Most campaign prose warrants this status on",
+  "   the categories it engages, and reaching for it there is not a failure, it is the accurate",
+  "   reading. Do not reach for it on a category the story never raises and its own account",
+  "   passes over, because a question about something the page never mentioned is one the",
+  "   organizer cannot make sense of.",
   "5. With every 'insufficient_evidence' status, write in questionForOrganizer the question a",
   "   reviewer will send the organizer, word for word, to obtain that missing fact. Write it",
   "   to the organizer, not about them: address them as 'you', stay polite, and make it stand",

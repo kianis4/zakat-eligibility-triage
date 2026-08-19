@@ -66,7 +66,17 @@ subject. They are written to the constraints the rest of the repository works un
    running for non-zakat giving. Section 6.2 of `docs/RESEARCH.md` is why: a wrong denial
    falls on people who are by construction likely to be poor, and it is recoverable only
    if it is surfaced.
-4. **Nothing in a note is consistent with `docs/RESEARCH.md` by accident.** Thresholds,
+4. **The statuses mean what the `CategoryFinding` docblock in `src/lib/mapping.ts` says they
+   mean, read against everything the reviewer held rather than against the page alone.** That
+   difference from an eval label is where it bites: a reviewer has statements, invoices and
+   sometimes an advisor's answer, so a heading the copy leaves open can come out resolved here.
+   `supported` is the qualifying facts for the heading being established, `insufficient_evidence`
+   is the heading engaged with a named fact still missing, and `not_supported` is a case that
+   does not engage the heading or engages it and points away. Where an outcome records the
+   platform's own policy being applied to a heading the case plainly does engage, the note says
+   that is what happened, because a policy applied is a different event from a heading the case
+   never reached.
+5. **Nothing in a note is consistent with `docs/RESEARCH.md` by accident.** Thresholds,
    the range of published overhead positions, the tamlik question on project campaigns and
    the live disagreement over reconciled hearts all trace to section 2, 3 or 4.
 
