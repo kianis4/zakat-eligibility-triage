@@ -78,6 +78,59 @@ export const RECIPIENT_CATEGORIES: readonly RecipientCategoryDefinition[] = [
   },
 ];
 
+/**
+ * Where a cross-cutting restriction actually bites.
+ *
+ * `donor` restrictions are conditions on an individual giver's own zakat, and a
+ * crowdfunding campaign cannot know who its donors will be. Those are context a reviewer
+ * needs, not something campaign text can be assessed against. `recipient` restrictions are
+ * conditions on who receives, which campaign text can sometimes speak to.
+ */
+export type RestrictionBinding = "donor" | "recipient";
+
+export type CrossCuttingRestriction = {
+  readonly id: string;
+  readonly summary: string;
+  readonly whereItBinds: RestrictionBinding;
+  readonly evidenceGuidance: string;
+};
+
+/**
+ * Restrictions from `docs/RESEARCH.md` section 2 that apply regardless of which of the
+ * eight categories is in play.
+ *
+ * They are recorded here as data with the same intent as the difference list: the
+ * escalation stage and the reviewer UI, both later issues, are the deterministic consumers.
+ * Nothing in this module applies them, and the mapping step does not either, because a
+ * restriction is a condition on a payment rather than a reading of campaign text.
+ */
+export const CROSS_CUTTING_RESTRICTIONS: readonly CrossCuttingRestriction[] = [
+  {
+    id: "immediate-family",
+    summary:
+      "Islamic Relief states that the recipient must not belong to your immediate family: a spouse, children, parents and grandparents cannot receive your zakat.",
+    whereItBinds: "donor",
+    evidenceGuidance:
+      "No campaign text can settle this, because the restriction runs between a particular donor and a particular recipient, and a campaign does not know who will give to it. Surface it to the reviewer as context on campaigns raising for a named individual, where some prospective donors may be excluded while others are not. Note that this is a different question from the organizer's own relationship to the beneficiary, which the extraction step records as a claim.",
+  },
+  {
+    id: "hashimi-descent",
+    summary:
+      "Islamic Relief states that the recipient must not be a Hashimi, a descendant of the Prophet (PBUH).",
+    whereItBinds: "recipient",
+    evidenceGuidance:
+      "Campaign copy almost never states lineage, so absence of any mention is the normal case and is not evidence either way. Where a story does state descent from the Prophet's family, that is a fact for the reviewer to weigh, not a conclusion for the pipeline to draw.",
+  },
+  {
+    id: "recipient-must-be-muslim",
+    summary:
+      "National Zakat Foundation UK's policy, working explicitly on Hanafi criteria, requires that the zakat applicant be a Muslim. Whether zakat may go to a non-Muslim recipient at all is itself disputed, which is recorded in the scholarly-difference list rather than settled here.",
+    whereItBinds: "recipient",
+    evidenceGuidance:
+      "Campaign text sometimes speaks to this: an organization's stated mission, the community it serves, or an explicit statement about the beneficiaries' faith. Record what the text says and leave the requirement's application to the reviewer, whose position on the underlying disagreement determines what the statement is worth.",
+  },
+];
+
 export type ScholarlyDifference = {
   readonly category: RecipientCategory;
   readonly topic: string;

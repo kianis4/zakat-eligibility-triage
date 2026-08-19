@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  CROSS_CUTTING_RESTRICTIONS,
   RECIPIENT_CATEGORIES,
   RECIPIENT_CATEGORY_IDS,
   SCHOLARLY_DIFFERENCES,
@@ -20,6 +21,33 @@ describe("recipient categories", () => {
     for (const category of RECIPIENT_CATEGORIES) {
       expect(category.gloss.length).toBeGreaterThan(0);
       expect(category.evidenceGuidance.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("cross-cutting restrictions", () => {
+  it("records the three restrictions the research brief states", () => {
+    expect(CROSS_CUTTING_RESTRICTIONS.map((restriction) => restriction.id)).toEqual([
+      "immediate-family",
+      "hashimi-descent",
+      "recipient-must-be-muslim",
+    ]);
+  });
+
+  it("says where each restriction binds", () => {
+    const binding = Object.fromEntries(
+      CROSS_CUTTING_RESTRICTIONS.map((restriction) => [restriction.id, restriction.whereItBinds]),
+    );
+
+    expect(binding["immediate-family"]).toBe("donor");
+    expect(binding["hashimi-descent"]).toBe("recipient");
+    expect(binding["recipient-must-be-muslim"]).toBe("recipient");
+  });
+
+  it("carries a summary and evidence guidance for each", () => {
+    for (const restriction of CROSS_CUTTING_RESTRICTIONS) {
+      expect(restriction.summary.length).toBeGreaterThan(0);
+      expect(restriction.evidenceGuidance.length).toBeGreaterThan(0);
     }
   });
 });
