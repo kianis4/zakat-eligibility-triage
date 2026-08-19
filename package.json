@@ -8,6 +8,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "evals": "tsx evals/main.ts",
     "db:generate": "drizzle-kit generate",
     "seed:precedents": "tsx scripts/seed-precedents.ts"
   },
