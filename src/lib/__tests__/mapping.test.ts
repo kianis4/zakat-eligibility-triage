@@ -101,22 +101,21 @@ const debtQuote = "borrowed 9,000 JOD from relatives to cover the treatment and 
 type ModelFindingPayload = Record<string, unknown>;
 
 function modelMapping(overrides: Record<string, ModelFindingPayload> = {}) {
-  const categories = Object.fromEntries(
-    RECIPIENT_CATEGORY_IDS.map((id) => [
-      id,
-      overrides[id] ?? {
-        status: "insufficient_evidence",
-        rationale: "The story does not say enough about this category.",
-        missingFact: "Whether the beneficiary falls under this category at all.",
-        questionForOrganizer:
-          "Could you tell us who will receive this money and what it will be spent on?",
-        scholarlyDifference: null,
-      },
-    ]),
-  );
+  const findings = RECIPIENT_CATEGORY_IDS.map((id) => ({
+    category: id,
+    quotes: [],
+    ...(overrides[id] ?? {
+      status: "insufficient_evidence",
+      rationale: "The story does not say enough about this category.",
+      missingFact: "Whether the beneficiary falls under this category at all.",
+      questionForOrganizer:
+        "Could you tell us who will receive this money and what it will be spent on?",
+      scholarlyDifference: null,
+    }),
+  }));
 
   return {
-    categories,
+    findings,
     mixedUseSignals: [
       {
         description: "Surplus funds are directed to equipment rather than to the debt.",
@@ -167,6 +166,74 @@ describe("mapCategories", () => {
     );
 
     expect(Object.keys(mapping.categories).sort()).toEqual([...RECIPIENT_CATEGORY_IDS].sort());
+  });
+
+  /**
+   * The model returns a list, because the provider's compiler refuses eight named
+   * union-shaped properties, and a list says three things a record cannot: a category in any
+   * order, a category twice, and a category not at all. The first has to survive the fold
+   * intact and the other two have to fail it, because a duplicate silently overwrites a
+   * finding and an omission silently loses one, and both reach the reviewer looking complete.
+   */
+  it("folds a finding onto its own category whatever order the list arrives in", async () => {
+    const complete = modelMapping({ "al-gharimin": supportedDebtFinding });
+    const reversed = { ...complete, findings: [...complete.findings].reverse() };
+    const mapping = await mapCategories(campaign, facts, modelReturning(reversed));
+
+    expect(mapping.categories["al-gharimin"].status).toBe("supported");
+    expect(mapping.categories["fi-sabilillah"].status).toBe("insufficient_evidence");
+  });
+
+  it("fails the mapping when the model leaves a category out", async () => {
+    const complete = modelMapping();
+    const incomplete = {
+      ...complete,
+      findings: complete.findings.filter((finding) => finding.category !== "ibn-al-sabil"),
+    };
+
+    const error = await mapCategories(campaign, facts, modelReturning(incomplete)).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(MappingError);
+    expect((error as MappingError).reason).toBe("schema_validation_failed");
+    expect((error as MappingError).message).toContain("ibn-al-sabil");
+  });
+
+  it("fails the mapping when the model returns a category twice", async () => {
+    const complete = modelMapping({ "al-gharimin": supportedDebtFinding });
+    const duplicated = {
+      ...complete,
+      findings: [
+        ...complete.findings,
+        { ...complete.findings[0], category: "al-gharimin", quotes: [debtQuote] },
+      ],
+    };
+
+    const error = await mapCategories(campaign, facts, modelReturning(duplicated)).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(MappingError);
+    expect((error as MappingError).reason).toBe("schema_validation_failed");
+    expect((error as MappingError).message).toContain("al-gharimin");
+  });
+
+  it("fails the mapping when the model names a category the corpus does not hold", async () => {
+    const complete = modelMapping();
+    const invented = {
+      ...complete,
+      findings: complete.findings.map((finding, index) =>
+        index === 0 ? { ...finding, category: "al-yatama" } : finding,
+      ),
+    };
+
+    const error = await mapCategories(campaign, facts, modelReturning(invented)).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(MappingError);
+    expect((error as MappingError).reason).toBe("schema_validation_failed");
   });
 
   it("stamps the mapping with the policy version it was produced under", async () => {
@@ -343,6 +410,35 @@ describe("mapCategories", () => {
     expect(error).toBeInstanceOf(MappingError);
     expect((error as MappingError).reason).toBe("schema_validation_failed");
   });
+
+  /**
+   * The model-facing schema used to type the missing fact and the question onto the one
+   * status that cannot be acted on without them. One flat item schema is what the provider's
+   * compiler accepts, so the requirement is a check on that item now rather than a shape, and
+   * these are the two payloads that would otherwise reach a reviewer as a finding they cannot
+   * act on and cannot resolve.
+   */
+  for (const field of ["missingFact", "questionForOrganizer"] as const) {
+    it(`rejects an unresolved finding with no ${field}, at the schema level`, async () => {
+      const incomplete = modelMapping({
+        "al-gharimin": {
+          status: "insufficient_evidence",
+          rationale: "The story does not say when the debt falls due.",
+          missingFact: "When the repayment falls due.",
+          questionForOrganizer: "When does the repayment you mention fall due?",
+          scholarlyDifference: null,
+          [field]: undefined,
+        },
+      });
+
+      const error = await mapCategories(campaign, facts, modelReturning(incomplete)).catch(
+        (thrown: unknown) => thrown,
+      );
+
+      expect(error).toBeInstanceOf(MappingError);
+      expect((error as MappingError).reason).toBe("schema_validation_failed");
+    });
+  }
 
   it("fails the mapping when a quote cannot be found in the story", async () => {
     const fabricated = modelMapping({

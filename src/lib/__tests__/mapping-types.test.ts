@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { SCHOLARLY_DIFFERENCE_IDS, scholarlyDifferenceById } from "../categories";
+import {
+  RECIPIENT_CATEGORY_IDS,
+  SCHOLARLY_DIFFERENCE_IDS,
+  scholarlyDifferenceById,
+} from "../categories";
 import {
   CategoryMapping,
   CategoryFinding,
@@ -59,35 +63,33 @@ describe("an uncited supported finding is unrepresentable", () => {
 describe("the model-facing schema offers no room to author a scholarly position", () => {
   const schema = z.toJSONSchema(ModelMapping, { io: "input" }) as Record<string, unknown>;
 
-  function difference(status: "supported" | "not_supported" | "insufficient_evidence") {
-    const categories = (schema.properties as Record<string, Record<string, unknown>>).categories;
-    const members = (
-      (categories.properties as Record<string, Record<string, unknown>>)["fi-sabilillah"]
-        .oneOf as Record<string, unknown>[]
-    ).flatMap((member) => {
-      const properties = member.properties as Record<string, Record<string, unknown>>;
-      return (properties.status.const as string) === status ? [properties.scholarlyDifference] : [];
-    });
+  const item = (
+    (schema.properties as Record<string, Record<string, unknown>>).findings.items as Record<
+      string,
+      unknown
+    >
+  ).properties as Record<string, Record<string, unknown>>;
 
-    expect(members).toHaveLength(1);
-    const [selection] = members;
-    const object = (selection.anyOf as Record<string, unknown>[]).find(
-      (branch) => branch.type === "object",
-    );
+  /**
+   * One item schema now serves all three statuses, so the selection this walks is the only
+   * one the model is offered, on a finding of any status. The status enum below is what says
+   * the three are covered by it.
+   */
+  const selection = (item.scholarlyDifference.anyOf as Record<string, unknown>[]).find(
+    (branch) => branch.type === "object",
+  ) as Record<string, unknown>;
 
-    return object as Record<string, unknown>;
-  }
+  it("offers a finding of any status the same one selection field", () => {
+    expect(item.status.enum).toEqual(["supported", "not_supported", "insufficient_evidence"]);
+  });
 
-  for (const status of ["supported", "not_supported", "insufficient_evidence"] as const) {
-    it(`offers a ${status} finding an id and a bounded why, and nothing else`, () => {
-      const selection = difference(status);
-      const properties = selection.properties as Record<string, Record<string, unknown>>;
+  it("offers a finding an id and a bounded why, and nothing else", () => {
+    const properties = selection.properties as Record<string, Record<string, unknown>>;
 
-      expect(Object.keys(properties).sort()).toEqual(["id", "whyThisApplies"]);
-      expect(properties.id.enum).toEqual([...SCHOLARLY_DIFFERENCE_IDS]);
-      expect(typeof properties.whyThisApplies.maxLength).toBe("number");
-    });
-  }
+    expect(Object.keys(properties).sort()).toEqual(["id", "whyThisApplies"]);
+    expect(properties.id.enum).toEqual([...SCHOLARLY_DIFFERENCE_IDS]);
+    expect(typeof properties.whyThisApplies.maxLength).toBe("number");
+  });
 
   /**
    * The field names are the other half of the invariant. A field the model can fill called
@@ -117,6 +119,66 @@ describe("the model-facing schema offers no room to author a scholarly position"
     for (const name of propertyNames(schema)) {
       expect(name).not.toMatch(/summary|note|position|ruling|verse|hadith|fatwa|policy|source/i);
     }
+  });
+});
+
+/**
+ * The provider's structured-output compiler refuses a schema with more than sixteen
+ * union-typed parameters, and it counts every occurrence rather than every distinct shape.
+ * Eight named category properties, each a three-member union carrying a nullable selection,
+ * came to thirty-two and took every live mapping call down with
+ * `MappingError('model_call_failed')`. Nothing in the unit suite saw it, because a mock
+ * never compiles the schema.
+ *
+ * The count is what has to stay small, so the count is what this asserts. The margin is
+ * wide on purpose: a field added to the item costs one, a property added beside `findings`
+ * costs one, and the failure mode is a request the provider will not accept at all.
+ */
+describe("the model-facing schema stays inside the provider's union limit", () => {
+  const UNION_LIMIT = 16;
+
+  function unionParameterCount(node: unknown): number {
+    if (Array.isArray(node)) {
+      return node.reduce((total: number, child) => total + unionParameterCount(child), 0);
+    }
+
+    if (node === null || typeof node !== "object") {
+      return 0;
+    }
+
+    return Object.entries(node as Record<string, unknown>).reduce((total, [key, value]) => {
+      if (key !== "properties" || value === null || typeof value !== "object") {
+        return total + unionParameterCount(value);
+      }
+
+      return Object.values(value as Record<string, unknown>).reduce((subtotal: number, child) => {
+        const property = child as Record<string, unknown>;
+        const isUnion =
+          Array.isArray(property.type) ||
+          property.anyOf !== undefined ||
+          property.oneOf !== undefined;
+
+        return subtotal + (isUnion ? 1 : 0) + unionParameterCount(property);
+      }, total);
+    }, 0);
+  }
+
+  it("declares fewer union-typed parameters than the compiler allows", () => {
+    const schema = z.toJSONSchema(ModelMapping, { io: "input" });
+
+    expect(unionParameterCount(schema)).toBeLessThanOrEqual(UNION_LIMIT);
+  });
+
+  it("would catch a union-heavy schema if one were reintroduced", () => {
+    const perCategory = z.object(
+      Object.fromEntries(
+        RECIPIENT_CATEGORY_IDS.map((id) => [id, z.object({ note: z.string() }).nullable()]),
+      ),
+    );
+
+    expect(unionParameterCount(z.toJSONSchema(perCategory, { io: "input" }))).toBe(
+      RECIPIENT_CATEGORY_IDS.length,
+    );
   });
 });
 

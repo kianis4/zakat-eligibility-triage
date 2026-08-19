@@ -97,8 +97,21 @@ const mixedUseFacts: ExtractedFacts = {
   fundRecipient: { recipient: "unstated", quote: null },
 };
 
+/**
+ * The model returns its findings as a list naming the category in each item, which is the
+ * shape the provider's schema compiler accepts. A record keyed by category is the readable
+ * way to write one out, so this turns that into the list the model would have sent.
+ */
+function findingsFrom(byCategory: Record<string, Record<string, unknown>>) {
+  return Object.entries(byCategory).map(([category, finding]) => ({
+    category,
+    quotes: [],
+    ...finding,
+  }));
+}
+
 const mixedUseModelMapping = {
-  categories: {
+  findings: findingsFrom({
     "al-fuqara": {
       status: "insufficient_evidence",
       rationale: "The story states a debt but not the family's assets or income.",
@@ -139,7 +152,7 @@ const mixedUseModelMapping = {
       },
     },
     "ibn-al-sabil": { status: "not_supported", rationale: "Nobody is described as away from home.", scholarlyDifference: null },
-  },
+  }),
   mixedUseSignals: [
     {
       description:

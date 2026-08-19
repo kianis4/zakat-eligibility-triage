@@ -43,30 +43,32 @@ function factsPayload(beneficiaryKind: "family_member" | "unclear") {
 
 function mappingPayload(status: "supported" | "insufficient_evidence") {
   return {
-    categories: Object.fromEntries(
-      RECIPIENT_CATEGORY_IDS.map((id) => [
-        id,
-        status === "supported" && id === "al-gharimin"
+    findings: RECIPIENT_CATEGORY_IDS.map((id) =>
+      status === "supported" && id === "al-gharimin"
+        ? {
+            category: id,
+            status: "supported",
+            quotes: ["cannot repay it"],
+            rationale: "The story states a debt the family says it cannot repay.",
+            scholarlyDifference: null,
+          }
+        : status === "supported"
           ? {
-              status: "supported",
-              quotes: ["cannot repay it"],
-              rationale: "The story states a debt the family says it cannot repay.",
+              category: id,
+              status: "not_supported",
+              quotes: [],
+              rationale: "The story says nothing that bears on this category.",
               scholarlyDifference: null,
             }
-          : status === "supported"
-            ? {
-                status: "not_supported",
-                rationale: "The story says nothing that bears on this category.",
-                scholarlyDifference: null,
-              }
-            : {
-                status: "insufficient_evidence",
-                rationale: "The story does not say enough about this category.",
-                missingFact: "Whether the beneficiary falls under this category at all.",
-                questionForOrganizer: question,
-                scholarlyDifference: null,
-              },
-      ]),
+          : {
+              category: id,
+              status: "insufficient_evidence",
+              quotes: [],
+              rationale: "The story does not say enough about this category.",
+              missingFact: "Whether the beneficiary falls under this category at all.",
+              questionForOrganizer: question,
+              scholarlyDifference: null,
+            },
     ),
     mixedUseSignals: [],
   };
@@ -272,15 +274,11 @@ describe("runTriage", () => {
       factsPayload("family_member"),
       {
         ...mappingPayload("supported"),
-        categories: {
-          ...mappingPayload("supported").categories,
-          "al-gharimin": {
-            status: "supported",
-            quotes: ["a sentence the organizer never wrote"],
-            rationale: "The story states a debt the family says it cannot repay.",
-            scholarlyDifference: null,
-          },
-        },
+        findings: mappingPayload("supported").findings.map((finding) =>
+          finding.category === "al-gharimin"
+            ? { ...finding, quotes: ["a sentence the organizer never wrote"] }
+            : finding,
+        ),
       },
     ]);
 
