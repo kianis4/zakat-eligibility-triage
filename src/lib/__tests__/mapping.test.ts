@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 
 import type { CampaignInput } from "../campaign";
-import { RECIPIENT_CATEGORY_IDS, scholarlyDifferenceById } from "../categories";
+import { POLICY_VERSION, RECIPIENT_CATEGORY_IDS, scholarlyDifferenceById } from "../categories";
 import type { ExtractedFacts } from "../extraction";
 import { CategoryFinding, MappingError, mapCategories, resolveCitation } from "../mapping";
 
@@ -167,6 +167,24 @@ describe("mapCategories", () => {
     );
 
     expect(Object.keys(mapping.categories).sort()).toEqual([...RECIPIENT_CATEGORY_IDS].sort());
+  });
+
+  it("stamps the mapping with the policy version it was produced under", async () => {
+    const mapping = await mapCategories(campaign, facts, modelReturning(modelMapping()));
+
+    expect(mapping.policyVersion).toBe(POLICY_VERSION);
+  });
+
+  /**
+   * The stamp says which guidance the pipeline mapped against, so it has to come from the
+   * guidance rather than from the thing being checked against it. A model that could set it
+   * could date its own output to a policy it never read.
+   */
+  it("ignores a policy version the model supplies", async () => {
+    const forged = { ...modelMapping(), policyVersion: "000000000000" };
+    const mapping = await mapCategories(campaign, facts, modelReturning(forged));
+
+    expect(mapping.policyVersion).toBe(POLICY_VERSION);
   });
 
   it("carries a citation that resolves to a real span of the story", async () => {

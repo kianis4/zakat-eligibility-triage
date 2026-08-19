@@ -2,7 +2,7 @@ import { MockLanguageModelV3 } from "ai/test";
 import { describe, expect, it } from "vitest";
 
 import type { CampaignInput } from "../campaign";
-import { RECIPIENT_CATEGORY_IDS, type RecipientCategory } from "../categories";
+import { POLICY_VERSION, RECIPIENT_CATEGORY_IDS, type RecipientCategory } from "../categories";
 import type { ExtractedFacts } from "../extraction";
 import { type CategoryMapping, type CategoryFinding, mapCategories } from "../mapping";
 import { buildMissingEvidenceReport } from "../missing-evidence";
@@ -220,6 +220,7 @@ function mappingWith(
   findings: Partial<Record<RecipientCategory, CategoryFinding>>,
 ): CategoryMapping {
   return {
+    policyVersion: POLICY_VERSION,
     categories: Object.fromEntries(
       RECIPIENT_CATEGORY_IDS.map((id) => [id, findings[id] ?? notSupported]),
     ) as CategoryMapping["categories"],

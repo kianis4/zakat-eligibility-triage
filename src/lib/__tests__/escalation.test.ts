@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import type { CampaignInput } from "../campaign";
 import {
+  POLICY_VERSION,
   RECIPIENT_CATEGORY_IDS,
   scholarlyDifferenceById,
   type RecipientCategory,
@@ -44,6 +45,7 @@ function mappingWith(
   mixedUseSignals: CategoryMapping["mixedUseSignals"] = [],
 ): CategoryMapping {
   return {
+    policyVersion: POLICY_VERSION,
     categories: Object.fromEntries(
       RECIPIENT_CATEGORY_IDS.map((id) => [id, findings[id] ?? notSupported]),
     ) as CategoryMapping["categories"],

@@ -6,6 +6,8 @@ import {
   RECIPIENT_CATEGORY_IDS,
   SCHOLARLY_DIFFERENCES,
   SCHOLARLY_DIFFERENCE_IDS,
+  POLICY_VERSION,
+  policyVersionOf,
   scholarlyDifferenceById,
 } from "../categories";
 
@@ -24,6 +26,80 @@ describe("recipient categories", () => {
       expect(category.gloss.length).toBeGreaterThan(0);
       expect(category.evidenceGuidance.length).toBeGreaterThan(0);
     }
+  });
+});
+
+/**
+ * The guidance data is the policy this pipeline maps against, so an output produced under
+ * one version of it is not comparable with an output produced under another. The stamp is
+ * a content hash rather than a number someone remembers to raise, because the failure mode
+ * of a manual version is silence: the policy moves, the number does not, and the historical
+ * outputs the change invalidated are indistinguishable from the ones it did not.
+ */
+describe("the policy version", () => {
+  it("is a short content hash", () => {
+    expect(POLICY_VERSION).toMatch(/^[0-9a-f]{12}$/);
+  });
+
+  it("is the hash of the categories, the differences and the restrictions as they stand", () => {
+    expect(
+      policyVersionOf({
+        categories: RECIPIENT_CATEGORIES,
+        differences: SCHOLARLY_DIFFERENCES,
+        restrictions: CROSS_CUTTING_RESTRICTIONS,
+      }),
+    ).toBe(POLICY_VERSION);
+  });
+
+  it("moves when a scholarly difference is reworded", () => {
+    const [first, ...rest] = SCHOLARLY_DIFFERENCES;
+
+    expect(
+      policyVersionOf({
+        categories: RECIPIENT_CATEGORIES,
+        differences: [{ ...first, summary: `${first.summary} A body has since restated this.` }, ...rest],
+        restrictions: CROSS_CUTTING_RESTRICTIONS,
+      }),
+    ).not.toBe(POLICY_VERSION);
+  });
+
+  it("moves when a category's evidence guidance changes", () => {
+    const [first, ...rest] = RECIPIENT_CATEGORIES;
+
+    expect(
+      policyVersionOf({
+        categories: [{ ...first, evidenceGuidance: "Anything at all." }, ...rest],
+        differences: SCHOLARLY_DIFFERENCES,
+        restrictions: CROSS_CUTTING_RESTRICTIONS,
+      }),
+    ).not.toBe(POLICY_VERSION);
+  });
+
+  it("moves when a cross-cutting restriction changes", () => {
+    const [first, ...rest] = CROSS_CUTTING_RESTRICTIONS;
+
+    expect(
+      policyVersionOf({
+        categories: RECIPIENT_CATEGORIES,
+        differences: SCHOLARLY_DIFFERENCES,
+        restrictions: [{ ...first, whereItBinds: "recipient" as const }, ...rest],
+      }),
+    ).not.toBe(POLICY_VERSION);
+  });
+
+  it("does not move when the same data is written in a different key order", () => {
+    expect(
+      policyVersionOf({
+        restrictions: CROSS_CUTTING_RESTRICTIONS,
+        differences: SCHOLARLY_DIFFERENCES.map((difference) => ({
+          summary: difference.summary,
+          topic: difference.topic,
+          category: difference.category,
+          id: difference.id,
+        })),
+        categories: RECIPIENT_CATEGORIES,
+      }),
+    ).toBe(POLICY_VERSION);
   });
 });
 

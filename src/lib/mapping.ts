@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { CampaignInput } from "./campaign";
 import {
+  POLICY_VERSION,
   RECIPIENT_CATEGORIES,
   RECIPIENT_CATEGORY_IDS,
   SCHOLARLY_DIFFERENCES,
@@ -261,7 +262,17 @@ export const MixedUseSignal = z.object({
 
 export type MixedUseSignal = z.infer<typeof MixedUseSignal>;
 
+/**
+ * The eight findings, the mixed-use signals, and the policy the whole thing was produced
+ * against.
+ *
+ * `policyVersion` is stamped server-side from the corpus in `./categories` and is absent
+ * from the model-facing schema, so it records what the pipeline read rather than what the
+ * model says it read. Without it a mapping is undated against a moving corpus, and a policy
+ * change leaves no way to tell which stored outputs it invalidated.
+ */
 export const CategoryMapping = z.object({
+  policyVersion: z.string().regex(/^[0-9a-f]{12}$/),
   categories: z.record(z.enum(RECIPIENT_CATEGORY_IDS), CategoryFinding),
   mixedUseSignals: z.array(MixedUseSignal),
 });
@@ -522,5 +533,5 @@ export async function mapCategories(
     citations: signal.quotes.map((quote) => resolveCitation(input.story, quote)),
   }));
 
-  return CategoryMapping.parse({ categories, mixedUseSignals });
+  return CategoryMapping.parse({ policyVersion: POLICY_VERSION, categories, mixedUseSignals });
 }

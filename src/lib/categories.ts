@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 /**
  * The eight categories of zakat recipient named in Qur'an 9:60, as the triage pipeline
  * refers to them.
@@ -241,3 +243,63 @@ export function scholarlyDifferenceById(id: ScholarlyDifferenceId): ScholarlyDif
 
   return difference;
 }
+
+/**
+ * Everything in this module that a mapping is produced against.
+ *
+ * The three lists together are the policy corpus: the guidance the model reads, the
+ * differences it may name, and the restrictions a reviewer weighs. A change to any of them
+ * changes what an output means, which is why they are versioned together rather than apart.
+ */
+export type PolicyCorpus = {
+  readonly categories: readonly RecipientCategoryDefinition[];
+  readonly differences: readonly ScholarlyDifference[];
+  readonly restrictions: readonly CrossCuttingRestriction[];
+};
+
+/**
+ * Serialises a value with its object keys in a fixed order, so the hash tracks the content
+ * rather than the order someone happened to type the fields in. Reordering the keys of an
+ * entry is not a policy change and must not read as one.
+ */
+function canonicalize(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalize).join(",")}]`;
+  }
+
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+      .map(([key, entry]) => `${JSON.stringify(key)}:${canonicalize(entry)}`);
+
+    return `{${entries.join(",")}}`;
+  }
+
+  return JSON.stringify(value) ?? "null";
+}
+
+/**
+ * The identifier of a policy corpus, as a short content hash.
+ *
+ * A hash rather than a number someone remembers to raise, because the failure mode of a
+ * hand-maintained version is silence: an edit lands, the number stays, and every historical
+ * output produced under the old wording becomes indistinguishable from one produced under
+ * the new. Twelve hex characters tell two corpora apart in a reviewer's file without
+ * becoming an identifier anyone tries to read.
+ */
+export function policyVersionOf(corpus: PolicyCorpus): string {
+  return createHash("sha256").update(canonicalize(corpus)).digest("hex").slice(0, 12);
+}
+
+/**
+ * The version of the corpus this build carries, computed once at module load.
+ *
+ * `mapCategories` stamps it onto every mapping. It is never model-supplied: the stamp says
+ * which policy the pipeline mapped against, and a model that could set it could date its own
+ * output to a policy it never read.
+ */
+export const POLICY_VERSION = policyVersionOf({
+  categories: RECIPIENT_CATEGORIES,
+  differences: SCHOLARLY_DIFFERENCES,
+  restrictions: CROSS_CUTTING_RESTRICTIONS,
+});
