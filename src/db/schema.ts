@@ -1,4 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
+  bigserial,
+  check,
   index,
   jsonb,
   numeric,
@@ -10,6 +13,10 @@ import {
 } from "drizzle-orm/pg-core";
 
 import type { RecipientCategory } from "../lib/categories";
+import type { EscalationDecision } from "../lib/escalation";
+import type { ExtractedFacts } from "../lib/extraction";
+import type { CategoryMapping } from "../lib/mapping";
+import type { MissingEvidenceReport } from "../lib/missing-evidence";
 
 /**
  * Dimensionality of the embedding column.
@@ -97,7 +104,150 @@ export const precedents = pgTable(
   ],
 );
 
+/**
+ * What happened to the escalation on its way to a channel, or nothing when none fired.
+ *
+ * A failure is recorded rather than thrown away, and it is recorded with the status that
+ * caused it, because "the reviewer was never told" is a fact about this campaign that the
+ * next person to open it has to be able to see. `failed:unreachable` covers a post that
+ * never received a response at all, which has no status to name.
+ *
+ * Null means the run did not escalate, so there was nothing to deliver. It does not mean
+ * delivery is pending: `slack_delivery IS NULL` is checked against the escalation itself
+ * in the table below, so a run that refused and quietly sent nothing cannot be stored.
+ */
+export type SlackDelivery = "delivered" | "not_configured" | `failed:${string}`;
+
+/**
+ * One pass of the pipeline over one campaign: the agent's file, exactly as it stood.
+ *
+ * The row is written once and never rewritten. There is no update path to it anywhere in
+ * this repository, which is the property that makes a decision auditable: a decision names
+ * the run it was taken against, so a reader can see what the reviewer was actually looking
+ * at rather than what the pipeline would say today. Re-running a campaign appends another
+ * row, and the older one keeps standing behind the decisions that cite it.
+ *
+ * Nothing here is an outcome. The four documents are what the agent read, mapped, found
+ * missing and refused on, and the columns beside them say which policy corpus and which
+ * model produced them. Under ADR-0001 a campaign's outcome is a `decisions` row and only
+ * ever that.
+ */
+export const triageRuns = pgTable(
+  "triage_runs",
+  {
+    id: text("id").primaryKey(),
+    campaignId: text("campaign_id")
+      .notNull()
+      .references(() => campaigns.id),
+    facts: jsonb("facts").$type<ExtractedFacts>().notNull(),
+    mapping: jsonb("mapping").$type<CategoryMapping>().notNull(),
+    missingEvidence: jsonb("missing_evidence").$type<MissingEvidenceReport>().notNull(),
+    escalation: jsonb("escalation").$type<EscalationDecision>().notNull(),
+    policyVersion: text("policy_version").notNull(),
+    model: text("model").notNull(),
+    slackDelivery: text("slack_delivery").$type<SlackDelivery>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`clock_timestamp()`),
+    sequence: bigserial("sequence", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    check(
+      "triage_runs_slack_delivery_recorded",
+      sql`${table.slackDelivery} is null or ${table.slackDelivery} in ('delivered', 'not_configured') or ${table.slackDelivery} like 'failed:%'`,
+    ),
+    check(
+      "triage_runs_escalation_has_a_delivery_state",
+      sql`(${table.escalation}->>'escalate' = 'true') = (${table.slackDelivery} is not null)`,
+    ),
+  ],
+);
+
+/**
+ * What a reviewer may record, and the whole vocabulary of it.
+ *
+ * `request_info` is a decision and not a deferral of one: the reviewer read the file, found
+ * the determinative fact absent, and recorded that the campaign cannot be adjudicated until
+ * the organizer answers. `escalate` sends it to someone with more standing than the reviewer
+ * has, which is a judgement about the campaign rather than an absence of one.
+ *
+ * None of the three is an eligibility ruling. A reviewer approving a campaign is a qualified
+ * human deciding, which is the only thing this system will publish (ADR-0001).
+ */
+export const DECISION_ACTIONS = ["approve", "request_info", "escalate"] as const;
+
+export type DecisionAction = (typeof DECISION_ACTIONS)[number];
+
+/**
+ * A human's decision about a campaign, against the agent file they read.
+ *
+ * This table is the only representation of an outcome in the schema, so publishing an
+ * outcome *is* inserting a row here, and there is no shorter way to do it. The constraints
+ * make the two useless decisions unrepresentable rather than discouraged: an anonymous one,
+ * which cannot be an audit trail because it records no one, and an unreasoned one, which
+ * records a verdict and loses the only part of it a later reader can weigh.
+ *
+ * `triage_run_id` is not null because a decision is always about a specific file. Without it
+ * the trail says a reviewer approved a campaign and not what they approved it on, and the
+ * agreement between human and agent stops being computable at all.
+ *
+ * `decided_at` records when, and `sequence` records in what order, and they are two columns
+ * because a wall clock does not give the second one. `now()` is the transaction's start time
+ * and is identical for every row written inside one transaction; `clock_timestamp()` is per
+ * statement but only as fine as the clock underneath it, and under PGlite five consecutive
+ * inserts came back with one timestamp between them. The order of an audit trail is part of
+ * what it records, so it is read off a sequence that cannot tie rather than off a reading
+ * that happens not to.
+ *
+ * Whether the reviewer agreed with the agent is deliberately not a column. It is a function
+ * of this row and the run it points at, so storing it would be storing something derivable,
+ * and derivable data that is stored is data that drifts. See ADR-0008.
+ *
+ * The emptiness checks trim with an explicit whitespace set rather than with bare `trim`,
+ * which in Postgres strips the space character and nothing else. A reviewer of one tab
+ * satisfies `length(trim(reviewer)) > 0`, and an anonymous decision that a constraint waves
+ * through is worse than no constraint, because the schema then claims a guarantee it does
+ * not give.
+ */
+export const decisions = pgTable(
+  "decisions",
+  {
+    id: text("id").primaryKey(),
+    campaignId: text("campaign_id")
+      .notNull()
+      .references(() => campaigns.id),
+    triageRunId: text("triage_run_id")
+      .notNull()
+      .references(() => triageRuns.id),
+    action: text("action").$type<DecisionAction>().notNull(),
+    reviewer: text("reviewer").notNull(),
+    note: text("note").notNull(),
+    decidedAt: timestamp("decided_at", { withTimezone: true })
+      .notNull()
+      .default(sql`clock_timestamp()`),
+    sequence: bigserial("sequence", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    check(
+      "decisions_action_is_recorded",
+      sql`${table.action} in ('approve', 'request_info', 'escalate')`,
+    ),
+    check(
+      "decisions_reviewer_is_named",
+      sql`length(btrim(${table.reviewer}, E' \\t\\n\\r\\f\\v')) > 0`,
+    ),
+    check(
+      "decisions_note_carries_reasoning",
+      sql`length(btrim(${table.note}, E' \\t\\n\\r\\f\\v')) > 0`,
+    ),
+  ],
+);
+
 export type PrecedentRow = typeof precedents.$inferSelect;
 export type NewPrecedentRow = typeof precedents.$inferInsert;
 export type CampaignRow = typeof campaigns.$inferSelect;
 export type NewCampaignRow = typeof campaigns.$inferInsert;
+export type TriageRunRow = typeof triageRuns.$inferSelect;
+export type NewTriageRunRow = typeof triageRuns.$inferInsert;
+export type DecisionRow = typeof decisions.$inferSelect;
+export type NewDecisionRow = typeof decisions.$inferInsert;
