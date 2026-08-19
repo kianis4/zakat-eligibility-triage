@@ -132,9 +132,12 @@ const ResolvedScholarlyDifference = z
  * A disagreement between recognised scholars that this finding sits inside.
  *
  * The difference itself is reference data: human-authored, versioned in `./categories`, and
- * reached by id. The model selects which one applies and says why in one sentence; it never
- * states what the difference is. That split is the whole point, and ADR-0007 is where it is
- * argued.
+ * reached by id, so nothing in citation position was written by a model. The model selects
+ * which entry applies and says in one sentence what the campaign does that puts it there.
+ * That sentence is model prose like the rationale and the organizer question: shape-guarded
+ * against quotation and citation by `./model-prose`, not proof against a paraphrase, and to
+ * be rendered as the model's own words rather than as a quotation. ADR-0007 argues the split
+ * and states what it does not cover.
  */
 export const ScholarlyDifferenceReference = z.object({
   entry: ResolvedScholarlyDifference,

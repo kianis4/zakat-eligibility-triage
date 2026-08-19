@@ -33,10 +33,18 @@ cannot be trusted to abstain when it matters, so a refusal has to be a shape the
 take rather than a behaviour a prompt requests.
 
 ## Decision
-**No Qur'anic text, hadith, fatwa passage or policy clause is ever model-authored, as quotation
-or as paraphrase, and the schema is what enforces it.** Paraphrase is the more dangerous of the
-two, not the safer one: it carries the same authority to a reader and there is nothing to diff
-it against.
+**Everything the pipeline puts in a citation position is either a verbatim span of the campaign,
+byte-checked under ADR-0003, or versioned in-repo human-authored reference data retrieved by id.
+No Qur'anic text, hadith, fatwa passage or policy clause reaches a reviewer as something a model
+wrote.** That is a schema property and it is the whole of what the schema can give.
+
+Model free text remains in the output: the rationale, the missing fact, the organizer question,
+the mixed-use description and the one-sentence why on a scholarly difference. Those fields are
+shape-guarded against quotation and citation-shaped text, they cannot be guarded against an
+unquoted paraphrase, and they are always rendered as the model's own prose, never as a quotation
+and never as a citation. Paraphrase is the more dangerous of the two forms, not the safer one: it
+carries the same authority to a reader and there is nothing to diff it against, which is exactly
+why the material that would be paraphrased is retrieved rather than generated.
 
 Concretely, four things.
 
@@ -55,10 +63,17 @@ Concretely, four things.
    position, a ruling or a source text.
 
    The bounds on `whyThisApplies` are part of the guarantee rather than tidiness. One sentence
-   has no room for an account of a school's reasoning; a quotation mark or a chapter-and-verse
-   reference is the shape scripture arrives in and is refused outright. The escalation question
-   carries it as the model's sentence about the campaign, next to the corpus text, which is the
-   only description of the disagreement anywhere in the system.
+   has no room for an account of a school's reasoning. The escalation question carries it as
+   the model's sentence about the campaign, next to the corpus text, which is the only
+   description of the disagreement anywhere in the system.
+
+   The same shape guard, `src/lib/model-prose.ts`, runs on every field the model writes prose
+   into: `rationale`, `missingFact`, `questionForOrganizer`, the mixed-use `description` and
+   `whyThisApplies`, on the model-facing schema and the output schema both. It refuses
+   quotation marks, chapter-and-verse references, a source word cited near a number, and a
+   saying attributed to the Prophet or to God. It was added after a verification pass put
+   fabricated scripture through all four of the fields the first version of this ADR left
+   uncovered.
 
 2. **Every mapping is stamped with a policy version.** `POLICY_VERSION` is a sha256 over the
    canonical form of the category definitions, the scholarly differences and the cross-cutting
@@ -115,11 +130,11 @@ Concretely, four things.
   back.
 
 ## Consequences
-Easy: there is no longer any text in the system describing a scholarly position that a human
-did not write, so review of that text is review of one file rather than of model output.
-Changing what the platform says a difference is becomes an edit to `SCHOLARLY_DIFFERENCES`,
-visible in a diff, and it moves `POLICY_VERSION` on its own. Stored mappings are comparable
-only when their stamps match, which is the honest reading.
+Easy: the description of a scholarly position that a reviewer reads is a file a human wrote, so
+reviewing that text is reviewing one file rather than reviewing model output. Changing what the
+platform says a difference is becomes an edit to `SCHOLARLY_DIFFERENCES`, visible in a diff, and
+it moves `POLICY_VERSION` on its own. Stored mappings are comparable only when their stamps
+match, which is the honest reading.
 
 Hard: the pipeline can only name a difference the corpus already holds. A campaign sitting
 inside a disagreement nobody has written up gets `null` and a rationale, so coverage of the
@@ -128,9 +143,22 @@ extending it means an ADR-worthy edit to reference data rather than a prompt cha
 the trade being made deliberately: the previous behaviour covered every case, and covered the
 uncovered ones by inventing them.
 
-We also accept that `whyThisApplies` is model-authored prose reaching a reviewer. It is bounded
-and it is about the campaign, and the reviewer sees it under its own name beside the corpus
-text rather than blended into it. The residual risk is a sentence that characterises the
-disagreement in passing while appearing to describe the campaign. The bound, the quotation ban
-and the prompt are what stand against it, and if that proves insufficient the next step is to
-require the sentence to quote the story rather than to loosen anything here.
+The residual is model prose, and it is stated here rather than left to be discovered. Five
+fields carry the model's own words to a reviewer: `rationale`, `missingFact`,
+`questionForOrganizer`, the mixed-use `description` and `whyThisApplies`. `rationale` is the one
+to watch, because rule 6 of the mapping prompt tells the model to put unresolved discussion of a
+difference into it, which makes it the field most likely to reach for a source, and it was the
+field with no guard at all until a verification pass demonstrated fabricated scripture passing
+through it. The guard now covers it and the other four.
+
+What the guard does is refuse a shape: quotation marks, a chapter-and-verse reference, a source
+word cited near a number, a saying attributed to the Prophet or to God. What it cannot do, and
+what no schema can do, is detect an unquoted paraphrase. A sentence stating in the model's own
+words what a source says carries the same authority to a reader and has no shape to match on.
+Two things stand against that residual and neither is a schema: the prompt, which now says the
+validation refuses citation outright so the model states facts about the campaign text instead;
+and the rule that model prose is always rendered as the model's prose, never styled or
+introduced as a quotation or a citation. That rendering rule has no enforcement point yet,
+because the reviewer UI renders only the campaign and its precedent. It is a requirement on the
+reviewer-UI issue, and the place where this ADR is easiest to violate without touching any of
+the code it constrains.
