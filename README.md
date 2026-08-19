@@ -22,11 +22,51 @@ So this system does not decide. For a submitted campaign it:
 
 Every claim it makes is traceable to a span of the campaign it read. Nothing is a bare score.
 
+The deployed prototype is public, no credentials:
+**https://zakat-eligibility-triage.vercel.app**
+
 ## Trust boundary
 
 The agent prepares the file. A qualified human adjudicates. That boundary is architectural,
 not a disclaimer: there is no code path in which a determination is published without a
 recorded human decision.
+
+## Architecture
+
+Next.js App Router and TypeScript end to end, on Vercel. Neon Postgres with pgvector for
+precedent retrieval, Drizzle for the schema, and the AI SDK's `generateObject` with zod
+schemas for every model call; models are injected, so the unit suite runs against mocks with
+no network, and PGlite boots the real shipped migrations so tests exercise the same schema
+production runs.
+
+The pipeline is a linear assembly with rule-based gates, deliberately not an agent loop:
+
+    campaign -> extract facts -> map categories (span citations) -> missing-evidence report
+             -> deterministic escalation gate -> reviewer UI -> recorded human decision
+
+Load-bearing invariants, each with its decision record:
+
+- The agent never issues a ruling; it emits findings about text evidence (ADR-0001).
+- A supported finding without a citation is unrepresentable in the type system, and citations
+  are verbatim quotes resolved to offsets server side (ADR-0003).
+- Retrieved precedent renders to the reviewer and never enters a model prompt, enforced by a
+  prompt-recording trace test and an import-graph fence (ADR-0004).
+- The refusal is deterministic code over typed output; the model cannot talk the pipeline out
+  of an escalation (ADR-0006).
+- Nothing in citation position is model-authored: campaign spans are byte-checked and
+  scholarly-difference text is retrieved by id from versioned human-authored data (ADR-0007).
+- The only representation of an outcome in the entire schema is a human decision row
+  (ADR-0008).
+
+## Running it
+
+- `npm install`, then `npm test` and `npm run typecheck`; the unit suite needs no network,
+  no database, and no keys.
+- The app needs `DATABASE_URL` (Postgres with pgvector), `ANTHROPIC_API_KEY`, and
+  `OPENAI_API_KEY` (embeddings); optional `SLACK_WEBHOOK_URL` for escalation delivery and
+  `APP_BASE_URL` for links in the Slack message. See `.env.example`.
+- Migrations are the SQL files in `drizzle/` applied in journal order; seed the precedent
+  corpus with `npm run seed:precedents`.
 
 ## Evaluation
 
