@@ -18,21 +18,42 @@ import { runTriage } from "../../lib/triage";
  * reviewer from the session instead, and the `reviewer` field stops being an input.
  *
  * Everything arrives as form strings and is parsed by a schema before it reaches a query.
- * A failure sends the reviewer back to the page they came from with the reason on it, rather
- * than to a stack trace, and nothing is written on the way.
+ * A failure sends the reviewer back to a page with the reason on it, rather than to a stack
+ * trace, and nothing is written on the way. That includes a missing campaign id, which is the
+ * one failure with no campaign page to return to: those go back to the queue, because the
+ * form was assembled wrong and there is no detail page the reviewer could have come from.
  */
 
 const CampaignId = z.string().min(1);
 
+const QUEUE = "/campaigns";
+
 function backTo(path: string, reason: string): never {
   redirect(`${path}?error=${encodeURIComponent(reason)}`);
+}
+
+/**
+ * The campaign this submission is about, or the queue with an explanation.
+ *
+ * A blank or absent id means the hidden field did not make it into the post. There is nothing
+ * to look up and nowhere campaign-specific to go, and throwing here would put a raw schema
+ * error in front of a reviewer, which is the behaviour this module says it does not have.
+ */
+function campaignIdFrom(fields: Record<string, string>): string {
+  const parsed = CampaignId.safeParse(fields.campaignId);
+
+  if (!parsed.success) {
+    backTo(QUEUE, "That form did not say which campaign it was about, so nothing was recorded.");
+  }
+
+  return parsed.data;
 }
 
 export async function createCampaign(formData: FormData): Promise<void> {
   const submitted = NewCampaignForm.safeParse(fieldsOf(formData));
 
   if (!submitted.success) {
-    backTo("/campaigns", firstIssue(submitted.error));
+    backTo(QUEUE, firstIssue(submitted.error));
   }
 
   const row = campaignRowFrom(submitted.data);
@@ -50,7 +71,7 @@ export async function createCampaign(formData: FormData): Promise<void> {
  * they cannot tell is partial.
  */
 export async function runTriageAction(formData: FormData): Promise<void> {
-  const campaignId = CampaignId.parse(fieldsOf(formData).campaignId);
+  const campaignId = campaignIdFrom(fieldsOf(formData));
   const detail = `/campaigns/${encodeURIComponent(campaignId)}`;
 
   const failure = await runTriage(campaignId, { db: getDatabase() }).then(
@@ -74,7 +95,7 @@ export async function runTriageAction(formData: FormData): Promise<void> {
  */
 export async function submitDecision(formData: FormData): Promise<void> {
   const fields = fieldsOf(formData);
-  const campaignId = CampaignId.parse(fields.campaignId);
+  const campaignId = campaignIdFrom(fields);
   const detail = `/campaigns/${encodeURIComponent(campaignId)}`;
 
   const submitted = DecisionInput.safeParse(fields);
