@@ -34,6 +34,20 @@ describe("resolveCitation", () => {
     expect(story.slice(citation.start, citation.end)).toBe(citation.quote);
   });
 
+  it("refuses an empty quote rather than returning a citation to nothing", () => {
+    const thrown = (() => {
+      try {
+        resolveCitation(story, "");
+        return null;
+      } catch (error: unknown) {
+        return error;
+      }
+    })();
+
+    expect(thrown).toBeInstanceOf(MappingError);
+    expect((thrown as MappingError).reason).toBe("citation_unresolvable");
+  });
+
   it("throws rather than approximating a quote that is not in the story", () => {
     const thrown = (() => {
       try {

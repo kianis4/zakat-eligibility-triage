@@ -49,18 +49,25 @@ export class MappingError extends Error {
  * no quiet demotion of the verdict to an uncited one: a quote that has to be rescued is
  * not a quote from the story, and a verdict that loses its citation on the way out is
  * exactly the uncited assertion this pipeline exists to refuse.
+ *
+ * The result is parsed before it is returned, so this exported helper cannot hand back a
+ * value its own schema would reject. An empty quote is the case that matters: every string
+ * contains it, so a plain search reports a match at offset zero and the caller receives a
+ * citation to nothing that looks resolved.
  */
 export function resolveCitation(story: string, quote: string): Citation {
   const span = locateQuote(story, quote);
+  const resolved = span === null ? null : Citation.safeParse({ quote, ...span });
 
-  if (span === null) {
+  if (resolved === null || !resolved.success) {
     throw new MappingError(
       "citation_unresolvable",
-      `The quote ${JSON.stringify(quote)} is not a verbatim span of the campaign story, so it cannot be cited.`,
+      `The quote ${JSON.stringify(quote)} cannot be cited as a verbatim span of the campaign story.`,
+      { cause: resolved?.error },
     );
   }
 
-  return { quote, start: span.start, end: span.end };
+  return resolved.data;
 }
 
 /**
