@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   bigserial,
   check,
+  foreignKey,
   index,
   jsonb,
   numeric,
@@ -9,6 +10,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   vector,
 } from "drizzle-orm/pg-core";
 
@@ -160,6 +162,12 @@ export const triageRuns = pgTable(
       "triage_runs_escalation_has_a_delivery_state",
       sql`(${table.escalation}->>'escalate' = 'true') = (${table.slackDelivery} is not null)`,
     ),
+    /**
+     * Redundant on its own, since `id` is already unique, and load-bearing anyway: it is what
+     * a composite foreign key from `decisions` can reference, and that key is what stops a
+     * decision citing one campaign and another campaign's file.
+     */
+    unique("triage_runs_campaign_id_id_key").on(table.campaignId, table.id),
   ],
 );
 
@@ -245,9 +253,7 @@ export const decisions = pgTable(
     campaignId: text("campaign_id")
       .notNull()
       .references(() => campaigns.id),
-    triageRunId: text("triage_run_id")
-      .notNull()
-      .references(() => triageRuns.id),
+    triageRunId: text("triage_run_id").notNull(),
     action: text("action").$type<DecisionAction>().notNull(),
     reviewer: text("reviewer").notNull(),
     note: text("note").notNull(),
@@ -263,6 +269,18 @@ export const decisions = pgTable(
     ),
     check("decisions_reviewer_is_named", sql`length(btrim(${table.reviewer}, ${BLANKS})) > 0`),
     check("decisions_note_carries_reasoning", sql`length(btrim(${table.note}, ${BLANKS})) > 0`),
+    /**
+     * The pair, not the two ids separately.
+     *
+     * Separate keys on `campaign_id` and `triage_run_id` are each satisfied by a decision
+     * that cites one campaign and a different campaign's agent file, because both ids exist.
+     * That row records a reviewer deciding a campaign on evidence about another one, and
+     * reads as coherent afterwards. Referencing the pair is what makes it unstorable.
+     */
+    foreignKey({
+      columns: [table.campaignId, table.triageRunId],
+      foreignColumns: [triageRuns.campaignId, triageRuns.id],
+    }),
   ],
 );
 

@@ -33,7 +33,11 @@ JavaScript's `trim` strips, enumerated by codepoint, because Postgres character 
 the database ctype and do not cover the Unicode blanks: a reviewer named by a non-breaking
 space passes `[[:space:]]` and `\s` alike, and a constraint that lets one through is a claim
 the database does not honour. `triage_run_id` is `NOT NULL`, so a decision always names the
-agent file it was taken against.
+agent file it was taken against, and it names it through a composite foreign key on
+`(campaign_id, triage_run_id)` against a unique index on `triage_runs (campaign_id, id)`. Two
+separate foreign keys are each satisfied by a decision citing one campaign and a different
+campaign's file, because both ids exist; that row records a reviewer deciding a campaign on
+evidence about another one, and nothing in it says so.
 
 `triage_runs` is the agent's file, written once. There is no update path to it in this
 repository, and re-running a campaign appends a row rather than replacing one, so a decision

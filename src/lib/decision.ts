@@ -202,10 +202,13 @@ export function agreementWith(
  * Records a human decision, which is the only way this system publishes anything.
  *
  * The run is read back and checked against the campaign the caller named. Both arrive from
- * the same form and a mismatch means the form was assembled wrong or submitted against a
+ * the same form, and a mismatch means the form was assembled wrong or submitted against a
  * different campaign, which would file a decision on one campaign's file under another
- * campaign's name and leave a trail that reads as coherent. The foreign keys do not catch
- * it, because both ids exist.
+ * campaign's name and leave a trail that reads as coherent afterwards.
+ *
+ * The database refuses that row too, through the composite foreign key on the pair, and that
+ * is where the guarantee lives: this check exists to name the mismatch rather than to be the
+ * thing preventing it. A caller that skips this function still cannot store the row.
  */
 export async function recordDecision(
   input: DecisionInput,

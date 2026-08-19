@@ -124,6 +124,8 @@ describe("no table but decisions carries an outcome", () => {
   });
 });
 
+const OTHER_CAMPAIGN = { ...FIXTURE_CAMPAIGN, id: "cmp_fixture_other" };
+
 describe("what the decisions table refuses to store", () => {
   let database: TestDatabase;
 
@@ -267,6 +269,29 @@ describe("what the decisions table refuses to store", () => {
     expect(refusal).toContain("null value in column");
   });
 
+  /**
+   * A decision that cites one campaign and another campaign's file.
+   *
+   * Both ids exist, so two separate foreign keys are each satisfied and the row lands. What
+   * it records is a reviewer deciding a campaign on evidence gathered about a different one,
+   * and nothing about the stored row says so: the trail reads as coherent. Only a composite
+   * key over the pair can refuse it, so the pair is what the key is over.
+   */
+  it("refuses a decision that cites another campaign's agent file", async () => {
+    await database.db.insert(campaigns).values(campaignRow(OTHER_CAMPAIGN));
+    await database.db
+      .insert(triageRuns)
+      .values(triageRunRow({ id: "run_other_campaign", campaignId: OTHER_CAMPAIGN.id }));
+
+    const refusal = await refusalFrom(
+      database.db
+        .insert(decisions)
+        .values({ ...decision, id: "dec_crossed", triageRunId: "run_other_campaign" }),
+    );
+
+    expect(refusal).toContain("decisions_campaign_id_triage_run_id_triage_runs");
+  });
+
   it("refuses a decision against an agent file that does not exist", async () => {
     const refusal = await refusalFrom(
       database.db
@@ -274,7 +299,7 @@ describe("what the decisions table refuses to store", () => {
         .values({ ...decision, id: "dec_0008", triageRunId: "run_never_ran" }),
     );
 
-    expect(refusal).toContain("decisions_triage_run_id_triage_runs_id_fk");
+    expect(refusal).toContain("decisions_campaign_id_triage_run_id_triage_runs");
   });
 });
 
