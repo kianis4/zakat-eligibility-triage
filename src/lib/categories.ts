@@ -74,7 +74,7 @@ export const RECIPIENT_CATEGORIES: readonly RecipientCategoryDefinition[] = [
     id: "ibn-al-sabil",
     gloss: "the wayfarer",
     evidenceGuidance:
-      "A traveller cut off from their means, entitled to zakat to reach home even if wealthy where they came from. UNHCR applies the category to refugees and internally displaced people, and Islamic Relief defines travellers as more than 48 miles from home. Bearing text describes displacement, refugee or asylum status, or stranded travel, gives distance from home, or says whether the beneficiary retains assets elsewhere that they cannot reach.",
+      "A traveller cut off from their means, entitled to zakat to reach home even if wealthy where they came from. UNHCR applies the category to refugees and internally displaced people, and Islamic Relief defines travellers as 48 or more miles from home. Bearing text describes displacement, refugee or asylum status, or stranded travel, gives distance from home, or says whether the beneficiary retains assets elsewhere that they cannot reach.",
   },
 ];
 
@@ -156,7 +156,7 @@ export const SCHOLARLY_DIFFERENCES: readonly ScholarlyDifference[] = [
     category: "fi-sabilillah",
     topic: "tamlik on project campaigns",
     summary:
-      "Tamlik, the transfer of ownership of zakat to a needy person, is the doctrinal engine under the fi sabilillah dispute: the Hanafi position holds it is why zakat cannot build a mosque, the recipient having to be both needy and a person. Two operational answers are documented rather than one: National Zakat Foundation UK uses a wakalah agency agreement that vests ownership in the recipient, and Islamic Relief transfers ownership of a completed communal asset to the local community. AMJA does not treat tamlik as a separate hurdle at all. For a project campaign the determinative question is therefore which mechanism exists, which campaign copy usually does not state.",
+      "Tamlik, the transfer of ownership of zakat to a needy person, is the doctrinal engine under the fi sabilillah dispute: the Hanafi position holds it is why zakat cannot build a mosque, the recipient having to be both needy and a person. Two operational answers are documented rather than one: National Zakat Foundation UK uses a wakalah agency agreement that vests ownership in the recipient, and Islamic Relief transfers ownership of a completed communal asset to the local community. AMJA's public reasoning route does not engage tamlik as a separate hurdle in the sources reviewed, arguing through fi sabilillah scope instead, which is an absence in the record rather than a position AMJA states. For a project campaign the determinative question is therefore which mechanism exists, which campaign copy usually does not state.",
   },
   {
     category: "al-amilina-alayha",
