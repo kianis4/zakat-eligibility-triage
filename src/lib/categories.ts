@@ -171,6 +171,12 @@ export const SCHOLARLY_DIFFERENCES: readonly ScholarlyDifference[] = [
       "Darul Iftaa Birmingham holds the category abrogated, attributing that to Malik, al-Thawri, Ishaq ibn Rahawayh and Abu Hanifah, and Darul Qasim reports that no Rightly Guided Caliph paid it after Umar's decision. SeekersGuidance reads the same history the other way, as an absence of need rather than an abrogation. The Fiqh Council of North America, in a fatwa dated January 2026 signed by Dr. Yasir Qadhi, Dr. Muzammil Siddiqi, Dr. Hatem al-Haj and others, holds the ruling unabrogated and applicable. This is a live and currently moving disagreement between contemporary bodies.",
   },
   {
+    category: "al-muallafati-qulubuhum",
+    topic: "whether zakat may go to a non-Muslim recipient",
+    summary:
+      "The general restriction, as al-feqh states it, is that zakat may not be given to non-Muslims except under al-mu'allafatu qulubuhum, which is why this question and the operative-status question move together. Islamic Relief's operating position is narrower than a blanket ban: where other funds are not available, zakat may be used for non-Muslims in Muslim-majority areas. National Zakat Foundation UK's policy, on Hanafi criteria, requires the applicant to be a Muslim.",
+  },
+  {
     category: "al-gharimin",
     topic: "conditions on debt",
     summary:

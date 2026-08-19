@@ -69,6 +69,9 @@ describe("scholarly differences", () => {
     expect(covered).toContain("fi-sabilillah:scope of fi sabilillah");
     expect(covered).toContain("fi-sabilillah:tamlik on project campaigns");
     expect(covered).toContain("al-muallafati-qulubuhum:whether the category still operates");
+    expect(covered).toContain(
+      "al-muallafati-qulubuhum:whether zakat may go to a non-Muslim recipient",
+    );
     expect(covered).toContain("al-gharimin:conditions on debt");
   });
 });
