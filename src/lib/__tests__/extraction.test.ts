@@ -1,5 +1,6 @@
 import { MockLanguageModelV3 } from "ai/test";
 import { describe, expect, it } from "vitest";
+import { ZodError } from "zod";
 
 import type { CampaignInput } from "../campaign";
 import { ExtractionError, extractFacts } from "../extraction";
@@ -66,6 +67,14 @@ function modelReturning(payload: unknown): MockLanguageModelV3 {
 }
 
 describe("extractFacts", () => {
+  it("rejects a campaign that does not satisfy the input schema", async () => {
+    const withoutStory = { ...campaign, story: undefined } as unknown as CampaignInput;
+
+    await expect(extractFacts(withoutStory, modelReturning(wellFormedFacts))).rejects.toThrow(
+      ZodError,
+    );
+  });
+
   it("returns typed facts when the model responds with verbatim quotes", async () => {
     const facts = await extractFacts(campaign, modelReturning(wellFormedFacts));
 
