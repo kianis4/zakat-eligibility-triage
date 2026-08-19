@@ -34,6 +34,11 @@ recorded human decision.
 includes cases the system gets wrong on purpose, because a suite that only contains cases it
 passes measures self-consistency rather than accuracy.
 
+Run `npm test` and `npm run typecheck`, both. Part of the suite is enforced by the compiler
+rather than by the test runner: `src/lib/__tests__/mapping-types.test.ts` proves that a
+supported verdict with no citation does not typecheck, and a proof of that shape only fails
+under `tsc`.
+
 ## Data
 
 Every campaign in the fixture set is synthetic and written by hand for this repository.
