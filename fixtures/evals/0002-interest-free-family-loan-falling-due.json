@@ -1,0 +1,32 @@
+{
+  "id": "eval_0002",
+  "title": "Clearing the loan my uncle gave us when my father had his stroke",
+  "story": "In March my father had a stroke and we moved him into a ground floor flat because he could not manage the stairs. My uncle Kamal lent us 5,200 CAD for the deposit, the first month and the ambulance transfer, on the understanding that we would repay it within the year and that nothing would be added to it. Nothing was added to it. The year is up on the 30th of November and I have 900 CAD of it saved. My take home pay is 2,650 CAD a month, the rent on our own place is 1,700 CAD, and my father's care costs took the rest of what I had put by. Kamal has said he will wait, but he retires in January and this was his savings. I am asking for 4,300 CAD, which is the balance. It goes to Kamal directly and I will post his receipt here once it clears.",
+  "category": "Debt Relief",
+  "goalAmount": 4300,
+  "currency": "CAD",
+  "organizer": {
+    "name": "Tariq Belkacem",
+    "location": "Ottawa, Canada",
+    "relationshipToBeneficiary": "self"
+  },
+  "label": {
+    "expectedFindings": {
+      "al-fuqara": { "status": "insufficient_evidence" },
+      "al-masakin": { "status": "insufficient_evidence" },
+      "al-amilina-alayha": { "status": "not_supported" },
+      "al-muallafati-qulubuhum": { "status": "not_supported" },
+      "fi-al-riqab": { "status": "not_supported" },
+      "al-gharimin": {
+        "status": "supported",
+        "mustCiteSubstring": "My uncle Kamal lent us 5,200 CAD for the deposit, the first month and the ambulance transfer"
+      },
+      "fi-sabilillah": { "status": "not_supported" },
+      "ibn-al-sabil": { "status": "not_supported" }
+    },
+    "expectedEscalation": { "expected": false, "kinds": [] },
+    "expectedMissingEvidence": ["al-fuqara", "al-masakin"],
+    "notes": "This is the debt case with its facts on the page: a named creditor, a stated sum, the purpose it was taken for, a date it falls due, an explicit statement that nothing was added to it, and a household position that shows why the balance is not being met from earnings. The research brief treats al-gharimin as comparatively settled on principle and contested mainly on fact, and the facts the school positions act on are the ones this story happens to state, so the category is recorded as supported without a difference being named. That is the judgment this fixture is really testing, and a reviewer who attached the debt disagreement here anyway would not be unreasonable. The two need categories stay open because a wage and a rent do not settle where the household sits against a threshold, and those are the questions the organizer can answer.",
+    "difficulty": "clean"
+  }
+}

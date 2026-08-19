@@ -41,5 +41,16 @@ under `tsc`.
 
 ## Data
 
-Every campaign in the fixture set is synthetic and written by hand for this repository.
-No real campaigns, no scraped charity data, no personal information.
+Two corpora, both synthetic and written by hand for this repository. No real campaigns, no
+scraped charity data, no real organizations or organizer names, no personal information.
+
+- `fixtures/precedents/` holds previously adjudicated cases with the reviewer's recorded
+  reasoning, seeded into the retrieval index and shown to a reviewer as reference.
+  Provenance: [`fixtures/precedents/README.md`](fixtures/precedents/README.md).
+- `fixtures/evals/` holds labelled campaigns for the eval suite, each stating the per-category
+  status, the refusal, and the questions this repository expects. Provenance, including what a
+  self-authored corpus cannot prove: [`fixtures/evals/README.md`](fixtures/evals/README.md).
+
+Both notes say the same thing in different words, and it belongs here too: a corpus written by
+the same person who wrote the system measures consistency with a documented standard, not
+real-world accuracy, and no error rate against genuine adjudications can be derived from it.

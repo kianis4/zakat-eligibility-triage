@@ -1,0 +1,32 @@
+{
+  "id": "eval_0006",
+  "title": "My brother's arrears, and getting his shop trading again",
+  "story": "Two things, and I would rather be straight about both of them. My brother Idris is nine hundred pounds behind on his rent after his contract ended in July, and the letter from the landlord gives him until the 12th. That is the urgent part. The other part is the shop. Idris has run a small grocery on Carlisle Road for six years and the shelves are half empty, because everything he had went on the rent and on the children. To trade properly again in January he needs about 2,600 pounds of stock, mostly rice, oil, tinned goods and the fridge lines. So we are asking for 3,500 pounds. Nine hundred of it clears the arrears and the rest restocks the shop, and I am not going to pretend the second part is charity; it is how he stops needing the first part. Everything goes into Idris's account. My wife and I are covering the fees on the page ourselves.",
+  "category": "Poverty Relief",
+  "goalAmount": 3500,
+  "currency": "GBP",
+  "organizer": {
+    "name": "Zayd Rafiq",
+    "location": "Bradford, United Kingdom",
+    "relationshipToBeneficiary": "brother"
+  },
+  "label": {
+    "expectedFindings": {
+      "al-fuqara": { "status": "insufficient_evidence" },
+      "al-masakin": { "status": "insufficient_evidence" },
+      "al-amilina-alayha": { "status": "not_supported" },
+      "al-muallafati-qulubuhum": { "status": "not_supported" },
+      "fi-al-riqab": { "status": "not_supported" },
+      "al-gharimin": {
+        "status": "supported",
+        "mustCiteSubstring": "nine hundred pounds behind on his rent after his contract ended in July"
+      },
+      "fi-sabilillah": { "status": "not_supported" },
+      "ibn-al-sabil": { "status": "not_supported" }
+    },
+    "expectedEscalation": { "expected": true, "kinds": ["mixed_use"] },
+    "expectedMissingEvidence": ["al-fuqara", "al-masakin"],
+    "notes": "The organizer states the split himself and even states the sums on either side of it, which is why this case belongs to the reviewer rather than to the pipeline: one part of the money clears a documented arrears and the other capitalises a trading business, and how much of the total each part accounts for is the question the file has to carry to a human. The debt line has a creditor, a sum, a cause and a deadline, so it is recorded as supported. The two need categories stay open because the household holds a business whose stock and takings the story does not quantify, and a shop that is half empty is not the same fact as a household below a threshold. Nothing here should be read as a view on whether a split campaign can be badged, which is the reviewer's call and is exactly what the escalation puts in front of them.",
+    "difficulty": "flagged"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "id": "eval_0016",
+  "title": "The advance I took to close the settlement between two families",
+  "story": "Two families in our neighbourhood had been at each other for eleven months after a road accident in which a boy from one of them was badly hurt. It had reached the point where people were carrying things in their cars. Four of us went between the two houses for six weeks, and the settlement agreed in front of the elders was 14,000 SAR paid to the injured boy's family, at which point the matter is closed, and both sides said so in front of witnesses. I paid the 14,000 SAR because it had to be paid that week and nobody else could raise it in time. I borrowed 9,000 SAR of it from my employer against my salary and I am repaying that at 1,000 SAR a month, which I can manage, though it takes most of what is left after the household. I am asking for the 9,000 SAR. If it is raised I clear the advance and post the letter from the office confirming that it is cleared.",
+  "category": "Debt Relief",
+  "goalAmount": 9000,
+  "currency": "SAR",
+  "organizer": {
+    "name": "Salman Al-Otaibi",
+    "location": "Riyadh, Saudi Arabia",
+    "relationshipToBeneficiary": "self"
+  },
+  "label": {
+    "expectedFindings": {
+      "al-fuqara": { "status": "not_supported" },
+      "al-masakin": { "status": "not_supported" },
+      "al-amilina-alayha": { "status": "not_supported" },
+      "al-muallafati-qulubuhum": { "status": "not_supported" },
+      "fi-al-riqab": { "status": "not_supported" },
+      "al-gharimin": {
+        "status": "supported",
+        "mustCiteSubstring": "I borrowed 9,000 SAR of it from my employer against my salary"
+      },
+      "fi-sabilillah": { "status": "not_supported" },
+      "ibn-al-sabil": { "status": "not_supported" }
+    },
+    "expectedEscalation": { "expected": true, "kinds": ["scholarly_difference"] },
+    "expectedMissingEvidence": [],
+    "notes": "The debt is real, quantified and documented, and it was taken on to close a dispute between other people rather than to meet the borrower's own need, which is the third party case the research brief singles out. Shafi'i and Hanbali positions recognise a debt taken on to reconcile feuding parties even where the debtor is not personally poor, other positions place it differently, and the platform documented in the brief declines to verify this shape of case at all on the practical ground that the situation is hard to confirm. The organizer's own sentence that he can manage the repayment is the fact those positions divide on, so it is quoted to the reviewer rather than treated as disqualifying, and the need categories are recorded as told against by that same sentence. This is the ambiguous case with the least missing evidence in the corpus: nothing is unstated, and the difficulty is entirely in which position applies.",
+    "difficulty": "ambiguous"
+  }
+}

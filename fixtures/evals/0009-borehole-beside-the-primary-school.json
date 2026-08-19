@@ -1,0 +1,31 @@
+{
+  "id": "eval_0009",
+  "title": "A borehole and standpipe for Nyakato",
+  "story": "The two hand pumps in Nyakato have been dry since the middle of last year and the women walk to the river instead, which is fifty minutes each way and not clean water when they get there. We are raising 11,000 USD to drill a borehole beside the primary school, fit a submersible pump and a solar array, and run a standpipe with four taps. The contractor has drilled six boreholes in this district and his quote and his last two completion reports are attached to this page. Around 300 households will use it, and the school itself, which has 240 children and no water at all. We will fence the site and train two people from here to service the pump, with the parts stocked in town. Water has been the thing that holds everything else back in Nyakato, and this settles it for a generation.",
+  "category": "Poverty Relief",
+  "goalAmount": 11000,
+  "currency": "USD",
+  "organizer": {
+    "name": "Ibrahim Sanga",
+    "location": "Mwanza, Tanzania"
+  },
+  "label": {
+    "expectedFindings": {
+      "al-fuqara": { "status": "insufficient_evidence" },
+      "al-masakin": { "status": "insufficient_evidence" },
+      "al-amilina-alayha": { "status": "insufficient_evidence" },
+      "al-muallafati-qulubuhum": { "status": "not_supported" },
+      "fi-al-riqab": { "status": "not_supported" },
+      "al-gharimin": { "status": "not_supported" },
+      "fi-sabilillah": {
+        "status": "supported",
+        "mustCiteSubstring": "drill a borehole beside the primary school"
+      },
+      "ibn-al-sabil": { "status": "not_supported" }
+    },
+    "expectedEscalation": { "expected": true, "kinds": ["scholarly_difference"] },
+    "expectedMissingEvidence": ["al-fuqara", "al-masakin", "al-amilina-alayha"],
+    "notes": "A shared water point is the case the research brief uses to show that the same physical project lands differently depending on the heading it is claimed under, and the organizer's own selection of a poverty heading is a hypothesis rather than a routing key. The text describes a public benefit work in terms that bear on the path of God heading, so that line is supported, and the difference is named on both counts that are live: the scope of the category, and whether a mechanism exists that vests ownership of the finished asset in anyone, which this page does not say and which the label must not decide. The two need categories stay open rather than being ruled out, because the households are described as users of a shared asset and nothing states their position or says that anything reaches an individual. The delivery cost line is open for the same reason: a contractor, a fence and a trained caretaker are named and no deduction from donations is stated either way.",
+    "difficulty": "flagged"
+  }
+}

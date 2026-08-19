@@ -1,0 +1,32 @@
+{
+  "id": "eval_0014",
+  "title": "Four months of rent, food and exam fees while we wait to go back",
+  "story": "We left Nyala in April with what the seven of us could carry, and we have been in one room in a compound outside the town ever since. The house is still standing as far as anyone tells us, and my husband's shop is still standing, and neither is any use to us, because we cannot go back and we cannot sell anything from here. He keeps the deeds in a plastic folder. He looks at them sometimes. What we need is the rent on the room, which the family who own the compound have been patient about for two months now, and food, and the fees for the two youngest to sit their exams at the town school, which are 60 USD each and due before the end of term. We are asking for 1,400 USD to cover four months. It reaches me through the hawala office in the town that our cousin uses, and I will account for every dollar of it in the updates on this page. The compound is eight rooms around a yard and there are four families in it now. My husband goes down to the market most mornings to look for work and there is not much of it; last week it was two days of loading. The eldest boy is fifteen and he has stopped talking about going home, which frightens me more than the rest of it. My mother is with us and she needs the tablets she was on before we left, which are 12 USD a month here when the pharmacy has them at all. I have written out what the four months covers so that nobody has to take my word for it: 260 USD for the room, 120 USD for the two exam entries, and the rest of it food, the tablets and charcoal. I am not asking for anything to rebuild with. I want the children to keep learning while we wait.",
+  "category": "Emergency Relief",
+  "goalAmount": 1400,
+  "currency": "USD",
+  "organizer": {
+    "name": "Nasra Ahmed",
+    "location": "Nyala, Sudan",
+    "relationshipToBeneficiary": "self"
+  },
+  "label": {
+    "expectedFindings": {
+      "al-fuqara": { "status": "insufficient_evidence" },
+      "al-masakin": { "status": "insufficient_evidence" },
+      "al-amilina-alayha": { "status": "not_supported" },
+      "al-muallafati-qulubuhum": { "status": "not_supported" },
+      "fi-al-riqab": { "status": "not_supported" },
+      "al-gharimin": { "status": "insufficient_evidence" },
+      "fi-sabilillah": { "status": "not_supported" },
+      "ibn-al-sabil": {
+        "status": "supported",
+        "mustCiteSubstring": "we cannot go back and we cannot sell anything from here"
+      }
+    },
+    "expectedEscalation": { "expected": true, "kinds": ["scholarly_difference"] },
+    "expectedMissingEvidence": ["al-fuqara", "al-masakin", "al-gharimin"],
+    "notes": "Two qualified reviewers could read this page differently and both be reasoning properly, which is what puts it in the ambiguous set. The text describes a household separated from property it still owns, which is the classical wayfarer picture and also the modern extension that UNHCR grounds in it and that some read more narrowly, so the line is supported and the difference is named rather than settled. The need categories are the harder part: they hold a house and a shop, and whether assets a family cannot reach or sell count against a threshold is exactly the unresolved question, so those lines stay open rather than being read either way. Rent the compound family have been patient about for two months is an arrears the page does not quantify, which leaves the debt line open as well. The page itemises the four months into rent, exam fees, food, medicine and charcoal, and the label does not treat that as a split, because those are the running costs of one household keeping itself alive over one period rather than distinct uses the money is divided between, which is what separates it from the case that clears an arrears and restocks a shop. Nothing here is a view on whether displaced people fall inside the category, which is not this corpus's to take.",
+    "difficulty": "ambiguous"
+  }
+}

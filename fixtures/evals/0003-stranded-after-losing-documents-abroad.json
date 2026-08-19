@@ -1,0 +1,32 @@
+{
+  "id": "eval_0003",
+  "title": "Stuck in Istanbul with no passport and no way to pay for one",
+  "story": "I flew into Istanbul on the 3rd for a two day stopover on the way to my sister's wedding and my bag went off the carousel with somebody else. Passport, cards, the lot. The consulate can issue an emergency document but not before Thursday and it costs 120 USD, and there is the hotel I am in now at 45 USD a night, and a new ticket because the one I had was for Monday and it is gone. I have money at home in Leeds. I cannot get to it: the bank froze the account when I reported the cards, and nobody here will take a payment from a man with no identification. My brother has sent what he could and it covered two nights. I need about 900 USD to get out of here and get home.",
+  "category": "Emergency Relief",
+  "goalAmount": 900,
+  "currency": "USD",
+  "organizer": {
+    "name": "Adam Whitfield",
+    "location": "Leeds, United Kingdom",
+    "relationshipToBeneficiary": "self"
+  },
+  "label": {
+    "expectedFindings": {
+      "al-fuqara": { "status": "not_supported" },
+      "al-masakin": { "status": "not_supported" },
+      "al-amilina-alayha": { "status": "not_supported" },
+      "al-muallafati-qulubuhum": { "status": "not_supported" },
+      "fi-al-riqab": { "status": "not_supported" },
+      "al-gharimin": { "status": "not_supported" },
+      "fi-sabilillah": { "status": "not_supported" },
+      "ibn-al-sabil": {
+        "status": "supported",
+        "mustCiteSubstring": "I have money at home in Leeds. I cannot get to it"
+      }
+    },
+    "expectedEscalation": { "expected": false, "kinds": [] },
+    "expectedMissingEvidence": [],
+    "notes": "The classical wayfarer description is on the page almost line for line: a traveller away from home, cut off from means he holds elsewhere, needing enough to complete the journey. Because the story is the classical case rather than the modern extension to displaced people, the disagreement recorded under this category does not bite and no difference is expected to be named. The same sentence that supports the wayfarer reading tells against the two need categories, since he says he has money at home, so those are recorded as not in play rather than left open. One divergence is worth stating plainly: the platform documented in the research brief declines to verify traveller campaigns at all, on the practical ground that a genuinely stranded person is unlikely to be able to run one. That is a platform position rather than a reading of this text, and the label here is about what the text evidences.",
+    "difficulty": "clean"
+  }
+}

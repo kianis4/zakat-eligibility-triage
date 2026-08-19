@@ -1,0 +1,35 @@
+{
+  "id": "eval_0001",
+  "title": "Three months of rent and food for Rukiya and her boys",
+  "story": "My neighbour Rukiya has been raising her two boys on her own since her husband left in the spring. She cleans offices four nights a week and brings home about 190 GBP, and the rent on the flat is 640 GBP a month before anything else. There is no savings account, no car and nothing left to sell; the television went in June. Last month she fed the boys and let the meter run out, and this month it was the other way round. We are asking for 1,800 GBP to cover three months of the shortfall on the rent, the electricity and a food shop each week. The money is transferred to Rukiya's own account as it comes in and she decides what it goes on. I am not taking anything for organising this.",
+  "category": "Poverty Relief",
+  "goalAmount": 1800,
+  "currency": "GBP",
+  "organizer": {
+    "name": "Sumaya Idrissi",
+    "location": "Birmingham, United Kingdom",
+    "relationshipToBeneficiary": "neighbour"
+  },
+  "label": {
+    "expectedFindings": {
+      "al-fuqara": {
+        "status": "supported",
+        "mustCiteSubstring": "There is no savings account, no car and nothing left to sell"
+      },
+      "al-masakin": {
+        "status": "supported",
+        "mustCiteSubstring": "she fed the boys and let the meter run out"
+      },
+      "al-amilina-alayha": { "status": "not_supported" },
+      "al-muallafati-qulubuhum": { "status": "not_supported" },
+      "fi-al-riqab": { "status": "not_supported" },
+      "al-gharimin": { "status": "not_supported" },
+      "fi-sabilillah": { "status": "not_supported" },
+      "ibn-al-sabil": { "status": "not_supported" }
+    },
+    "expectedEscalation": { "expected": false, "kinds": [] },
+    "expectedMissingEvidence": [],
+    "notes": "The story states a named household, a wage, a rent, an absence of assets and a week in which food and electricity could not both be paid for, and it says the money reaches the beneficiary's own account rather than an institution. That is the evidence the two need categories ask for, so both come out supported; supported here means the text says something bearing on the category, not that the household has been established as below any threshold, which no campaign page can do and which a reviewer would establish from statements rather than from prose. Nothing in the text speaks to debt, travel, detention, an administrative deduction or a public work, so the remaining six are recorded as not in play rather than left open. No question is expected for the organizer and no condition for handing the file over unfinished is met, which is what makes this a clean case rather than an easy one.",
+    "difficulty": "clean"
+  }
+}
