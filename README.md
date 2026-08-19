@@ -1,0 +1,40 @@
+# Zakat-Eligibility Triage
+
+A triage agent for crowdfunding campaigns. It assembles evidence for a qualified human
+reviewer and **never issues a religious ruling**.
+
+Zakat is obligatory almsgiving and may only go to the categories of recipient named in
+Surah At-Tawbah (9:60). Donors filter for zakat-eligible campaigns, hardest during Ramadan,
+which is exactly when review capacity is most saturated. A wrong determination on a Muslim
+giving platform is a religious problem, not only an operational one.
+
+So this system does not decide. For a submitted campaign it:
+
+1. extracts a typed record from free-text campaign copy
+2. maps the text against each recipient category as supported / not supported /
+   insufficient evidence, citing the exact span behind every mapping
+3. reports what evidence is missing and what a reviewer should ask the organizer
+4. retrieves comparable previously-adjudicated cases and shows them to the reviewer as
+   precedent, rather than feeding them back to the model to imitate
+5. refuses to determine ambiguous cases and escalates with the specific question a human
+   must answer
+6. records the human decision, which is authoritative and overrides the agent
+
+Every claim it makes is traceable to a span of the campaign it read. Nothing is a bare score.
+
+## Trust boundary
+
+The agent prepares the file. A qualified human adjudicates. That boundary is architectural,
+not a disclaimer: there is no code path in which a determination is published without a
+recorded human decision.
+
+## Evaluation
+
+`docs/adr/` records the decisions. The eval suite runs in CI with a failing threshold and
+includes cases the system gets wrong on purpose, because a suite that only contains cases it
+passes measures self-consistency rather than accuracy.
+
+## Data
+
+Every campaign in the fixture set is synthetic and written by hand for this repository.
+No real campaigns, no scraped charity data, no personal information.
