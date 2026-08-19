@@ -1,0 +1,28 @@
+{
+  "id": "eval_0005",
+  "title": "A second conveyor dryer for Nasr Print",
+  "story": "Nasr Print is a four person screen printing shop in Sheffield and we have been trading for eleven years. We cleared 48,000 GBP after costs last year and we are booked out to February. The bottleneck is the dryer. We run one conveyor and it caps us at about 300 garments a day, which is why we turn work away most weeks and why the two big orders in the autumn went elsewhere. A second conveyor is 9,400 GBP new. We could finance it through the bank and we may still do that, but the rate is the rate and we would rather ask the people we print for first. Anyone who backs this gets 15 percent off their next order and their logo on the wall by the door. The shop is doing well. This is about doing more of what it already does.",
+  "category": "Small Business",
+  "goalAmount": 9400,
+  "currency": "GBP",
+  "organizer": {
+    "name": "Yaseen Chaudhry",
+    "location": "Sheffield, United Kingdom"
+  },
+  "label": {
+    "expectedFindings": {
+      "al-fuqara": { "status": "not_supported" },
+      "al-masakin": { "status": "not_supported" },
+      "al-amilina-alayha": { "status": "not_supported" },
+      "al-muallafati-qulubuhum": { "status": "not_supported" },
+      "fi-al-riqab": { "status": "not_supported" },
+      "al-gharimin": { "status": "not_supported" },
+      "fi-sabilillah": { "status": "not_supported" },
+      "ibn-al-sabil": { "status": "not_supported" }
+    },
+    "expectedEscalation": { "expected": false, "kinds": [] },
+    "expectedMissingEvidence": [],
+    "notes": "A trading business the copy itself describes as profitable, raising for equipment against a stated return to backers. Every category comes out not in play, and the story does the ruling out: it states a surplus, an order book and an alternative source of finance, which is text bearing on the need categories and telling against them rather than leaving them open. This case earns its place by being the one where the correct output is eight negatives and no question, because a pipeline that reaches for insufficient evidence everywhere is as unhelpful as one that reaches for support everywhere, and only a case with nothing in it will show which of the two is happening.",
+    "difficulty": "clean"
+  }
+}

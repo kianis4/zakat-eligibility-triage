@@ -1,0 +1,35 @@
+{
+  "id": "eval_0004",
+  "title": "getting through to january after my hours got cut",
+  "story": "im not good at this. my hours at the warehouse went down to two shifts in august and i havent caught up since. rent is paid to the end of the month and after that i dont know. theres 30 pounds in the account, the fridge has half a bag of rice in it and some sauce, thats it. no car, no savings, nothing left to sell, the phone went already. im asking for 600 to get me through november and december while i find something with proper hours. it comes straight to me and i will put up what i spent it on so people can see. sorry if this reads badly, ive never asked anyone for anything.",
+  "category": "Poverty Relief",
+  "goalAmount": 600,
+  "currency": "GBP",
+  "organizer": {
+    "name": "Ryan Abbott",
+    "location": "Hull, United Kingdom",
+    "relationshipToBeneficiary": "self"
+  },
+  "label": {
+    "expectedFindings": {
+      "al-fuqara": {
+        "status": "supported",
+        "mustCiteSubstring": "theres 30 pounds in the account"
+      },
+      "al-masakin": {
+        "status": "supported",
+        "mustCiteSubstring": "the fridge has half a bag of rice in it"
+      },
+      "al-amilina-alayha": { "status": "not_supported" },
+      "al-muallafati-qulubuhum": { "status": "not_supported" },
+      "fi-al-riqab": { "status": "not_supported" },
+      "al-gharimin": { "status": "not_supported" },
+      "fi-sabilillah": { "status": "not_supported" },
+      "ibn-al-sabil": { "status": "not_supported" }
+    },
+    "expectedEscalation": { "expected": false, "kinds": [] },
+    "expectedMissingEvidence": [],
+    "notes": "The same evidence as the first case in a register the pipeline should not be reading any differently: an unpunctuated first person account with a bank balance, a description of what is in the fridge, an absence of sellable assets and a beneficiary who is the organizer. Both need categories are supported by the text, and the reason this case is in the corpus at all is that plainness is not the same as weakness of evidence. A system that maps polished prose better than this would be scoring writing rather than reading facts, which is a failure a suite made only of well written campaigns would never surface. Nothing on the page speaks to debt, travel or an institution, so the other six are recorded as not in play.",
+    "difficulty": "clean"
+  }
+}
