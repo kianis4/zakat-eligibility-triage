@@ -29,7 +29,9 @@ identified. Each produces a reason carrying the specific question a reviewer ans
 spans of story that raised it. `EscalationDecision` is a discriminated union whose escalating
 member types its reason list as non-empty, so a refusal with nothing on it does not compile.
 
-The decision carries no numeric field of any kind.
+The decision carries no score and no confidence figure. The only numbers anywhere in it are
+the `start` and `end` offsets of a citation, which record where a span sits in the story
+rather than how strongly anything is held.
 
 ## Alternatives considered
 - **The model self-assesses its confidence and decides whether to escalate.** Rejected on two

@@ -47,8 +47,10 @@ export type EscalationReason = z.infer<typeof EscalationReason>;
  * generic needs-review flag the issue rules out, and a type is a better place to rule it out
  * than a code review.
  *
- * No field here is a number. A confidence figure would reintroduce the threshold ADR-0001
- * rejected, this time at the point where the system decides whether to decide at all.
+ * No field here is a score or a confidence figure, which would reintroduce the threshold
+ * ADR-0001 rejected, this time at the point where the system decides whether to decide at
+ * all. The only numbers a decision carries are a citation's offsets, which say where a span
+ * sits rather than how strongly anything is held.
  */
 export const EscalationDecision = z.discriminatedUnion("escalate", [
   z.object({ escalate: z.literal(false) }),
