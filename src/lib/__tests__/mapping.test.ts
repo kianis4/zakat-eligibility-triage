@@ -302,6 +302,38 @@ describe("mapCategories", () => {
     expect((error as MappingError).reason).toBe("schema_validation_failed");
   });
 
+  it("rejects a mixed-use signal whose description names no use, at the schema level", async () => {
+    const degenerate = {
+      ...modelMapping(),
+      mixedUseSignals: [
+        { description: ".", quotes: ["Any surplus will go to the clinic's new generator"] },
+      ],
+    };
+
+    const error = await mapCategories(campaign, facts, modelReturning(degenerate)).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(MappingError);
+    expect((error as MappingError).reason).toBe("schema_validation_failed");
+  });
+
+  it("rejects a mixed-use description naming only one thing the money goes to", async () => {
+    const single = {
+      ...modelMapping(),
+      mixedUseSignals: [
+        { description: "Equipment", quotes: ["Any surplus will go to the clinic's new generator"] },
+      ],
+    };
+
+    const error = await mapCategories(campaign, facts, modelReturning(single)).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(MappingError);
+    expect((error as MappingError).reason).toBe("schema_validation_failed");
+  });
+
   it("distinguishes a failed model call from a malformed response", async () => {
     const unreachable = new MockLanguageModelV3({
       doGenerate: async () => {

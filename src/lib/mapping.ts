@@ -173,8 +173,28 @@ export type CategoryVerdict = z.infer<typeof CategoryVerdict>;
  * a claim about the campaign, and a claim about the campaign with no span behind it is the
  * thing this pipeline does not emit, whether it sits beside a category or outside all eight.
  */
+/**
+ * The words that become the reviewer's question when the pipeline refuses on a split.
+ *
+ * The escalation step builds that question by carrying this description into it verbatim, so
+ * the description is the only place the distinct uses are ever named. A description of "."
+ * or of one bare noun parses as a string, produces a grammatical question, and asks the
+ * reviewer to apportion between uses it never states, which is the generic needs-review flag
+ * arriving by the back door. Two words of two or more letters is the floor at which the
+ * description can name two things at all; the length minimum catches the abbreviations that
+ * clear that bar and still say nothing.
+ */
+export const MixedUseDescription = z
+  .string()
+  .min(12, { message: "A description of a split says what the money is split between." })
+  .refine((description) => (description.match(/\p{L}{2,}/gu) ?? []).length >= 2, {
+    message: "A description of a split names the distinct uses the money goes to.",
+  });
+
+export type MixedUseDescription = z.infer<typeof MixedUseDescription>;
+
 export const MixedUseSignal = z.object({
-  description: z.string().min(1),
+  description: MixedUseDescription,
   citations: z.tuple([Citation], Citation),
 });
 
@@ -235,7 +255,9 @@ const ModelMapping = z.object({
   mixedUseSignals: z
     .array(
       z.object({
-        description: z.string().min(1),
+        description: MixedUseDescription.describe(
+          "What the money is split between, naming each distinct use in the story's own terms.",
+        ),
         quotes: z
           .array(z.string().min(1))
           .min(1)
