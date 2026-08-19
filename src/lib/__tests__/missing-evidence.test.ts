@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { CampaignInput } from "../campaign";
 import { RECIPIENT_CATEGORY_IDS, type RecipientCategory } from "../categories";
 import type { ExtractedFacts } from "../extraction";
-import { type CategoryMapping, type CategoryVerdict, mapCategories } from "../mapping";
+import { type CategoryMapping, type CategoryFinding, mapCategories } from "../mapping";
 import { buildMissingEvidenceReport } from "../missing-evidence";
 
 /**
@@ -202,12 +202,12 @@ describe("a report on an underspecified campaign", () => {
   });
 });
 
-const notSupported: CategoryVerdict = {
+const notSupported: CategoryFinding = {
   status: "not_supported",
   rationale: "The story does not bear on this category.",
 };
 
-function unresolved(missingFact: string, questionForOrganizer: string): CategoryVerdict {
+function unresolved(missingFact: string, questionForOrganizer: string): CategoryFinding {
   return {
     status: "insufficient_evidence",
     rationale: "The story does not say enough.",
@@ -217,11 +217,11 @@ function unresolved(missingFact: string, questionForOrganizer: string): Category
 }
 
 function mappingWith(
-  verdicts: Partial<Record<RecipientCategory, CategoryVerdict>>,
+  findings: Partial<Record<RecipientCategory, CategoryFinding>>,
 ): CategoryMapping {
   return {
     categories: Object.fromEntries(
-      RECIPIENT_CATEGORY_IDS.map((id) => [id, verdicts[id] ?? notSupported]),
+      RECIPIENT_CATEGORY_IDS.map((id) => [id, findings[id] ?? notSupported]),
     ) as CategoryMapping["categories"],
     mixedUseSignals: [],
   };
@@ -235,7 +235,7 @@ describe("buildMissingEvidenceReport", () => {
     expect(report.questions).toEqual([]);
   });
 
-  it("passes over supported and not-supported verdicts", () => {
+  it("passes over supported and not-supported findings", () => {
     const report = buildMissingEvidenceReport(
       mappingWith({
         "al-gharimin": {

@@ -11,7 +11,7 @@ import { retrievePrecedents, type PrecedentForReviewer } from "../../../lib/prec
  * it is on this page and nowhere near a prompt, which is the rule ADR-0004 sets and
  * `src/lib/__tests__/precedent-isolation.test.ts` enforces.
  *
- * The verdict table, the missing-evidence questions and the decision controls are later
+ * The findings table, the missing-evidence questions and the decision controls are later
  * issues. What is here is the campaign as submitted and the precedent section.
  */
 export const dynamic = "force-dynamic";

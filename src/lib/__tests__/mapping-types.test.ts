@@ -1,46 +1,46 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { CategoryMapping, CategoryVerdict, type Citation, MixedUseSignal } from "../mapping";
+import { CategoryMapping, CategoryFinding, type Citation, MixedUseSignal } from "../mapping";
 
 const citation: Citation = { quote: "cannot repay it", start: 10, end: 25 };
 
 /**
  * The `@ts-expect-error` lines are the assertion here, and `tsc --noEmit` is what runs it.
- * If the union ever stopped forbidding an uncited supported verdict, the suppressed error
+ * If the union ever stopped forbidding an uncited supported finding, the suppressed error
  * would not appear, and tsc would fail on the unused suppression. The runtime checks below
  * each line cover the other half, since a value that arrives as JSON never met the type.
  */
-describe("an uncited supported verdict is unrepresentable", () => {
+describe("an uncited supported finding is unrepresentable", () => {
   it("does not accept an empty citation list", () => {
-    const verdict: CategoryVerdict = {
+    const finding: CategoryFinding = {
       status: "supported",
-      // @ts-expect-error a supported verdict needs at least one citation
+      // @ts-expect-error a supported finding needs at least one citation
       citations: [],
       rationale: "The story states a debt the family cannot repay.",
     };
 
-    expect(CategoryVerdict.safeParse(verdict).success).toBe(false);
+    expect(CategoryFinding.safeParse(finding).success).toBe(false);
   });
 
-  it("does not accept a supported verdict with no citations field at all", () => {
-    // @ts-expect-error a supported verdict needs at least one citation
-    const verdict: CategoryVerdict = {
+  it("does not accept a supported finding with no citations field at all", () => {
+    // @ts-expect-error a supported finding needs at least one citation
+    const finding: CategoryFinding = {
       status: "supported",
       rationale: "The story states a debt the family cannot repay.",
     };
 
-    expect(CategoryVerdict.safeParse(verdict).success).toBe(false);
+    expect(CategoryFinding.safeParse(finding).success).toBe(false);
   });
 
-  it("accepts a supported verdict that cites one span", () => {
-    const verdict: CategoryVerdict = {
+  it("accepts a supported finding that cites one span", () => {
+    const finding: CategoryFinding = {
       status: "supported",
       citations: [citation],
       rationale: "The story states a debt the family cannot repay.",
     };
 
-    expect(CategoryVerdict.safeParse(verdict).success).toBe(true);
+    expect(CategoryFinding.safeParse(finding).success).toBe(true);
   });
 });
 
@@ -135,7 +135,7 @@ describe("the mapping carries no scores", () => {
   });
 
   it("would catch a score if one were added", () => {
-    const withScore = z.object({ verdict: CategoryVerdict, confidence: z.number() });
+    const withScore = z.object({ finding: CategoryFinding, confidence: z.number() });
 
     expect(numericLeafPaths(z.toJSONSchema(withScore, { io: "output" }), "$")).toContain(
       "$.confidence",

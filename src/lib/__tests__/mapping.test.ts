@@ -5,7 +5,7 @@ import { ZodError } from "zod";
 import type { CampaignInput } from "../campaign";
 import { RECIPIENT_CATEGORY_IDS } from "../categories";
 import type { ExtractedFacts } from "../extraction";
-import { CategoryVerdict, MappingError, mapCategories, resolveCitation } from "../mapping";
+import { CategoryFinding, MappingError, mapCategories, resolveCitation } from "../mapping";
 
 const story =
   "We are stranded in Cairo with no way home. We are stranded and the embassy has no funds left for us.";
@@ -98,9 +98,9 @@ const facts: ExtractedFacts = {
 
 const debtQuote = "borrowed 9,000 JOD from relatives to cover the treatment and cannot repay it";
 
-type ModelVerdictPayload = Record<string, unknown>;
+type ModelFindingPayload = Record<string, unknown>;
 
-function modelMapping(overrides: Record<string, ModelVerdictPayload> = {}) {
+function modelMapping(overrides: Record<string, ModelFindingPayload> = {}) {
   const categories = Object.fromEntries(
     RECIPIENT_CATEGORY_IDS.map((id) => [
       id,
@@ -140,7 +140,7 @@ function modelReturning(payload: unknown): MockLanguageModelV3 {
   });
 }
 
-const supportedDebtVerdict = {
+const supportedDebtFinding = {
   status: "supported",
   quotes: [debtQuote],
   rationale: "The story states a debt the family says it cannot repay.",
@@ -148,11 +148,11 @@ const supportedDebtVerdict = {
 };
 
 describe("mapCategories", () => {
-  it("returns a verdict for every one of the eight categories", async () => {
+  it("returns a finding for every one of the eight categories", async () => {
     const mapping = await mapCategories(
       campaign,
       facts,
-      modelReturning(modelMapping({ "al-gharimin": supportedDebtVerdict })),
+      modelReturning(modelMapping({ "al-gharimin": supportedDebtFinding })),
     );
 
     expect(Object.keys(mapping.categories).sort()).toEqual([...RECIPIENT_CATEGORY_IDS].sort());
@@ -162,37 +162,37 @@ describe("mapCategories", () => {
     const mapping = await mapCategories(
       campaign,
       facts,
-      modelReturning(modelMapping({ "al-gharimin": supportedDebtVerdict })),
+      modelReturning(modelMapping({ "al-gharimin": supportedDebtFinding })),
     );
 
-    const verdict = mapping.categories["al-gharimin"];
+    const finding = mapping.categories["al-gharimin"];
 
-    expect(verdict.status).toBe("supported");
-    if (verdict.status !== "supported") return;
+    expect(finding.status).toBe("supported");
+    if (finding.status !== "supported") return;
 
-    const [citation] = verdict.citations;
+    const [citation] = finding.citations;
     expect(campaign.story.slice(citation.start, citation.end)).toBe(citation.quote);
     expect(citation.quote).toBe(debtQuote);
   });
 
-  it("keeps the missing fact on an insufficient-evidence verdict", async () => {
+  it("keeps the missing fact on an insufficient-evidence finding", async () => {
     const mapping = await mapCategories(campaign, facts, modelReturning(modelMapping()));
 
-    const verdict = mapping.categories["fi-sabilillah"];
+    const finding = mapping.categories["fi-sabilillah"];
 
-    expect(verdict.status).toBe("insufficient_evidence");
-    if (verdict.status !== "insufficient_evidence") return;
-    expect(verdict.missingFact.length).toBeGreaterThan(0);
+    expect(finding.status).toBe("insufficient_evidence");
+    if (finding.status !== "insufficient_evidence") return;
+    expect(finding.missingFact.length).toBeGreaterThan(0);
   });
 
   it("carries the organizer question beside the missing fact", async () => {
     const mapping = await mapCategories(campaign, facts, modelReturning(modelMapping()));
 
-    const verdict = mapping.categories["fi-sabilillah"];
+    const finding = mapping.categories["fi-sabilillah"];
 
-    expect(verdict.status).toBe("insufficient_evidence");
-    if (verdict.status !== "insufficient_evidence") return;
-    expect(verdict.questionForOrganizer).toBe(
+    expect(finding.status).toBe("insufficient_evidence");
+    if (finding.status !== "insufficient_evidence") return;
+    expect(finding.questionForOrganizer).toBe(
       "Could you tell us who will receive this money and what it will be spent on?",
     );
   });
@@ -252,7 +252,7 @@ describe("mapCategories", () => {
     expect(campaign.story.slice(citation.start, citation.end)).toBe(citation.quote);
   });
 
-  it("rejects a supported verdict that cites nothing, at the schema level", async () => {
+  it("rejects a supported finding that cites nothing, at the schema level", async () => {
     const uncited = modelMapping({
       "al-gharimin": {
         status: "supported",
@@ -386,7 +386,7 @@ describe("a question the reviewer cannot send as it stands", () => {
   }
 
   it("accepts a question addressed to the organizer in their own terms", () => {
-    const parsed = CategoryVerdict.safeParse(
+    const parsed = CategoryFinding.safeParse(
       withQuestion("Who will receive the money you raise, and how will it reach them?"),
     );
 
@@ -394,7 +394,7 @@ describe("a question the reviewer cannot send as it stands", () => {
   });
 
   it("rejects a question that is not asked as a question", () => {
-    const parsed = CategoryVerdict.safeParse(
+    const parsed = CategoryFinding.safeParse(
       withQuestion("Tell us who will receive the money you raise."),
     );
 
@@ -402,7 +402,7 @@ describe("a question the reviewer cannot send as it stands", () => {
   });
 
   it("rejects a question naming one of the eight categories", () => {
-    const parsed = CategoryVerdict.safeParse(
+    const parsed = CategoryFinding.safeParse(
       withQuestion("Is the money you raise going to al-gharimin?"),
     );
 
@@ -410,7 +410,7 @@ describe("a question the reviewer cannot send as it stands", () => {
   });
 
   it("rejects a question carrying our own status vocabulary", () => {
-    const parsed = CategoryVerdict.safeParse(
+    const parsed = CategoryFinding.safeParse(
       withQuestion("Our reviewer marked this insufficient_evidence, can you say more?"),
     );
 
@@ -418,19 +418,19 @@ describe("a question the reviewer cannot send as it stands", () => {
   });
 
   it("rejects an empty question", () => {
-    expect(CategoryVerdict.safeParse(withQuestion("")).success).toBe(false);
+    expect(CategoryFinding.safeParse(withQuestion("")).success).toBe(false);
   });
 
   it("rejects a question padded with the whitespace of the template around it", () => {
-    const parsed = CategoryVerdict.safeParse(
+    const parsed = CategoryFinding.safeParse(
       withQuestion("\n  Who will receive the money you raise?  "),
     );
 
     expect(parsed.success).toBe(false);
   });
 
-  it("rejects an insufficient-evidence verdict carrying no question at all", () => {
-    const parsed = CategoryVerdict.safeParse({
+  it("rejects an insufficient-evidence finding carrying no question at all", () => {
+    const parsed = CategoryFinding.safeParse({
       status: "insufficient_evidence",
       rationale: "The story does not say who receives the money.",
       missingFact: "Who receives the money.",

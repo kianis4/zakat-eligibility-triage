@@ -28,7 +28,7 @@ export const ESCALATION_REASON_KINDS = [
  * So every reason here names something specific the reviewer can answer, and carries the
  * spans of story that put the question on the table.
  *
- * The citation list can be empty, unlike a supported verdict's. Some refusals are triggered
+ * The citation list can be empty, unlike a supported finding's. Some refusals are triggered
  * by the absence of text rather than by the presence of it, and an absence has no span.
  */
 export const EscalationReason = z.object({
@@ -108,8 +108,8 @@ function mixedUseReasons(mapping: CategoryMapping): EscalationReason[] {
  */
 function scholarlyDifferenceReasons(mapping: CategoryMapping): EscalationReason[] {
   return RECIPIENT_CATEGORY_IDS.flatMap((category) => {
-    const verdict = mapping.categories[category];
-    const difference = verdict.scholarlyDifference;
+    const finding = mapping.categories[category];
+    const difference = finding.scholarlyDifference;
 
     if (difference === undefined) {
       return [];
@@ -128,7 +128,7 @@ function scholarlyDifferenceReasons(mapping: CategoryMapping): EscalationReason[
           ...(documented === undefined ? [] : [sentence(documented.summary)]),
           "Which of those positions does platform policy apply to this campaign?",
         ].join(" "),
-        citations: verdict.status === "supported" ? [...verdict.citations] : [],
+        citations: finding.status === "supported" ? [...finding.citations] : [],
       },
     ];
   });

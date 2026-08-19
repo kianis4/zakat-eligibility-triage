@@ -60,7 +60,7 @@ export type PrecedentDecision = (typeof precedentDecision.enumValues)[number];
 /**
  * How the adjudicated campaign came out against each of the eight recipient categories.
  *
- * The three statuses match `CategoryVerdict` in src/lib/mapping.ts, so a reviewer reads a
+ * The three statuses match `CategoryFinding` in src/lib/mapping.ts, so a reviewer reads a
  * precedent in the same vocabulary as the file in front of them. The record is partial
  * because a past adjudication only records the categories it engaged with.
  */

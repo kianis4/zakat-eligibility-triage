@@ -46,8 +46,8 @@ export class MappingError extends Error {
  * Turns a quote the model produced into a citation into the story.
  *
  * A quote that cannot be found is a hard failure. There is no nearest-match rescue and
- * no quiet demotion of the verdict to an uncited one: a quote that has to be rescued is
- * not a quote from the story, and a verdict that loses its citation on the way out is
+ * no quiet demotion of the finding to an uncited one: a quote that has to be rescued is
+ * not a quote from the story, and a finding that loses its citation on the way out is
  * exactly the uncited assertion this pipeline exists to refuse.
  *
  * The result is parsed before it is returned, so this exported helper cannot hand back a
@@ -71,7 +71,7 @@ export function resolveCitation(story: string, quote: string): Citation {
 }
 
 /**
- * A disagreement between recognised scholars that this verdict sits inside.
+ * A disagreement between recognised scholars that this finding sits inside.
  *
  * The note states the difference and stops there. Adjudicating it is a reviewer's work,
  * and a note that leaned would be an adjudication wearing a neutral label.
@@ -124,7 +124,7 @@ export const OrganizerQuestion = z
     },
     {
       message:
-        "A question to the organizer names no recipient category and no verdict status of ours.",
+        "A question to the organizer names no recipient category and no finding status of ours.",
     },
   );
 
@@ -134,15 +134,15 @@ export type OrganizerQuestion = z.infer<typeof OrganizerQuestion>;
  * What the campaign text does or does not say about one recipient category.
  *
  * The union is the enforcement mechanism, not documentation of one: `supported` carries a
- * citation list typed as non-empty, so a supported verdict with nothing behind it cannot
+ * citation list typed as non-empty, so a supported finding with nothing behind it cannot
  * be constructed, in TypeScript or at parse time. `insufficient_evidence` carries the
- * specific fact that is missing and the question that would obtain it, so the verdict a
+ * specific fact that is missing and the question that would obtain it, so the finding a
  * reviewer cannot act on is the one status that cannot exist without the way to resolve it.
  *
- * No verdict carries a score. A number here would be a determination with a decimal point
+ * No finding carries a score. A number here would be a determination with a decimal point
  * in it, and ADR-0001 rules that out.
  */
-export const CategoryVerdict = z.discriminatedUnion("status", [
+export const CategoryFinding = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("supported"),
     citations: z.tuple([Citation], Citation),
@@ -163,13 +163,13 @@ export const CategoryVerdict = z.discriminatedUnion("status", [
   }),
 ]);
 
-export type CategoryVerdict = z.infer<typeof CategoryVerdict>;
+export type CategoryFinding = z.infer<typeof CategoryFinding>;
 
 /**
  * A span suggesting the campaign splits its funds across distinct uses, some of which may
  * belong to different categories or to none. Escalation logic reads these directly.
  *
- * The citation list is non-empty for the same reason a supported verdict's is. A signal is
+ * The citation list is non-empty for the same reason a supported finding's is. A signal is
  * a claim about the campaign, and a claim about the campaign with no span behind it is the
  * thing this pipeline does not emit, whether it sits beside a category or outside all eight.
  */
@@ -201,7 +201,7 @@ export const MixedUseSignal = z.object({
 export type MixedUseSignal = z.infer<typeof MixedUseSignal>;
 
 export const CategoryMapping = z.object({
-  categories: z.record(z.enum(RECIPIENT_CATEGORY_IDS), CategoryVerdict),
+  categories: z.record(z.enum(RECIPIENT_CATEGORY_IDS), CategoryFinding),
   mixedUseSignals: z.array(MixedUseSignal),
 });
 
@@ -213,10 +213,10 @@ export type CategoryMapping = z.infer<typeof CategoryMapping>;
  * cannot be mistaken for a considered null.
  */
 const ModelScholarlyDifference = ScholarlyDifferenceNote.nullable().describe(
-  "The scholarly disagreement this verdict sits inside, stated neutrally, or null.",
+  "The scholarly disagreement this finding sits inside, stated neutrally, or null.",
 );
 
-const ModelVerdict = z.discriminatedUnion("status", [
+const ModelFinding = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("supported"),
     quotes: z
@@ -247,9 +247,9 @@ const ModelVerdict = z.discriminatedUnion("status", [
 
 const ModelMapping = z.object({
   categories: z.object(
-    Object.fromEntries(RECIPIENT_CATEGORY_IDS.map((id) => [id, ModelVerdict])) as Record<
+    Object.fromEntries(RECIPIENT_CATEGORY_IDS.map((id) => [id, ModelFinding])) as Record<
       RecipientCategory,
-      typeof ModelVerdict
+      typeof ModelFinding
     >,
   ),
   mixedUseSignals: z
@@ -329,28 +329,28 @@ const SYSTEM_PROMPT = [
   DIFFERENCE_BRIEFING,
 ].join("\n");
 
-function resolveVerdict(story: string, verdict: ModelMapping["categories"][RecipientCategory]) {
+function resolveFinding(story: string, finding: ModelMapping["categories"][RecipientCategory]) {
   const difference =
-    verdict.scholarlyDifference === null ? {} : { scholarlyDifference: verdict.scholarlyDifference };
+    finding.scholarlyDifference === null ? {} : { scholarlyDifference: finding.scholarlyDifference };
 
-  if (verdict.status === "supported") {
+  if (finding.status === "supported") {
     return {
-      status: verdict.status,
-      citations: verdict.quotes.map((quote) => resolveCitation(story, quote)),
-      rationale: verdict.rationale,
+      status: finding.status,
+      citations: finding.quotes.map((quote) => resolveCitation(story, quote)),
+      rationale: finding.rationale,
       ...difference,
     };
   }
 
-  if (verdict.status === "not_supported") {
-    return { status: verdict.status, rationale: verdict.rationale, ...difference };
+  if (finding.status === "not_supported") {
+    return { status: finding.status, rationale: finding.rationale, ...difference };
   }
 
   return {
-    status: verdict.status,
-    rationale: verdict.rationale,
-    missingFact: verdict.missingFact,
-    questionForOrganizer: verdict.questionForOrganizer,
+    status: finding.status,
+    rationale: finding.rationale,
+    missingFact: finding.missingFact,
+    questionForOrganizer: finding.questionForOrganizer,
     ...difference,
   };
 }
@@ -361,8 +361,8 @@ function resolveVerdict(story: string, verdict: ModelMapping["categories"][Recip
  *
  * The model returns quotes; the offsets are resolved here (ADR-0003) and the assembled
  * mapping is parsed before it is returned, so what a caller receives has already been
- * checked against the schema that forbids an uncited supported verdict. An unresolvable
- * quote fails the whole mapping rather than costing that one verdict its citation.
+ * checked against the schema that forbids an uncited supported finding. An unresolvable
+ * quote fails the whole mapping rather than costing that one finding its citation.
  *
  * The campaign is re-parsed on the way in for the same reason extraction does it: this is
  * a module boundary, and a story that is missing has to surface as a schema error.
@@ -412,7 +412,7 @@ export async function mapCategories(
   }
 
   const categories = Object.fromEntries(
-    RECIPIENT_CATEGORY_IDS.map((id) => [id, resolveVerdict(input.story, mapping.categories[id])]),
+    RECIPIENT_CATEGORY_IDS.map((id) => [id, resolveFinding(input.story, mapping.categories[id])]),
   );
 
   const mixedUseSignals = mapping.mixedUseSignals.map((signal) => ({
