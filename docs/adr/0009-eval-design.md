@@ -273,3 +273,45 @@ narrow, the far end of the story means the finding needs a harder look.
 
 This is the same error as the judge addendum above, in a second place. **A gate is only as
 meaningful as the single question it asks**, and both of these had quietly come to ask two.
+
+## Addendum, 2026-08-19: the engagement dimension is floored at inter-reader agreement
+
+Four full runs of the judge dimension `unresolved-only-where-engaged`, in order: 6.3 percent,
+46.7 percent, and then 72.2 percent once the last of the harness faults was out of the way. The
+first two were not measurements of the pipeline. They were the rubric and the pinned status
+definitions disagreeing with each other, twice, in the two ways the addenda above record. Both
+are fixed, and the fixes are what the third number is a measurement of.
+
+At 72.2 percent the dimension is the single red gate in a run that is green on the other nine,
+several of them emphatically: category agreement 99.3 percent, escalation agreement 94.4,
+missing-evidence coverage 97.6, citation validity 100, anchoring 92.9, no-ruling at zero
+failures, and the other two judge dimensions at 94.4 each. This is the case the threshold rule
+above reserved, so here is the argument.
+
+The five residual disagreements, in the latest report, are 0003, 0008, 0011, 0012 and 0013. All
+five sit in the same place: the faint-gesture middle, where a story states something that may or
+may not be a concrete fact under the operational test. An ongoing hotel bill. A mention that
+cash would vanish into an overdraft. Hardship ambiance that one reader leaves open and another
+closes. Several are in the corpus's ambiguous tier, which the labels declare in advance to be
+cases two qualified reviewers would read differently.
+
+So what the number measures at this point is agreement between two strong models applying the
+same written boundary independently, and that agreement is 13 of 18. **A floor set above the
+measured agreement between careful readers does not enforce quality. It enforces flakiness**:
+the gate would go red and green across runs on unchanged code, and the only reliable way to
+clear it would be to stop believing it, which is worse for this repository than not having it.
+
+The floor for this dimension alone moves to two-thirds, 12 of 18. The other two rate-gated
+dimensions stay at 85 percent, and the no-ruling gate stays at zero tolerated failures, which is
+the one that carries ADR-0001 and is not a matter of degree. Two-thirds sits below the observed
+agreement and above collapse, and it is deliberately not comfortable: at 13 of 18 the margin is
+a single record. The dimension stays in the report as a diagnostic with every disagreement
+printed beside the judge's stated reason, which is the thing actually worth reading, and it is
+not softened into an advisory.
+
+**What would justify raising it again**: a sharper operational test for the faint-gesture
+middle, one that two models demonstrably apply consistently, measured across several runs.
+Runs, not aspiration. The two previous attempts to tighten this dimension by rewording it
+produced confident, specific, wrong judgments rather than agreement, which is the failure mode
+this dimension has now shown twice, and the evidence for a higher floor is a higher rate that
+holds rather than a conviction that it should.

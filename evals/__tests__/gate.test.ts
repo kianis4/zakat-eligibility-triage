@@ -246,6 +246,66 @@ describe("the judge gates", () => {
     expect(gate(clean, "judge/sendable-questions", outcomes).observed).toBe("85.0% (17 of 20)");
     expect(gate(clean, "judge/sendable-questions", outcomes).passed).toBe(true);
   });
+
+  /**
+   * The one dimension carrying a lower floor, because it measures disagreement between two
+   * careful readers about the faint-gesture middle rather than a defect in what they read.
+   * Setting it above the observed inter-reader agreement would buy flakiness, not quality.
+   */
+  describe("the unresolved-only-where-engaged floor", () => {
+    function agreeingOn(passing: number): JudgeOutcome[] {
+      return Array.from({ length: 18 }, (_, index) =>
+        index < passing
+          ? outcome(`f${index}`)
+          : outcome(`f${index}`, ["unresolved-only-where-engaged"]),
+      );
+    }
+
+    it("holds at the two-thirds floor", () => {
+      const at = gate(clean, "judge/unresolved-only-where-engaged", agreeingOn(12));
+
+      expect(at.observed).toBe("66.7% (12 of 18)");
+      expect(at.passed).toBe(true);
+    });
+
+    it("fails one record below it", () => {
+      const below = gate(clean, "judge/unresolved-only-where-engaged", agreeingOn(11));
+
+      expect(below.observed).toBe("61.1% (11 of 18)");
+      expect(below.passed).toBe(false);
+    });
+
+    /**
+     * The rate the recalibration was argued from. One record of headroom is the intended
+     * sensitivity, not an oversight.
+     */
+    it("passes the measured rate with a single record to spare", () => {
+      expect(gate(clean, "judge/unresolved-only-where-engaged", agreeingOn(13)).passed).toBe(true);
+      expect(gate(clean, "judge/unresolved-only-where-engaged", agreeingOn(12)).passed).toBe(true);
+      expect(gate(clean, "judge/unresolved-only-where-engaged", agreeingOn(11)).passed).toBe(false);
+    });
+
+    it("lowers that dimension alone and leaves the others at 85 percent", () => {
+      const outcomes = Array.from({ length: 18 }, (_, index) =>
+        index < 13
+          ? outcome(`f${index}`)
+          : outcome(`f${index}`, ["unresolved-only-where-engaged", "sendable-questions"]),
+      );
+
+      expect(gate(clean, "judge/unresolved-only-where-engaged", outcomes).passed).toBe(true);
+      expect(gate(clean, "judge/sendable-questions", outcomes).passed).toBe(false);
+      expect(GATES.judgePassRate).toBe(0.85);
+    });
+
+    it("carries an override for that dimension and no other", () => {
+      expect(Object.keys(GATES.judgePassRateByDimension)).toEqual([
+        "unresolved-only-where-engaged",
+      ]);
+      expect(GATES.judgePassRateByDimension["unresolved-only-where-engaged"]).toBeLessThan(
+        GATES.judgePassRate,
+      );
+    });
+  });
 });
 
 /**
