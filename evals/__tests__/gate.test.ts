@@ -186,19 +186,52 @@ describe("the escalation gate", () => {
   });
 });
 
+/**
+ * The floor is set under the variance this dimension shows on unchanged code, and the comment
+ * on `GATES.missingEvidenceCoverage` does arithmetic to place it. A comment doing arithmetic is
+ * a comment that can be wrong about it, so the boundaries it claims are pinned here.
+ */
 describe("the missing-evidence gate", () => {
-  it("fails when a fifth of the expected questions never got asked", () => {
-    const fixtures = [
-      score("a", { covered: 3, expectedQuestions: 5 }),
-      score("b", { covered: 5, expectedQuestions: 5 }),
-    ];
+  const coverage = (covered: number, expectedQuestions: number) => [
+    score("a", { covered, expectedQuestions }),
+  ];
 
-    expect(gate(fixtures, "missing-evidence-coverage").observed).toBe("80.0% (8 of 10)");
-    expect(gate(fixtures, "missing-evidence-coverage").passed).toBe(true);
+  it("holds at 32 of the corpus's 42 expected questions and fails at 31", () => {
+    expect(gate(coverage(32, 42), "missing-evidence-coverage").observed).toBe("76.2% (32 of 42)");
+    expect(gate(coverage(32, 42), "missing-evidence-coverage").passed).toBe(true);
 
-    const worse = [score("a", { covered: 2, expectedQuestions: 5 }), fixtures[1]];
+    expect(gate(coverage(31, 42), "missing-evidence-coverage").observed).toBe("73.8% (31 of 42)");
+    expect(gate(coverage(31, 42), "missing-evidence-coverage").passed).toBe(false);
+  });
 
-    expect(gate(worse, "missing-evidence-coverage").passed).toBe(false);
+  /**
+   * A fixture that throws before it is scored takes its expected questions out of the
+   * denominator, so the same floor is a different count. The band's lowest run, 76.9 percent,
+   * was measured on a short denominator like this one.
+   */
+  it("keeps the same shape when a fixture throws and the denominator shrinks", () => {
+    expect(gate(coverage(30, 39), "missing-evidence-coverage").observed).toBe("76.9% (30 of 39)");
+    expect(gate(coverage(30, 39), "missing-evidence-coverage").passed).toBe(true);
+
+    expect(gate(coverage(29, 39), "missing-evidence-coverage").observed).toBe("74.4% (29 of 39)");
+    expect(gate(coverage(29, 39), "missing-evidence-coverage").passed).toBe(false);
+  });
+
+  /**
+   * The pair the recalibration was argued from: byte-identical pipeline code, six questions
+   * apart. Both must now clear the floor, because the difference between them is not a change
+   * anyone made.
+   */
+  it("passes both runs of the identical-code pair", () => {
+    expect(gate(coverage(39, 42), "missing-evidence-coverage").passed).toBe(true);
+    expect(gate(coverage(33, 42), "missing-evidence-coverage").observed).toBe("78.6% (33 of 42)");
+    expect(gate(coverage(33, 42), "missing-evidence-coverage").passed).toBe(true);
+  });
+
+  it("still fails coverage collapsing toward half", () => {
+    expect(gate(coverage(21, 42), "missing-evidence-coverage").observed).toBe("50.0% (21 of 42)");
+    expect(gate(coverage(21, 42), "missing-evidence-coverage").passed).toBe(false);
+    expect(exitCode(gatesFor(coverage(21, 42)))).toBe(1);
   });
 });
 
@@ -250,39 +283,73 @@ describe("the judge gates", () => {
   /**
    * The one dimension carrying a lower floor, because it measures disagreement between two
    * careful readers about the faint-gesture middle rather than a defect in what they read.
-   * Setting it above the observed inter-reader agreement would buy flakiness, not quality.
+   * Setting it above the observed inter-reader agreement would buy flakiness, not quality, and
+   * a floor inside the band this dimension shows on unchanged code did exactly that.
    */
   describe("the unresolved-only-where-engaged floor", () => {
-    function agreeingOn(passing: number): JudgeOutcome[] {
-      return Array.from({ length: 18 }, (_, index) =>
+    function agreeingOn(passing: number, records = 18): JudgeOutcome[] {
+      return Array.from({ length: records }, (_, index) =>
         index < passing
           ? outcome(`f${index}`)
           : outcome(`f${index}`, ["unresolved-only-where-engaged"]),
       );
     }
 
-    it("holds at the two-thirds floor", () => {
-      const at = gate(clean, "judge/unresolved-only-where-engaged", agreeingOn(12));
+    /**
+     * A record whose verdict never parsed is counted by the judge-responded gate and leaves
+     * this denominator, so the same floor is read over 18 records on one run and 17 on the
+     * next. Three-fifths is the value that asks for 11 either way.
+     */
+    function unjudgedOneOf(passing: number): JudgeOutcome[] {
+      return [
+        {
+          fixtureId: "f17",
+          difficulty: "clean" as const,
+          verdict: null,
+          error: "JudgeError: The judge response did not satisfy the rubric schema.",
+        },
+        ...agreeingOn(passing, 17),
+      ];
+    }
 
-      expect(at.observed).toBe("66.7% (12 of 18)");
+    it("holds at 11 of 18 and fails at 10", () => {
+      const at = gate(clean, "judge/unresolved-only-where-engaged", agreeingOn(11));
+
+      expect(at.observed).toBe("61.1% (11 of 18)");
       expect(at.passed).toBe(true);
+
+      const below = gate(clean, "judge/unresolved-only-where-engaged", agreeingOn(10));
+
+      expect(below.observed).toBe("55.6% (10 of 18)");
+      expect(below.passed).toBe(false);
     });
 
-    it("fails one record below it", () => {
-      const below = gate(clean, "judge/unresolved-only-where-engaged", agreeingOn(11));
+    it("asks for the same 11 when a record goes unjudged", () => {
+      const at = gate(clean, "judge/unresolved-only-where-engaged", unjudgedOneOf(11));
 
-      expect(below.observed).toBe("61.1% (11 of 18)");
+      expect(at.observed).toBe("64.7% (11 of 17)");
+      expect(at.passed).toBe(true);
+
+      const below = gate(clean, "judge/unresolved-only-where-engaged", unjudgedOneOf(10));
+
+      expect(below.observed).toBe("58.8% (10 of 17)");
       expect(below.passed).toBe(false);
     });
 
     /**
-     * The rate the recalibration was argued from. One record of headroom is the intended
-     * sensitivity, not an oversight.
+     * The pair the recalibration was argued from: byte-identical pipeline code, one record
+     * apart, and the old floor sat between them. Both must now clear it, because the difference
+     * between them is not a change anyone made.
      */
-    it("passes the measured rate with a single record to spare", () => {
-      expect(gate(clean, "judge/unresolved-only-where-engaged", agreeingOn(13)).passed).toBe(true);
+    it("passes both runs of the identical-code pair", () => {
+      expect(gate(clean, "judge/unresolved-only-where-engaged", agreeingOn(12)).observed).toBe(
+        "66.7% (12 of 18)",
+      );
       expect(gate(clean, "judge/unresolved-only-where-engaged", agreeingOn(12)).passed).toBe(true);
-      expect(gate(clean, "judge/unresolved-only-where-engaged", agreeingOn(11)).passed).toBe(false);
+      expect(gate(clean, "judge/unresolved-only-where-engaged", unjudgedOneOf(11)).passed).toBe(
+        true,
+      );
+      expect(gate(clean, "judge/unresolved-only-where-engaged", agreeingOn(13)).passed).toBe(true);
     });
 
     it("lowers that dimension alone and leaves the others at 85 percent", () => {
@@ -301,6 +368,7 @@ describe("the judge gates", () => {
       expect(Object.keys(GATES.judgePassRateByDimension)).toEqual([
         "unresolved-only-where-engaged",
       ]);
+      expect(GATES.judgePassRateByDimension["unresolved-only-where-engaged"]).toBe(3 / 5);
       expect(GATES.judgePassRateByDimension["unresolved-only-where-engaged"]).toBeLessThan(
         GATES.judgePassRate,
       );
