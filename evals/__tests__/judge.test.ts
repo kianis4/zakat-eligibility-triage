@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { MockLanguageModelV3 } from "ai/test";
 import { describe, expect, it } from "vitest";
 
@@ -8,6 +11,7 @@ import {
   JUDGE_DIMENSIONS,
   JUDGE_RUBRIC,
   JudgeError,
+  PINNED_STATUS_CLAUSES,
   judgeCorpus,
   judgeRecord,
   parseJudgeVerdict,
@@ -147,17 +151,82 @@ describe("the rubric against the status definition it tests", () => {
   });
 
   it("calls closing an unengaged category correct rather than a failure", () => {
-    expect(boundary?.criterion).toContain("correctly closed as not_supported");
-    expect(boundary?.criterion).toContain("must not be reported as one");
+    expect(boundary?.criterion).toContain("closed as not_supported");
+    expect(boundary?.criterion).toContain("must not be reported as failures");
   });
 
-  it("fails a category the story engages being settled instead of left unresolved", () => {
-    expect(boundary?.criterion).toContain("engage or gesture at");
+  it("checks clauses that would actually catch the rubric being rewritten", () => {
+    expect(PINNED_STATUS_CLAUSES.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it("fails a category the story gestures at being settled instead of left unresolved", () => {
+    expect(boundary?.criterion).toContain("gestures at under the test above being settled");
     expect(boundary?.criterion).toContain("left insufficient_evidence");
   });
 
   it("fails a closure justified by facts the story does not state", () => {
     expect(boundary?.criterion).toContain("asserting facts the story does not state");
+  });
+
+  /**
+   * The operational test for engagement, so the judge applies the same one as the mapper and
+   * the labels. Without it "gestures at" is read by feel, and a general air of hardship reads
+   * as gesturing at everything.
+   */
+  it("gives the concrete-fact test for what counts as gesturing at a category", () => {
+    expect(boundary?.criterion).toContain(
+      "states a concrete fact that the category's qualifying facts would directly resolve or quantify",
+    );
+    expect(boundary?.criterion).toContain(
+      "General hardship ambiance states no such fact and gestures at nothing in particular",
+    );
+  });
+
+  /**
+   * The rule the real docblock added and the provisional wording lacked. Without it the
+   * pointing-away pass reads as licensing any closure whose rationale mentions the category,
+   * which is the wrong half of the same distinction: a page stating a shortfall and naming
+   * nobody it owes is unresolved on debt, not closed on it.
+   */
+  it("says that naming no counterpart is not on its own pointing away", () => {
+    expect(boundary?.criterion).toContain("is not on its own pointing away");
+    expect(boundary?.criterion).toContain(
+      "unresolved on that category rather than closed on it",
+    );
+  });
+
+  it("passes a gesture left open with the qualifying facts missing", () => {
+    expect(boundary?.criterion).toContain(
+      "left insufficient_evidence because a stated fact gestures at it while the qualifying facts are missing",
+    );
+  });
+
+  /**
+   * Live finding: records were failed for leaving categories open on campaigns that assert
+   * their own eligibility, which the pinned definition calls correct.
+   */
+  it("treats an eligibility claim as putting otherwise-silent categories in play", () => {
+    expect(boundary?.criterion).toContain(
+      "asserting its own zakat eligibility gestures at every category that assertion would cover",
+    );
+    expect(boundary?.criterion).toContain(
+      "left insufficient_evidence because an eligibility claim put it in play",
+    );
+  });
+
+  /**
+   * Live finding: a not_supported closure was failed because its rationale described the
+   * engagement it was pointing away from, which is the definition working as written.
+   */
+  it("passes a closure on a category the story engages and points away from", () => {
+    expect(boundary?.criterion).toContain("points away from, closed as not_supported");
+    expect(boundary?.criterion).toContain(
+      "including where the rationale describes the engagement it is pointing away from",
+    );
+  });
+
+  it("no longer offers unexplained hardship as an example of gesturing", () => {
+    expect(boundary?.criterion).not.toContain("hardship left unexplained");
   });
 
   /**
@@ -169,6 +238,63 @@ describe("the rubric against the status definition it tests", () => {
     for (const dimension of JUDGE_RUBRIC) {
       expect(dimension.criterion).not.toContain("does not speak to a category");
       expect(dimension.criterion).not.toContain("leaves it unresolved");
+    }
+  });
+});
+
+/**
+ * The rubric's doc comment quotes the `CategoryFinding` docblock as its source of truth, and a
+ * comment claiming to quote something is a copy like any other. Nothing in the toolchain
+ * relates a comment in one file to a comment in another, so this reads the real docblock and
+ * proves each quoted clause is still there.
+ *
+ * The check earns its place: this dimension has already shipped a whole corpus of confident,
+ * specific, wrong judgments by drifting from the definition it claims to test. When mapping.ts
+ * rewords one of these clauses, this test failing is the prompt to re-read the rubric against
+ * it rather than discovering the mismatch in a live run.
+ */
+describe("the clauses the rubric quotes", () => {
+  const source = readFileSync(
+    fileURLToPath(new URL("../../src/lib/mapping.ts", import.meta.url)),
+    "utf8",
+  );
+
+  /**
+   * Scoped to the docblock, not to the file. `SYSTEM_PROMPT` encodes the same definition in
+   * nearly the same words, so a whole-file search matches the prompt and reports success after
+   * the docblock has been reworded, which is the exact drift this is here to catch. Verified
+   * by rewording the docblock and watching this go red.
+   */
+  const docblock = (() => {
+    const declaration = source.indexOf("export const CategoryFinding");
+    const start = source.lastIndexOf("/**", declaration);
+
+    expect(declaration).toBeGreaterThan(-1);
+    expect(start).toBeGreaterThan(-1);
+
+    return source.slice(start, declaration);
+  })();
+
+  /**
+   * Comment prefixes and line wrapping are formatting, not wording, so both are collapsed
+   * before matching. A clause that survives a reflow is still the same clause.
+   */
+  const flattened = docblock
+    .split("\n")
+    .map((line) => line.replace(/^\s*\*\s?/, ""))
+    .join(" ")
+    .replace(/\s+/g, " ");
+
+  for (const clause of PINNED_STATUS_CLAUSES) {
+    it(`is still in the CategoryFinding docblock: ${clause.slice(0, 48)}...`, () => {
+      expect(flattened).toContain(clause);
+    });
+  }
+
+  it("checks clauses that would actually catch a reworded definition", () => {
+    expect(PINNED_STATUS_CLAUSES.length).toBeGreaterThanOrEqual(3);
+    for (const clause of PINNED_STATUS_CLAUSES) {
+      expect(clause.length).toBeGreaterThan(40);
     }
   });
 });

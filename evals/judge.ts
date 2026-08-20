@@ -56,20 +56,36 @@ export const JUDGE_RUBRIC: readonly RubricDimension[] = [
   /**
    * The status definitions this dimension tests are pinned in the `CategoryFinding` docblock
    * in `src/lib/mapping.ts`, which states that they are defined there and nowhere else. The
-   * two that matter here, quoted:
+   * clauses this criterion turns on, quoted from it:
    *
    *   `insufficient_evidence`: the story engages the category, or gestures at it, and the
    *   qualifying facts are missing.
-   *   `not_supported`: the story does not engage the category at all, or engages it and
-   *   points away.
+   *   A story asserting its own zakat eligibility gestures in exactly this way: the assertion
+   *   puts the categories it would cover in play and settles none of them.
+   *   `not_supported`: the story does not engage the category at all, or engages it and points
+   *   away.
+   *   A story gestures at a category when it states a concrete fact that the category's
+   *   qualifying facts in `./categories` would directly resolve or quantify.
+   *   General hardship ambiance states no such fact and gestures at nothing in particular.
+   *   Naming no creditor is not on its own pointing away, so a page that states a shortfall
+   *   and mentions nobody it owes is unresolved on debt rather than closed on it.
    *
-   * The criterion below is a test of that line and not a second statement of it. An earlier
-   * version was a second statement of it, written before the definition was pinned, and it
-   * said the opposite: that a category the story does not speak to should be left unresolved.
-   * The first live run duly failed records for closing al-muallafati-qulubuhum on a story that
-   * never mentions faith background, which the pinned definition calls correct. A rubric
-   * marking correct behaviour wrong is worse than no rubric, because it produces confident
-   * specific reasons for its errors.
+   * Those quotes are asserted against the real docblock by a test, not trusted to stay
+   * accurate. A comment claiming to quote a definition is a copy like any other, and this
+   * dimension has already been wrong once by drifting from the thing it tests.
+   *
+   * The criterion is a test of that line and not a second statement of it. Three live findings
+   * shaped its current wording, each one the rubric being wrong rather than the pipeline:
+   *
+   * - Records were failed for closing categories on stories that never raise them, which the
+   *   definition calls correct. That was the first version, written before the definition was
+   *   pinned, and it said the opposite of what the definition says.
+   * - Records were failed for leaving categories open on campaigns that assert their own zakat
+   *   eligibility, which the quoted claim clause calls correct: the assertion is what puts an
+   *   otherwise-silent category in play.
+   * - A record was failed for closing a category as not_supported while its rationale described
+   *   the engagement it was pointing away from, which is the second half of the not_supported
+   *   clause working exactly as written.
    *
    * The line is operational, per the same docblock: organizer questions attach to
    * `insufficient_evidence` alone, so getting it wrong either sends a reviewer a question about
@@ -79,8 +95,26 @@ export const JUDGE_RUBRIC: readonly RubricDimension[] = [
     id: "unresolved-only-where-engaged",
     label: "A category is left unresolved when the story engages it, and closed when it does not",
     criterion:
-      "A category the story does not raise at all is correctly closed as not_supported, with a rationale that says only that the story does not speak to it; that is not a failure and must not be reported as one. Two things fail. First, a category the story does engage or gesture at, such as a debt hinted at without figures or a hardship left unexplained, being settled either way instead of left insufficient_evidence with the absent qualifying fact named. Second, a rationale justifying a closure by asserting facts the story does not state, rather than by observing that the story is silent.",
+      "A story gestures at a category when it states a concrete fact that the category's qualifying facts would directly resolve or quantify: a stated rent shortfall, or an organizer saying they have not caught up since their hours were cut, gestures at debt. General hardship ambiance states no such fact and gestures at nothing in particular. A campaign asserting its own zakat eligibility gestures at every category that assertion would cover, however silent the rest of the page is about them. Naming no creditor, and naming no counterpart of any other kind, is not on its own pointing away: a page that states a shortfall and mentions nobody it owes is unresolved on that category rather than closed on it. Four things pass and must not be reported as failures: a category the story states no concrete fact about, and does not reach by an eligibility claim, closed as not_supported; a category the story engages and then points away from, closed as not_supported, including where the rationale describes the engagement it is pointing away from; a category left insufficient_evidence because an eligibility claim put it in play; and a category left insufficient_evidence because a stated fact gestures at it while the qualifying facts are missing. Three things fail: a category the story gestures at under the test above being settled either way instead of left insufficient_evidence with the absent qualifying fact named; a category the story neither states a concrete fact about nor reaches by an eligibility claim being left insufficient_evidence; and a closure justified by asserting facts the story does not state, rather than by observing what the story does and does not say.",
   },
+];
+
+/**
+ * The clauses `unresolved-only-where-engaged` quotes out of the `CategoryFinding` docblock.
+ *
+ * Exported so a test can read `src/lib/mapping.ts` and prove each one is still there, word for
+ * word. This is the only mechanism available: a rubric is prose sent to a model, and the
+ * definition it tests is prose in a comment, so nothing else in the toolchain relates the two.
+ * The dimension has already drifted from the definition once and shipped confident, specific,
+ * wrong judgments for a whole corpus, which is the argument for spending a test on it.
+ */
+export const PINNED_STATUS_CLAUSES: readonly string[] = [
+  "the story engages the category, or gestures at it, and the qualifying facts are missing",
+  "A story asserting its own zakat eligibility gestures in exactly this way: the assertion puts the categories it would cover in play and settles none of them.",
+  "the story does not engage the category at all, or engages it and points away",
+  "A story gestures at a category when it states a concrete fact that the category's qualifying facts in `./categories` would directly resolve or quantify.",
+  "General hardship ambiance states no such fact and gestures at nothing in particular",
+  "Naming no creditor is not on its own pointing away, so a page that states a shortfall and mentions nobody it owes is unresolved on debt rather than closed on it.",
 ];
 
 export type JudgeFailureReason = "model_call_failed" | "schema_validation_failed";

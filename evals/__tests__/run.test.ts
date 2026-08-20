@@ -14,6 +14,7 @@ import {
   summarize,
   type SubjectModels,
 } from "../run";
+import { score as syntheticScore } from "./score-builders";
 import {
   QUIET_FACTS,
   agreeingMapping,
@@ -406,11 +407,18 @@ describe("the pooled rates the gates read", () => {
     expect(summary.citationValidityRate).toBe(1);
   });
 
-  it("reads an empty denominator as a vacuous pass rather than as NaN", async () => {
-    const summary = summarize([await scoreFixture(clean, subject(agreeingMapping(clean)))]);
+  /**
+   * Stated over a constructed score rather than over a fixture that happens to expect no
+   * questions. This test used to name eval_0001 and assert its label was empty, which made a
+   * claim about `rate` depend on a label the corpus is free to change; when a later issue
+   * opened al-gharimin on that fixture, a correct arithmetic property failed for a reason that
+   * had nothing to do with the arithmetic.
+   */
+  it("reads an empty denominator as a vacuous pass rather than as NaN", () => {
+    const summary = summarize([syntheticScore("synthetic", { covered: 0, expectedQuestions: 0 })]);
 
-    expect(clean.label.expectedMissingEvidence).toHaveLength(0);
     expect(summary.missingEvidenceCoverageRate).toBe(1);
+    expect(Number.isNaN(summary.missingEvidenceCoverageRate)).toBe(false);
   });
 
   it("keeps fixture order regardless of the order the calls complete in", async () => {
