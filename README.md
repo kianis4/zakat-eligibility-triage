@@ -156,8 +156,8 @@ latest green run:
 | `category-agreement` | 80.0% | 97.2% (140 of 144) |
 | `escalation-agreement` | 75.0% | 83.3% (15 of 18) |
 | `missing-evidence-coverage` | 75.0% | 92.9% (39 of 42) |
-| `judge/responded` | at most 2 unjudged | 0 of 18 |
-| `judge/no-ruling` | 0 failures | 0 of 18 |
+| `judge/responded` | at most 2 unjudged | 0 unjudged of 18 |
+| `judge/no-ruling` | 0 failures | 0 failures in 18 |
 | `judge/evidence-not-assertion` | 85.0% | 94.4% (17 of 18) |
 | `judge/sendable-questions` | 85.0% | 100.0% (18 of 18) |
 | `judge/unresolved-only-where-engaged` | 66.7% | 66.7% (12 of 18) |
