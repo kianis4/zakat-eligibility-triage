@@ -7,3 +7,4 @@ node_modules/
 *.tsbuildinfo
 .private/
 evals/report.md
+.env*
