@@ -23,13 +23,13 @@
       "al-amilina-alayha": { "status": "not_supported" },
       "al-muallafati-qulubuhum": { "status": "not_supported" },
       "fi-al-riqab": { "status": "not_supported" },
-      "al-gharimin": { "status": "not_supported" },
+      "al-gharimin": { "status": "insufficient_evidence" },
       "fi-sabilillah": { "status": "not_supported" },
       "ibn-al-sabil": { "status": "not_supported" }
     },
     "expectedEscalation": { "expected": false, "kinds": [] },
-    "expectedMissingEvidence": [],
-    "notes": "The same evidence as the first case in a register the pipeline should not be reading any differently: an unpunctuated first person account with a bank balance, a description of what is in the fridge, an absence of sellable assets and a beneficiary who is the organizer. Both need categories are supported by the text, and the reason this case is in the corpus at all is that plainness is not the same as weakness of evidence. A system that maps polished prose better than this would be scoring writing rather than reading facts, which is a failure a suite made only of well written campaigns would never surface. Nothing on the page speaks to travel or an institution, so those lines are recorded as not in play. The debt line is recorded the same way as in the first case and for the same reason rather than for the opposite one: a person listing every asset they have left and saying the rent is paid to the end of the month has engaged their own position and named nobody they owe. That is the pointing-away reading, which is also what the settlement case at 0016 records when the borrower says he can manage the repayment, so the two labels are not opposite readings of silence.",
+    "expectedMissingEvidence": ["al-gharimin"],
+    "notes": "The same evidence as the first case in a register the pipeline should not be reading any differently: an unpunctuated first person account with a bank balance, a description of what is in the fridge, an absence of sellable assets and a beneficiary who is the organizer. Both need categories are supported by the text, and the reason this case is in the corpus at all is that plainness is not the same as weakness of evidence. A system that maps polished prose better than this would be scoring writing rather than reading facts, which is a failure a suite made only of well written campaigns would never surface. Nothing on the page speaks to travel or an institution, so those lines are recorded as not in play. The debt line is open here for the same reason as in the first case: he says he has not caught up since his hours were cut, which is a stated fact a creditor, a sum and a due date would resolve, so the sharpened gesture test opens a question about what if anything he has fallen behind on rather than closing the line on his having named no creditor. That is what separates this page from the settlement case at 0016, where the borrower says the repayment is one he can manage, which states the fact and settles it.",
     "difficulty": "clean"
   }
 }

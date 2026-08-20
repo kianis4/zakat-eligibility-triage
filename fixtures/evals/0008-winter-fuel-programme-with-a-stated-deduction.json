@@ -19,13 +19,13 @@
       },
       "al-muallafati-qulubuhum": { "status": "not_supported" },
       "fi-al-riqab": { "status": "not_supported" },
-      "al-gharimin": { "status": "not_supported" },
+      "al-gharimin": { "status": "insufficient_evidence" },
       "fi-sabilillah": { "status": "not_supported" },
       "ibn-al-sabil": { "status": "not_supported" }
     },
     "expectedEscalation": { "expected": true, "kinds": ["scholarly_difference"] },
-    "expectedMissingEvidence": ["al-fuqara", "al-masakin"],
-    "notes": "The deduction is stated, which is the fact the pipeline is for: published positions among bodies that all consider themselves within the rules run from no deduction at all to a fifth, so the figure is surfaced and the difference is named, and the reviewer is asked which position platform policy applies rather than being handed a verdict on 12.5 percent. The label deliberately does not expect a mixed-use signal here, and that is the judgment this case tests: an administrative deduction is the cost of delivering the one use the money is put to, not a second use it is split between, and a pipeline that reported every stated overhead as a split would fire the wrong question at every competent organisation on the platform. The two need categories stay open because a means check is asserted and no household's position is stated, which is a question the organisation can answer about its own process.",
+    "expectedMissingEvidence": ["al-fuqara", "al-masakin", "al-gharimin"],
+    "notes": "The deduction is stated, which is the fact the pipeline is for: published positions among bodies that all consider themselves within the rules run from no deduction at all to a fifth, so the figure is surfaced and the difference is named, and the reviewer is asked which position platform policy applies rather than being handed a verdict on 12.5 percent. The label deliberately does not expect a mixed-use signal here, and that is the judgment this case tests: an administrative deduction is the cost of delivering the one use the money is put to, not a second use it is split between, and a pipeline that reported every stated overhead as a split would fire the wrong question at every competent organisation on the platform. The two need categories stay open because a means check is asserted and no household's position is stated, which is a question the organisation can answer about its own process. The debt line joins them under the sharpened gesture test: the page says a payment onto the energy account is the version of this that does not vanish into an overdraft, which states a fact about what the households it reaches owe, and the organisation can say whether the means check records arrears or an overdrawn account.",
     "difficulty": "flagged"
   }
 }
