@@ -783,9 +783,13 @@ async function attemptMapping(
         ),
       };
     }
+    const detail =
+      cause instanceof Error && cause.message.trim().length > 0
+        ? ` ${cause.message.trim().slice(0, 200)}`
+        : " The provider returned no error message.";
     throw new MappingError(
       "model_call_failed",
-      `The category mapping call for campaign ${input.id} did not complete.`,
+      `The category mapping call for campaign ${input.id} did not complete.${detail}`,
       { cause },
     );
   }

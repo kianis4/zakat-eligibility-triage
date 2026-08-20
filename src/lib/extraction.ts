@@ -175,9 +175,13 @@ async function attemptExtraction(
         ),
       };
     }
+    const detail =
+      cause instanceof Error && cause.message.trim().length > 0
+        ? ` ${cause.message.trim().slice(0, 200)}`
+        : " The provider returned no error message.";
     throw new ExtractionError(
       "model_call_failed",
-      `The extraction call for campaign ${input.id} did not complete.`,
+      `The extraction call for campaign ${input.id} did not complete.${detail}`,
       { cause },
     );
   }
