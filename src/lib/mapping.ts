@@ -15,6 +15,7 @@ import {
 import type { ExtractedFacts } from "./extraction";
 import { modelProse } from "./model-prose";
 import { locateQuote } from "./quotes";
+import { describeValidationIssues } from "./validation-detail";
 
 /**
  * A span of campaign story standing behind a claim about it.
@@ -227,6 +228,21 @@ export type OrganizerQuestion = z.infer<typeof OrganizerQuestion>;
  *   way: the assertion puts the categories it would cover in play and settles none of them.
  * - `not_supported`: the story does not engage the category at all, or engages it and points
  *   away.
+ *
+ * Gesturing has an operational test, because it was the word doing the most work and the least
+ * defined. A story gestures at a category when it states a concrete fact that the category's
+ * qualifying facts in `./categories` would directly resolve or quantify. A rent shortfall the
+ * page asks for money to cover, or an organizer saying they have not caught up since their
+ * hours were cut, is a stated fact that a creditor, a sum, a cause and a due date would resolve,
+ * so al-gharimin is unresolved on that page and the question asks whether anything is owed and
+ * to whom. General hardship ambiance states no such fact and gestures at nothing in particular:
+ * where a page like that leaves a line open, what leaves it open is one of the shapes in the
+ * prompt rather than a gesture.
+ *
+ * The contrast sits inside the same category. A borrower who says he is repaying an advance at
+ * a rate he can manage has stated the fact and settled it, which is engaging the category and
+ * pointing away from it. Naming no creditor is not on its own pointing away, so a page that
+ * states a shortfall and mentions nobody it owes is unresolved on debt rather than closed on it.
  *
  * The line between the last two is operational rather than cosmetic. Organizer questions
  * attach to `insufficient_evidence` alone, in `./missing-evidence`, so silence recorded as
@@ -494,11 +510,12 @@ const SYSTEM_PROMPT = [
   "   states, name it in scholarlyDifference; a difference never moves a status.",
   "3. Use 'not_supported' where the story does not engage the category at all, or engages it",
   "   and points away. A campaign that never touches travel, displacement or being cut off",
-  "   from home is not_supported on ibn-al-sabil rather than unresolved on it. A household",
-  "   that accounts for its own position and names nobody it owes is not_supported on",
-  "   al-gharimin. A business the copy calls profitable, a borrower who says he can manage the",
-  "   repayment, and an organizer who says they take nothing and cover the page's fees",
-  "   themselves each engage a category and point away from it.",
+  "   from home is not_supported on ibn-al-sabil rather than unresolved on it. A business the",
+  "   copy calls profitable, a borrower who says he can manage the repayment, and an organizer",
+  "   who says they take nothing and cover the page's fees themselves each engage a category",
+  "   and point away from it. Pointing away is the story saying the position is met, not the",
+  "   story going quiet: a household that names nobody it owes has not pointed away from debt,",
+  "   and where it states a shortfall or arrears the debt line stays open.",
   "   One shape rules nothing out. A page that says neither who receives the money nor what it",
   "   buys has told against nothing, so every category is insufficient_evidence on it and none",
   "   is not_supported. An appeal saying only that the year has been hard and that whatever",
@@ -511,7 +528,20 @@ const SYSTEM_PROMPT = [
   "   three, and the headings the account passes over are not_supported.",
   "4. Use 'insufficient_evidence' where the story engages the category, or gestures at it, and",
   "   the qualifying facts are missing, and name in missingFact the single specific fact that",
-  "   is absent. A story that describes the people a campaign is meant to help and says nothing",
+  "   is absent. A story gestures at a category when it states a concrete fact that the",
+  "   category's guidance below would directly resolve or quantify. A rent shortfall the page",
+  "   asks for money to cover, and an organizer saying they have not caught up since their",
+  "   hours were cut, each state a fact a creditor, a sum, a cause and a due date would resolve,",
+  "   so al-gharimin is insufficient_evidence there and the question asks whether anything is",
+  "   owed and to whom. A page saying only that the year has been hard states no such fact and",
+  "   gestures at nothing in particular; where a page like that leaves a line open, what leaves",
+  "   it open is one of the shapes in 3 rather than a gesture. The contrast is a story that",
+  "   states the fact and settles it: the borrower repaying an advance at a rate he says he can",
+  "   manage has answered what his means are, so al-fuqara and al-masakin are not_supported",
+  "   there, while the advance he names, with its creditor, its sum and its cause, is supported",
+  "   on al-gharimin. Settling a category is what points away from it, and it never closes a",
+  "   different category the same sentence states the facts of.",
+  "   A story that describes the people a campaign is meant to help and says nothing",
   "   about their means engages al-fuqara and al-masakin and settles neither. A campaign",
   "   raising for a programme it will deliver to other people engages al-amilina-alayha",
   "   wherever it does not say what share of the donations covers that delivery. A story",
@@ -575,6 +605,8 @@ const SYSTEM_PROMPT = [
   "   in its category field. All eight ids below must appear and none of them twice. Fill",
   "   quotes only on a supported finding and leave it empty otherwise; fill missingFact and",
   "   questionForOrganizer only on an insufficient_evidence finding and omit them otherwise.",
+  "   Omitting a field means leaving it out of the object. An empty string is not an omission,",
+  "   and it fails the whole mapping, because a missing fact of no characters claims to name one.",
   "11. A rationale says what this story says about this category and stops there. Every clause",
   "   of it has to be traceable to words on the page. Do not generalise from campaigns of this",
   "   kind, do not say what programmes or households like this one usually do, and do not fill",
@@ -683,28 +715,43 @@ function foldFindings(campaignId: string, story: string, findings: readonly Mode
 }
 
 /**
- * Maps a campaign's text against each of the eight recipient categories, with the span of
- * story behind every supported mapping.
+ * What one ask of the model produced: the mapping, or the failure a second ask can correct.
  *
- * The model returns quotes; the offsets are resolved here (ADR-0003) and the assembled
- * mapping is parsed before it is returned, so what a caller receives has already been
- * checked against the schema that forbids an uncited supported finding. An unresolvable
- * quote fails the whole mapping rather than costing that one finding its citation.
- *
- * The campaign is re-parsed on the way in for the same reason extraction does it: this is
- * a module boundary, and a story that is missing has to surface as a schema error.
+ * A failed call is not in this union. It is thrown from inside the attempt, because a call that
+ * never reached the provider produced no response to correct and re-asking it would be a retry
+ * of the transport, which the SDK already owns.
  */
-export async function mapCategories(
-  campaign: CampaignInput,
+type MappingAttempt = { mapping: CategoryMapping } | { failure: MappingError };
+
+/**
+ * The rejected response handed back to the model, in the words validation used to reject it.
+ *
+ * The correction names the rule that failed and the value that failed it, and it asks for the
+ * same object against the same schema. It is deliberately not a hint about how to write a
+ * better quote or a better rationale: what the first attempt lacked was the failure, not the
+ * instructions, which it already had in full above this text.
+ */
+function correctionPrompt(failure: MappingError): string[] {
+  return [
+    "",
+    "Your previous response to this exact request was rejected by validation, so it is not",
+    `recorded anywhere and the request stands. It failed as ${failure.reason}: ${failure.message}`,
+    "Answer the request again in full, with that failure corrected. The schema, the rules and",
+    "the story are unchanged, and nothing in them has been relaxed for this attempt.",
+  ];
+}
+
+async function attemptMapping(
+  input: CampaignInput,
   facts: ExtractedFacts,
-  model?: LanguageModel,
-): Promise<CategoryMapping> {
-  const input = CampaignInput.parse(campaign);
+  model: LanguageModel,
+  correction: MappingError | null,
+): Promise<MappingAttempt> {
   let mapping: ModelMapping;
 
   try {
     const result = await generateObject({
-      model: model ?? anthropic("claude-sonnet-5"),
+      model,
       schema: ModelMapping,
       system: SYSTEM_PROMPT,
       prompt: [
@@ -720,16 +767,21 @@ export async function mapCategories(
         "<<<STORY",
         input.story,
         "STORY>>>",
+        ...(correction === null ? [] : correctionPrompt(correction)),
       ].join("\n"),
     });
     mapping = result.object;
   } catch (cause) {
     if (NoObjectGeneratedError.isInstance(cause)) {
-      throw new MappingError(
-        "schema_validation_failed",
-        `The model response for campaign ${input.id} did not satisfy the category mapping schema.`,
-        { cause },
-      );
+      const issues = describeValidationIssues(cause);
+
+      return {
+        failure: new MappingError(
+          "schema_validation_failed",
+          `The model response for campaign ${input.id} did not satisfy the category mapping schema${issues === null ? "." : `: ${issues}`}`,
+          { cause },
+        ),
+      };
     }
     throw new MappingError(
       "model_call_failed",
@@ -738,12 +790,63 @@ export async function mapCategories(
     );
   }
 
-  const categories = foldFindings(input.id, input.story, mapping.findings);
+  try {
+    const categories = foldFindings(input.id, input.story, mapping.findings);
 
-  const mixedUseSignals = mapping.mixedUseSignals.map((signal) => ({
-    description: signal.description,
-    citations: signal.quotes.map((quote) => resolveCitation(input.story, quote)),
-  }));
+    const mixedUseSignals = mapping.mixedUseSignals.map((signal) => ({
+      description: signal.description,
+      citations: signal.quotes.map((quote) => resolveCitation(input.story, quote)),
+    }));
 
-  return CategoryMapping.parse({ policyVersion: POLICY_VERSION, categories, mixedUseSignals });
+    return {
+      mapping: CategoryMapping.parse({ policyVersion: POLICY_VERSION, categories, mixedUseSignals }),
+    };
+  } catch (cause) {
+    if (cause instanceof MappingError) {
+      return { failure: cause };
+    }
+    throw cause;
+  }
+}
+
+/**
+ * Maps a campaign's text against each of the eight recipient categories, with the span of
+ * story behind every supported mapping.
+ *
+ * The model returns quotes; the offsets are resolved here (ADR-0003) and the assembled
+ * mapping is parsed before it is returned, so what a caller receives has already been
+ * checked against the schema that forbids an uncited supported finding. An unresolvable
+ * quote fails the whole mapping rather than costing that one finding its citation.
+ *
+ * There is one re-ask, and it loosens nothing. A response the schema rejects, and a quote
+ * that is not a span of the story, are both handed back to the model with the failure named
+ * in them, against the same schema and the same rules; a second failure throws exactly what
+ * a first failure used to throw. The difference between that and the fuzzy rescue ADR-0003
+ * rejects is that the model corrects its own answer against the story, and nothing here
+ * decides that a near miss was close enough.
+ *
+ * The campaign is re-parsed on the way in for the same reason extraction does it: this is
+ * a module boundary, and a story that is missing has to surface as a schema error.
+ */
+export async function mapCategories(
+  campaign: CampaignInput,
+  facts: ExtractedFacts,
+  model?: LanguageModel,
+): Promise<CategoryMapping> {
+  const input = CampaignInput.parse(campaign);
+  const resolved = model ?? anthropic("claude-sonnet-5");
+
+  const first = await attemptMapping(input, facts, resolved, null);
+
+  if ("mapping" in first) {
+    return first.mapping;
+  }
+
+  const second = await attemptMapping(input, facts, resolved, first.failure);
+
+  if ("mapping" in second) {
+    return second.mapping;
+  }
+
+  throw second.failure;
 }
