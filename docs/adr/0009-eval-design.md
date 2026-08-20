@@ -315,3 +315,70 @@ Runs, not aspiration. The two previous attempts to tighten this dimension by rew
 produced confident, specific, wrong judgments rather than agreement, which is the failure mode
 this dimension has now shown twice, and the evidence for a higher floor is a higher rate that
 holds rather than a conviction that it should.
+
+## Addendum, 2026-08-19: two floors sat inside the variance of identical code
+
+Run 32317099201 was green. Run 32318593991 was red, on a pull request that changed a README and
+a seed script. The pipeline code in the two runs is byte-identical, so nothing the gate claims
+to measure moved between them. What moved was the sample: missing-evidence coverage from 92.9
+percent to 78.6, against an 80 percent floor, and the judge dimension
+`unresolved-only-where-engaged` from 66.7 percent to 64.7, against a two-thirds floor. The
+addendum above set that second floor and wrote down that its margin was a single record; the
+very next run on unchanged code spent that record.
+
+The bands, over runs whose pipeline code is identical or differs only in ways the harness does
+not read:
+
+| Dimension | Observed | As counts |
+| --- | --- | --- |
+| missing-evidence coverage | 76.9, 97.6, 92.9, 78.6 | 30 of 39, 41 of 42, 39 of 42, 33 of 42 |
+| unresolved-only-where-engaged | 72.2, 66.7, 64.7 | 13 of 18, 12 of 18, 11 of 17 |
+
+Denominators move because a fixture that throws before it is scored leaves the coverage
+denominator, and a record whose verdict never parses leaves the judge denominator for the
+judge-responded gate. So neither band is a percentage drifting smoothly; both are small integer
+counts over a corpus of eighteen, where one record is worth two and a half points on coverage
+and five to six on the judge dimension.
+
+Both floors move under their band. **Missing-evidence coverage goes to 75 percent**, 1.9 points
+below the lowest run yet observed and further than the 1.7 points separating the two lowest
+runs, so one more swing of a size already seen still clears. The boundary is 32 of 42 at
+0.761905 holding against 31 of 42 at 0.738095 failing, and 30 of 39 against 29 of 39 on the
+short denominator. **The engagement dimension goes to three-fifths.** At these denominators the
+floor really sets a count rather than a rate, and 0.6 is the value that asks for 11 records on
+both: 11 of 17 at 0.647059 and 11 of 18 at 0.611111 hold, while 10 of 17 at 0.588235 and 10 of
+18 at 0.555556 fail. That is one record below the green run of the pair and level with the red
+one.
+
+What each still fails on is a collapse, not a swing. Coverage falling toward half means the
+report has gone quiet on whole categories the corpus expects a question on, which is an
+organizer who never gets asked, and no run on stable code has come within twenty points of it.
+The engagement dimension at 10 of 18 is two models agreeing barely more often than a coin,
+which is not two careful readers splitting on the faint-gesture middle but a boundary neither
+can apply. No other floor moves: citation validity stays at 100 percent, anchoring at 90,
+category agreement at 80, escalation at 75, the other two judge dimensions at 85, and no-ruling
+at zero tolerated failures.
+
+This is a lowering, which is the move the threshold rule in this ADR exists to make visible, so
+the argument has to be answerable and not merely stated. It is not "a red run should be green".
+It is that a gate which returns two different verdicts on the same code is reporting on the
+sampler. The rule's real content is that a number moves in a commit that argues from a report,
+and the report being argued from here is a pair of runs rather than one: the evidence is the
+disagreement between them.
+
+**The declined alternative is median-of-three.** Run the corpus three times per gate and take
+the median, which would let the floors stay where they were and buy real noise rejection rather
+than headroom. It triples the cost, from about 54 model calls to 162, and it triples the wall
+clock, which the cost section above already names as the binding constraint rather than the
+money. For a work-sample pipeline where the gate guards a pull request into a repository nobody
+deploys from, paying three runs to defend two floors set inside the noise is the wrong purchase:
+the same evidence is available for free by putting the floors under the noise and reading the
+report, which prints every disagreement beside the judge's stated reason. **Reconsider it when
+this gate guards a production release**, where a false green matters more than a run's latency
+and where a single run's sample is not a defensible basis for shipping. The rebuttal to be
+answered then is that a median still needs floors, and floors set inside the variance of one run
+would be no better justified for having been measured three times.
+
+One consequence worth naming: the coverage floor is now 5 points below where the ADR text above
+describes it, and that text stands as written because it was true when written. The number in
+`evals/gate.ts` is the one the build reads, and its comment carries the derivation.
