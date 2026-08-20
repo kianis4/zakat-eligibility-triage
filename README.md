@@ -118,6 +118,11 @@ ADR-0005). The six steps above are a linear assembly with rule-based gates, deli
 agent loop: nothing in it chooses its own next action, so what a reviewer reads is the output of a
 path that can be read off the source.
 
+Four diagrams and the decisions behind them are served by the app itself, at
+**https://zakat-eligibility-triage.vercel.app/design**: the pipeline and its trust boundary, the
+evaluation gate, the runtime and its integrations, and the operations layer this pattern comes
+from.
+
 ## Evaluation
 
 Two scorers, one gate, arranged so each measures only what it can (ADR-0009). **Deterministic

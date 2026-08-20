@@ -1166,6 +1166,62 @@ code {
   overflow-x: auto;
 }
 
+/* The diagram tour */
+
+.section__eyebrow + h2 {
+  margin-top: 0;
+}
+
+.design-lede {
+  color: var(--muted);
+  margin: 0;
+}
+
+/* Either the decision records a section argues from, or a plain word about what it is. */
+
+.kicker {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  gap: var(--s1);
+  margin: 0 0 var(--s4);
+}
+
+/*
+ * The diagrams are dark renders on their own near-black canvas, so the panel takes that colour
+ * rather than the page's. They are drawn at 2400px and their labels stop being readable below a
+ * certain width, so a narrow screen scrolls the panel rather than shrinking the type past legible.
+ */
+
+.diagram {
+  background: #06080b;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  margin: 0 0 var(--s6);
+  overflow-x: auto;
+  padding: var(--s3);
+}
+
+.diagram img {
+  display: block;
+  height: auto;
+  min-width: 40rem;
+  width: 100%;
+}
+
+.page-footer {
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  gap: var(--s4);
+  margin-top: 3.5rem;
+  padding-top: var(--s6);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.01ms !important;
