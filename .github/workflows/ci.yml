@@ -13,6 +13,42 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  # Which of the changed paths can move a gate. Nothing else in this file reads it, and no job
+  # is skipped on the strength of it except the eval gate below.
+  #
+  # A live gate on a README diff spends a corpus of model calls to measure nothing, and it can
+  # still come back red: the harness varies run to run on identical code, which is why two of
+  # the floors in evals/gate.ts had to move under that variance. A red gate on a docs commit is
+  # then a false failure with no diff to argue from, which teaches people to rerun until green.
+  # That is the habit that makes a gate worthless, so a docs-only change does not run one.
+  #
+  # A filter is used rather than on.pull_request.paths because the unit job must keep running on
+  # every change, and path filtering at the trigger would skip the whole workflow. It also keeps
+  # a required check reporting: this job runs on everything and the eval job resolves to skipped
+  # rather than the check never appearing.
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - 'src/**'
+              - 'evals/**'
+              - 'fixtures/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/ci.yml'
+
   # Everything that needs no credential. It runs on every push and every pull request,
   # including the build, which has to stay green with no DATABASE_URL set: an unset database
   # is a supported state that the reviewer page reports rather than crashes on, and a build
@@ -38,10 +74,15 @@ jobs:
 
   # The gate. Pull requests into main and pushes to main only, because a run costs the whole
   # corpus in model calls and a feature branch mid-flight does not need one on every commit.
+  # And only when a path that can change its verdict changed, so a docs-only commit to main
+  # skips it too, for the reason stated on the changes job. What the gate measures is what is
+  # in src, evals and fixtures; a README cannot move a number in the report.
   evals:
     name: Eval gate
-    needs: unit
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    needs: [unit, changes]
+    if: >-
+      needs.changes.outputs.code == 'true' &&
+      (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

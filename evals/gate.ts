@@ -4,11 +4,12 @@ import type { DeterministicSummary, FixtureScore } from "./run";
 /**
  * The thresholds that decide whether a run fails the build.
  *
- * These are a first calibration and nothing more. There is no prior run to have derived them
- * from and, per `fixtures/evals/README.md`, no published human baseline anywhere to derive
- * them against, so each number below is an argued position rather than a measurement. The
- * rule that keeps them honest is in ADR-0009: a number moves only in a commit that argues
- * from a report, never to make a red run go green.
+ * These began as a first calibration with no prior run to derive them from; the ones the
+ * live runs falsified have since been re-derived from those runs, and the ADR-0009 addenda
+ * carry each argument. Per `fixtures/evals/README.md` there is still no published human
+ * baseline anywhere to derive them against, so each number below is an argued position
+ * rather than a measurement. The rule that keeps them honest is in ADR-0009: a number moves
+ * only in a commit that argues from a report, never to make a red run go green.
  */
 export const GATES = {
   /**
