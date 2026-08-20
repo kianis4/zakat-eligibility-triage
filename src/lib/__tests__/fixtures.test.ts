@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { CampaignInput } from "../campaign";
 import { RECIPIENT_CATEGORY_IDS } from "../categories";
 import { ESCALATION_REASON_KINDS } from "../escalation";
-import { EvalFixture, loadEvalFixtures } from "../eval-fixture";
+import { EvalFixture, MINIMUM_CORPUS_SIZE, loadEvalFixtures } from "../eval-fixture";
 
 const FIXTURES_DIR = fileURLToPath(new URL("../../../fixtures/evals/", import.meta.url));
 
@@ -86,7 +86,7 @@ describe("the labelled eval corpus", () => {
   });
 
   it("stays the size a hand-written corpus can be kept honest at", () => {
-    expect(fixtures.length).toBeGreaterThanOrEqual(14);
+    expect(fixtures.length).toBeGreaterThanOrEqual(MINIMUM_CORPUS_SIZE);
     expect(fixtures.length).toBeLessThanOrEqual(18);
   });
 

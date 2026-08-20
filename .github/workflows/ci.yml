@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+# A queued run on the same ref is superseded rather than left to spend a corpus of model
+# calls on a commit nobody is waiting for any more. main is never cancelled: a run there is
+# the record of what merged.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  # Everything that needs no credential. It runs on every push and every pull request,
+  # including the build, which has to stay green with no DATABASE_URL set: an unset database
+  # is a supported state that the reviewer page reports rather than crashes on, and a build
+  # that quietly needed one would break that promise where nobody was looking.
+  unit:
+    name: Types, tests and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+      - run: npm run build
+
+  # The gate. Pull requests into main and pushes to main only, because a run costs the whole
+  # corpus in model calls and a feature branch mid-flight does not need one on every commit.
+  evals:
+    name: Eval gate
+    needs: unit
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # The key is asserted before anything else runs. A missing secret must fail the job
+      # rather than skip it: a gate that passes when the credential is absent reports green
+      # for a run that never happened, which is worse than having no gate, and it is exactly
+      # the state a fork or a misconfigured environment arrives in.
+      - name: Require the model credential
+        run: |
+          if [ -z "${ANTHROPIC_API_KEY}" ]; then
+            echo "::error::ANTHROPIC_API_KEY is not set for this job, so the eval gate cannot run." >&2
+            echo "Set it as a repository secret. This job fails rather than skipping, because a" >&2
+            echo "gate that passes without running is a green build for a run nobody performed." >&2
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Exits non-zero when any threshold in evals/gate.ts is missed, which fails the
+      # workflow. No step in this file is permitted to swallow its own failure.
+      - run: npm run evals
+
+      # Uploaded on failure too, and especially then: the report is where the per-fixture
+      # detail and the judge's stated reasons are, and a failed gate without them is a number
+      # with no argument attached.
+      - name: Upload the eval report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: evals/report.md
+          # Long enough to survive a weekend and a round of review, short enough that a
+          # gitignored artifact does not accumulate indefinitely. A failed gate is only
+          # actionable while its report is still fetchable.
+          retention-days: 14
+          if-no-files-found: warn

@@ -185,10 +185,26 @@ export const EvalFixture = CampaignInput.extend({ label: EvalLabel }).superRefin
 export type EvalFixture = z.infer<typeof EvalFixture>;
 
 /**
+ * The fewest cases this corpus can shrink to and still be the thing it claims to be.
+ *
+ * It has to cover eight categories and four refusal conditions and keep an ambiguous tier, so
+ * a corpus below this is not a smaller corpus, it is a different one. The number lives here
+ * rather than in the test that first pinned it because the eval harness needs the same floor:
+ * the four rates it gates on all read one as a vacuous pass on an empty denominator, so a
+ * corpus that lost its files would take every gate green with no model call made. A single
+ * constant is what stops the suite and the gate from drifting to two different answers about
+ * how much corpus is enough.
+ */
+export const MINIMUM_CORPUS_SIZE = 14;
+
+/**
  * Reads the labelled corpus off disk, in file-name order so a run is reproducible.
  *
  * Every file is parsed, and one bad file fails the load rather than being skipped. A corpus
- * that silently shrinks is a suite that silently stops testing something.
+ * that silently shrinks is a suite that silently stops testing something. The size floor is
+ * deliberately not enforced here: a caller that wants to load two fixtures for a test is doing
+ * something reasonable, and it is the gate rather than the loader that must not run on a
+ * gutted corpus.
  */
 export async function loadEvalFixtures(): Promise<EvalFixture[]> {
   const names = (await readdir(FIXTURES_DIR)).filter((name) => name.endsWith(".json")).sort();
