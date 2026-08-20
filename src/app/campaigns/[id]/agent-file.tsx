@@ -9,12 +9,22 @@ import { Attributed } from "./provenance";
  * Nothing on this page is an outcome, and the wording is chosen so that nothing reads like
  * one. A category is supported by the text or it is not; the campaign is neither, until a
  * human records a decision (ADR-0008).
+ *
+ * The layout carries the same argument the wording does. The refusal is the loudest thing on
+ * the page because the question it raises is the product, and the summary strip exists so a
+ * reviewer can see all eight categories before reading any of them.
  */
 
 const FINDING_LABELS = {
   supported: "Supported by the text",
   not_supported: "Not supported by the text",
   insufficient_evidence: "Not enough in the text to tell",
+} as const;
+
+const FINDING_TONES = {
+  supported: "yes",
+  not_supported: "no",
+  insufficient_evidence: "unknown",
 } as const;
 
 const DELIVERY_LABELS: Record<string, string> = {
@@ -33,12 +43,23 @@ function deliveryLabel(delivery: string | null): string {
   );
 }
 
-function Quoted({ citation }: { citation: Citation }) {
+/**
+ * A cited span, marked the way a person marks a document they are working through.
+ *
+ * The quote is set in the organizer's serif and highlighted, so the eye lands on the words the
+ * pipeline actually took rather than on the apparatus around them. Amber inside a refusal, to
+ * keep one attention colour running through that card.
+ */
+function Quoted({ citation, tone = "campaign" }: { citation: Citation; tone?: "campaign" | "refusal" }) {
   return (
     <Attributed kind="campaign">
-      <blockquote style={{ margin: 0, paddingLeft: "0.75rem", borderLeft: "3px solid #99a" }}>
-        <p style={{ margin: 0 }}>{citation.quote}</p>
-        <footer style={{ fontSize: "0.8rem" }}>
+      <blockquote className="quote">
+        <p className="voice-organizer">
+          <span className={tone === "refusal" ? "marker marker--amber" : "marker"}>
+            {citation.quote}
+          </span>
+        </p>
+        <footer className="quote__offsets tnum">
           {`characters ${citation.start} to ${citation.end} of the story`}
         </footer>
       </blockquote>
@@ -55,8 +76,8 @@ function Quoted({ citation }: { citation: Citation }) {
  */
 function ScholarlyDifference({ difference }: { difference: ScholarlyDifferenceReference }) {
   return (
-    <div style={{ margin: "0.5rem 0", padding: "0.5rem", background: "#fafafa" }}>
-      <p style={{ margin: 0, fontSize: "0.85rem" }}>
+    <div className="difference">
+      <p className="meta">
         {`Recognised scholars differ on ${difference.entry.topic} (${difference.entry.id})`}
       </p>
       <Attributed kind="corpus">
@@ -69,6 +90,39 @@ function ScholarlyDifference({ difference }: { difference: ScholarlyDifferenceRe
   );
 }
 
+/**
+ * All eight categories at once, before any one of them is read.
+ *
+ * This is the only place on the page where the whole mapping is visible without scrolling, and
+ * each tile jumps to the finding it summarises. The dot is a second encoding of a status the
+ * tile already spells out, never the only one.
+ */
+function CategoryStrip({ run }: { run: TriageRunRow }) {
+  return (
+    <ul className="strip">
+      {RECIPIENT_CATEGORIES.map((category) => {
+        const finding = run.mapping.categories[category.id];
+
+        if (finding === undefined) {
+          return null;
+        }
+
+        return (
+          <li key={category.id}>
+            <a href={`#finding-${category.id}`}>
+              <span className="strip__name">{category.id}</span>
+              <span className="strip__status">
+                <span className={`dot dot--${FINDING_TONES[finding.status]}`} />
+                {FINDING_LABELS[finding.status]}
+              </span>
+            </a>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function Finding({ run, category }: { run: TriageRunRow; category: (typeof RECIPIENT_CATEGORIES)[number] }) {
   const finding = run.mapping.categories[category.id];
 
@@ -77,11 +131,13 @@ function Finding({ run, category }: { run: TriageRunRow; category: (typeof RECIP
   }
 
   return (
-    <article style={{ borderTop: "1px solid #ddd", padding: "0.75rem 0" }}>
-      <h3 style={{ margin: 0, fontSize: "1rem" }}>
-        {`${category.id} (${category.gloss})`}
-      </h3>
-      <p style={{ margin: "0.25rem 0", fontWeight: 600 }}>{FINDING_LABELS[finding.status]}</p>
+    <article className="finding" id={`finding-${category.id}`}>
+      <div className="finding__header">
+        <h3 className="finding__title">{`${category.id} (${category.gloss})`}</h3>
+        <span className={`pill pill--${FINDING_TONES[finding.status]}`}>
+          {FINDING_LABELS[finding.status]}
+        </span>
+      </div>
 
       <Attributed kind="model">
         <p style={{ margin: 0 }}>{finding.rationale}</p>
@@ -114,44 +170,45 @@ function Finding({ run, category }: { run: TriageRunRow; category: (typeof RECIP
 export function AgentFile({ run }: { run: TriageRunRow }) {
   return (
     <section>
-      <p style={{ fontSize: "0.9rem" }}>
+      <p className="meta">
         {`Read by ${run.model} on ${run.createdAt.toISOString().slice(0, 16).replace("T", " ")} UTC, against policy ${run.policyVersion}. `}
         This file decides nothing.
       </p>
 
-      <h3>Refusal</h3>
+      <h3 className="subsection" id="refusal">Refusal</h3>
       {run.escalation.escalate ? (
-        <div>
-          <p style={{ margin: "0.25rem 0" }}>
-            The pipeline refused to triage this campaign and put these questions to you.
-          </p>
-          <p style={{ margin: "0.25rem 0" }}>{deliveryLabel(run.slackDelivery)}</p>
+        <div className="attention">
+          <p>The pipeline refused to triage this campaign and put these questions to you.</p>
+          <p className="meta delivery">{deliveryLabel(run.slackDelivery)}</p>
           {run.escalation.reasons.map((reason, index) => (
-            <div key={`${reason.kind}-${index}`} style={{ margin: "0.5rem 0" }}>
-              <p style={{ margin: 0, fontSize: "0.85rem" }}>{reason.kind.replace(/_/g, " ")}</p>
+            <div className="attention__reason" key={`${reason.kind}-${index}`}>
+              <p className="attention__chip">{reason.kind.replace(/_/g, " ")}</p>
               <Attributed kind="model">
-                <p style={{ margin: 0 }}>{reason.question}</p>
+                <p className="attention__question">{reason.question}</p>
               </Attributed>
               {reason.citations.map((citation) => (
-                <Quoted key={`${citation.start}-${citation.end}`} citation={citation} />
+                <Quoted key={`${citation.start}-${citation.end}`} citation={citation} tone="refusal" />
               ))}
             </div>
           ))}
         </div>
       ) : (
-        <p>The pipeline did not refuse. {deliveryLabel(run.slackDelivery)}</p>
+        <div className="calm">
+          <p>The pipeline did not refuse. {deliveryLabel(run.slackDelivery)}</p>
+        </div>
       )}
 
-      <h3>What the text says about each category</h3>
+      <h3 className="subsection" id="findings">What the text says about each category</h3>
+      <CategoryStrip run={run} />
       {RECIPIENT_CATEGORIES.map((category) => (
         <Finding key={category.id} run={run} category={category} />
       ))}
 
-      <h3>What to ask the organizer</h3>
+      <h3 className="subsection" id="questions">What to ask the organizer</h3>
       {run.missingEvidence.questions.length === 0 ? (
         <p>Nothing was left unresolved for want of a fact the organizer could supply.</p>
       ) : (
-        <ol>
+        <ol className="questions">
           {run.missingEvidence.questions.map((question) => (
             <li key={question}>
               <Attributed kind="model">

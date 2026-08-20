@@ -11,34 +11,21 @@ import type { ReactNode } from "react";
  *
  * Three labels, applied to the containing block rather than to a phrase, because a reader
  * scanning a findings table needs to know which kind of text they are in without inspecting
- * anything.
+ * anything. The chip colours follow the same semantics as the status pills, and the label text
+ * is on every chip, so the distinction never rests on colour.
  */
 export type Provenance = "model" | "corpus" | "campaign";
 
-const BADGES: Record<Provenance, { label: string; background: string }> = {
-  model: { label: "MODEL PROSE", background: "#f3e8c8" },
-  corpus: { label: "CORPUS TEXT", background: "#dbe7d8" },
-  campaign: { label: "CAMPAIGN QUOTE", background: "#dde3ee" },
+const BADGES: Record<Provenance, { label: string; tone: string }> = {
+  model: { label: "MODEL PROSE", tone: "chip--model" },
+  corpus: { label: "CORPUS TEXT", tone: "chip--corpus" },
+  campaign: { label: "CAMPAIGN QUOTE", tone: "chip--campaign" },
 };
 
 export function Badge({ kind }: { kind: Provenance }) {
   const badge = BADGES[kind];
 
-  return (
-    <span
-      style={{
-        background: badge.background,
-        border: "1px solid #999",
-        borderRadius: "2px",
-        fontSize: "0.7rem",
-        letterSpacing: "0.04em",
-        padding: "0.05rem 0.3rem",
-        whiteSpace: "nowrap",
-      }}
-    >
-      {badge.label}
-    </span>
-  );
+  return <span className={`chip ${badge.tone}`}>{badge.label}</span>;
 }
 
 /**
@@ -52,7 +39,7 @@ export function Badge({ kind }: { kind: Provenance }) {
  */
 export function Attributed({ kind, children }: { kind: Provenance; children: ReactNode }) {
   return (
-    <div style={{ display: "flex", gap: "0.5rem", alignItems: "baseline", margin: "0.35rem 0" }}>
+    <div className="attributed">
       <Badge kind={kind} />
       <div>{children}</div>
     </div>
@@ -61,18 +48,26 @@ export function Attributed({ kind, children }: { kind: Provenance; children: Rea
 
 export function ProvenanceLegend() {
   return (
-    <ul style={{ listStyle: "none", padding: 0, fontSize: "0.9rem" }}>
-      <li style={{ margin: "0.25rem 0" }}>
-        <Badge kind="model" /> written by the model in its own words. Not a quotation of any
-        source, and not to be read as one.
+    <ul className="legend">
+      <li>
+        <Badge kind="model" />
+        <span>
+          written by the model in its own words. Not a quotation of any source, and not to be
+          read as one.
+        </span>
       </li>
-      <li style={{ margin: "0.25rem 0" }}>
-        <Badge kind="corpus" /> recorded reference data, human-authored and versioned, shown
-        word for word under the id it is stored by.
+      <li>
+        <Badge kind="corpus" />
+        <span>
+          recorded reference data, human-authored and versioned, shown word for word under the
+          id it is stored by.
+        </span>
       </li>
-      <li style={{ margin: "0.25rem 0" }}>
-        <Badge kind="campaign" /> a verbatim span of the organizer&apos;s own story, with the
-        offsets it occupies.
+      <li>
+        <Badge kind="campaign" />
+        <span>
+          a verbatim span of the organizer&apos;s own story, with the offsets it occupies.
+        </span>
       </li>
     </ul>
   );

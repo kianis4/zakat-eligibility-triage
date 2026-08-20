@@ -5,8 +5,10 @@ import { getDatabase, isDatabaseConfigured } from "../../../db/index";
 import { campaigns } from "../../../db/schema";
 import { decisionHistory, triageRunsFor } from "../../../lib/decision";
 import { retrievePrecedents, type PrecedentForReviewer } from "../../../lib/precedent";
+import { Khatam } from "../../khatam";
 import { runTriageAction } from "../actions";
 import { AgentFile } from "./agent-file";
+import { CaseRail } from "./case-rail";
 import { AuditTrail, DecisionForm } from "./decision-panel";
 import { ProvenanceLegend } from "./provenance";
 
@@ -20,6 +22,10 @@ import { ProvenanceLegend } from "./provenance";
  * The page has no outcome to show until the audit trail has something in it. That is not a
  * rendering choice: there is no column anywhere that could hold one, so the only thing this
  * page can report about a campaign's standing is what a human recorded (ADR-0008).
+ *
+ * The campaign's own words are set in a serif wherever they appear, here and in every cited
+ * span below, because the document under examination should not look like the tool examining
+ * it.
  */
 export const dynamic = "force-dynamic";
 
@@ -29,30 +35,40 @@ const DECISION_LABELS = {
   info_requested: "Information requested",
 } as const;
 
+const DECISION_TONES = {
+  approved: "pill--yes",
+  declined: "pill--no",
+  info_requested: "pill--unknown",
+} as const;
+
 function day(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
 function PrecedentCard({ precedent }: { precedent: PrecedentForReviewer }) {
   return (
-    <article style={{ borderTop: "1px solid #ccc", padding: "1rem 0" }}>
-      <h3 style={{ margin: 0 }}>{precedent.title}</h3>
-      <p style={{ margin: "0.25rem 0", fontSize: "0.9rem" }}>
-        <strong>{DECISION_LABELS[precedent.decision]}</strong>
-        {` on ${day(precedent.decidedAt)}`}
-      </p>
-      <p style={{ margin: "0.5rem 0" }}>{precedent.storyExcerpt}</p>
-      <dl style={{ margin: "0.5rem 0", fontSize: "0.9rem" }}>
+    <article className="precedent">
+      <div className="card__header">
+        <h3>{precedent.title}</h3>
+        <span className={`pill ${DECISION_TONES[precedent.decision]}`}>
+          {DECISION_LABELS[precedent.decision]}
+        </span>
+      </div>
+      <p className="meta tnum">{`on ${day(precedent.decidedAt)}`}</p>
+      <p className="voice-organizer">{precedent.storyExcerpt}</p>
+      <div className="outcomes">
         {Object.entries(precedent.categoryOutcomes).map(([category, outcome]) => (
-          <div key={category} style={{ display: "flex", gap: "0.5rem" }}>
-            <dt style={{ fontWeight: 600 }}>{category}</dt>
-            <dd style={{ margin: 0 }}>{outcome.replace(/_/g, " ")}</dd>
-          </div>
+          <span className="outcomes__item" key={category}>
+            <span className="outcomes__label">{category}</span>
+            {outcome.replace(/_/g, " ")}
+          </span>
         ))}
-      </dl>
-      <blockquote style={{ margin: "0.5rem 0 0", paddingLeft: "1rem", borderLeft: "3px solid #ccc" }}>
-        <p style={{ margin: 0 }}>{precedent.reviewerNote}</p>
-        <footer style={{ fontSize: "0.85rem" }}>Recorded by the reviewer who decided this case</footer>
+      </div>
+      <blockquote className="quote" style={{ marginTop: "1rem" }}>
+        <p className="voice-quoted">{precedent.reviewerNote}</p>
+        <footer className="quote__offsets">
+          Recorded by the reviewer who decided this case
+        </footer>
       </blockquote>
     </article>
   );
@@ -71,11 +87,14 @@ export default async function CampaignReviewPage({
   if (!isDatabaseConfigured()) {
     return (
       <main>
-        <h1>Database not configured</h1>
-        <p>
-          DATABASE_URL is not set, so no campaign can be loaded and no precedent can be
-          retrieved. Set it and reload; the suite runs without it.
-        </p>
+        <div className="state">
+          <Khatam className="state__mark" outline size={40} />
+          <h1>Database not configured</h1>
+          <p>
+            DATABASE_URL is not set, so no campaign can be loaded and no precedent can be
+            retrieved. Set it and reload; the suite runs without it.
+          </p>
+        </div>
       </main>
     );
   }
@@ -86,8 +105,11 @@ export default async function CampaignReviewPage({
   if (campaign === undefined) {
     return (
       <main>
-        <h1>No campaign {id}</h1>
-        <p>Nothing is stored under that identifier.</p>
+        <div className="state">
+          <Khatam className="state__mark" outline size={40} />
+          <h1>No campaign {id}</h1>
+          <p>Nothing is stored under that identifier.</p>
+        </div>
       </main>
     );
   }
@@ -102,89 +124,128 @@ export default async function CampaignReviewPage({
   const runsById = new Map(runs.map((run) => [run.id, run]));
 
   return (
-    <main>
-      <p style={{ fontSize: "0.9rem" }}>
-        <Link href="/campaigns">Back to the queue</Link>
-      </p>
-      <h1>{campaign.title}</h1>
-      {error === undefined ? null : (
-        <p role="alert" style={{ border: "1px solid #b00", padding: "0.5rem 0.75rem" }}>
-          {error}
-        </p>
-      )}
-      <dl>
-        <dt>Platform category, as the organizer selected it</dt>
-        <dd>{campaign.category}</dd>
-        <dt>Stated goal</dt>
-        <dd>{`${campaign.goalAmount} ${campaign.currency}`}</dd>
-        <dt>Organizer</dt>
-        <dd>{`${campaign.organizerName}, ${campaign.organizerLocation}`}</dd>
-        <dt>Declared relationship to the beneficiary</dt>
-        <dd>{campaign.organizerRelationshipToBeneficiary ?? "Not declared"}</dd>
-        <dt>Submitted</dt>
-        <dd>{day(campaign.createdAt)}</dd>
-      </dl>
+    <main className="case">
+      <CaseRail
+        decided={history.length > 0}
+        hasRun={latestRun !== undefined}
+        refused={latestRun?.escalation.escalate === true}
+      />
 
-      <h2>Campaign story</h2>
-      <p style={{ whiteSpace: "pre-wrap" }}>{campaign.story}</p>
+      <div>
+        <Link className="backlink" href="/campaigns">
+          Back to the queue
+        </Link>
 
-      <h2>The agent&apos;s file</h2>
-      <p>Who wrote what you are about to read:</p>
-      <ProvenanceLegend />
+        <div className="card">
+          <h1>{campaign.title}</h1>
+          {error === undefined ? null : (
+            <p className="alert" role="alert">
+              {error}
+            </p>
+          )}
+          <dl className="meta-grid">
+            <div>
+              <dt className="meta-grid__label">Platform category, as the organizer selected it</dt>
+              <dd className="meta-grid__value">{campaign.category}</dd>
+            </div>
+            <div>
+              <dt className="meta-grid__label">Stated goal</dt>
+              <dd className="meta-grid__value tnum">
+                {`${campaign.goalAmount} ${campaign.currency}`}
+              </dd>
+            </div>
+            <div>
+              <dt className="meta-grid__label">Organizer</dt>
+              <dd className="meta-grid__value">
+                {`${campaign.organizerName}, ${campaign.organizerLocation}`}
+              </dd>
+            </div>
+            <div>
+              <dt className="meta-grid__label">Declared relationship to the beneficiary</dt>
+              <dd className="meta-grid__value">
+                {campaign.organizerRelationshipToBeneficiary ?? "Not declared"}
+              </dd>
+            </div>
+            <div>
+              <dt className="meta-grid__label">Submitted</dt>
+              <dd className="meta-grid__value tnum">{day(campaign.createdAt)}</dd>
+            </div>
+          </dl>
+        </div>
 
-      {latestRun === undefined ? (
-        <form action={runTriageAction}>
-          <input type="hidden" name="campaignId" value={campaign.id} />
-          <p>
-            The agent has not read this campaign yet. A decision is always recorded against a
-            specific agent file, so the pipeline runs first.
+        <h2 id="story">Campaign story</h2>
+        <div className="card measure">
+          <p className="voice-organizer" style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+            {campaign.story}
           </p>
-          <p>
-            <button type="submit">Run the triage</button>
-          </p>
-        </form>
-      ) : (
-        <>
-          <AgentFile run={latestRun} />
+        </div>
+
+        <h2 id="agent-file">The agent&apos;s file</h2>
+        <div className="card card--tint measure">
+          <p>Who wrote what you are about to read:</p>
+          <ProvenanceLegend />
+        </div>
+
+        {latestRun === undefined ? (
           <form action={runTriageAction}>
             <input type="hidden" name="campaignId" value={campaign.id} />
-            <p>
-              <button type="submit">Read the campaign again</button>
-              {" "}
-              <small>
+            <div className="card measure">
+              <p>
+                The agent has not read this campaign yet. A decision is always recorded against a
+                specific agent file, so the pipeline runs first.
+              </p>
+              <button className="btn" type="submit">
+                Run the triage
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <AgentFile run={latestRun} />
+            <form action={runTriageAction}>
+              <input type="hidden" name="campaignId" value={campaign.id} />
+              <p style={{ marginTop: "1.5rem" }}>
+                <button className="btn btn--quiet" type="submit">
+                  Read the campaign again
+                </button>
+              </p>
+              <p className="meta measure">
                 Files a new agent file. The one above is kept, and any decision already taken
                 against it keeps pointing at what its reviewer read.
-              </small>
-            </p>
-          </form>
-        </>
-      )}
+              </p>
+            </form>
+          </>
+        )}
 
-      <h2>Precedent</h2>
-      <p>
-        Previously adjudicated campaigns, closest first. Every one of them is synthetic and
-        written for this repository. They are here for you to compare against and they
-        decide nothing: the decision on this campaign is yours to record.
-      </p>
-      <p>
-        None of this section was shown to the model that read the campaign. See ADR-0004
-        for why.
-      </p>
-      {precedents.length === 0 ? (
-        <p>No adjudicated campaigns are stored yet.</p>
-      ) : (
-        precedents.map((precedent) => <PrecedentCard key={precedent.id} precedent={precedent} />)
-      )}
+        <h2 id="precedent">Precedent</h2>
+        <p className="measure">
+          Previously adjudicated campaigns, closest first. Every one of them is synthetic and
+          written for this repository. They are here for you to compare against and they
+          decide nothing: the decision on this campaign is yours to record.
+        </p>
+        <p className="meta measure">
+          None of this section was shown to the model that read the campaign. See ADR-0004
+          for why.
+        </p>
+        {precedents.length === 0 ? (
+          <div className="state">
+            <Khatam className="state__mark" outline size={40} />
+            <p>No adjudicated campaigns are stored yet.</p>
+          </div>
+        ) : (
+          precedents.map((precedent) => <PrecedentCard key={precedent.id} precedent={precedent} />)
+        )}
 
-      <h2>Decision</h2>
-      {latestRun === undefined ? (
-        <p>Run the triage above before recording a decision.</p>
-      ) : (
-        <DecisionForm campaignId={campaign.id} run={latestRun} />
-      )}
+        <h2 id="decision">Decision</h2>
+        {latestRun === undefined ? (
+          <p>Run the triage above before recording a decision.</p>
+        ) : (
+          <DecisionForm campaignId={campaign.id} run={latestRun} />
+        )}
 
-      <h2>Audit trail</h2>
-      <AuditTrail history={history} runs={runsById} />
+        <h2 id="audit-trail">Audit trail</h2>
+        <AuditTrail history={history} runs={runsById} />
+      </div>
     </main>
   );
 }

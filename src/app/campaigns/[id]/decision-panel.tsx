@@ -1,5 +1,6 @@
 import type { DecisionRow, TriageRunRow } from "../../../db/schema";
 import { agreementWith } from "../../../lib/decision";
+import { Khatam } from "../../khatam";
 import { submitDecision } from "../actions";
 
 /**
@@ -9,6 +10,10 @@ import { submitDecision } from "../actions";
  * stated on the page rather than only in a comment, because a trail whose author is
  * self-reported records who someone said they were, and a person reading the trail should
  * know that about it. A deployment binds the reviewer from the session.
+ *
+ * This is the one card on the page allowed to feel heavier than the rest. Everything above it
+ * is evidence; only what happens here decides anything, and the page should look like that is
+ * true.
  */
 
 const ACTION_LABELS = {
@@ -33,42 +38,45 @@ export function DecisionForm({ campaignId, run }: { campaignId: string; run: Tri
       <input type="hidden" name="campaignId" value={campaignId} />
       <input type="hidden" name="triageRunId" value={run.id} />
 
-      <fieldset style={{ border: "1px solid #ccc", padding: "0.75rem" }}>
-        <legend>Your decision, which is the one that counts</legend>
+      <div className="decision">
+        <Khatam className="decision__mark" size={18} />
+        <fieldset className="fieldset">
+          <legend>Your decision, which is the one that counts</legend>
 
-        {(Object.keys(ACTION_LABELS) as (keyof typeof ACTION_LABELS)[]).map((action) => (
-          <p key={action} style={{ margin: "0.25rem 0" }}>
-            <input type="radio" id={action} name="action" value={action} required />{" "}
-            <label htmlFor={action}>{ACTION_LABELS[action]}</label>
-          </p>
-        ))}
+          {(Object.keys(ACTION_LABELS) as (keyof typeof ACTION_LABELS)[]).map((action) => (
+            <div className="choice" key={action}>
+              <input type="radio" id={action} name="action" value={action} required />
+              <label htmlFor={action}>{ACTION_LABELS[action]}</label>
+            </div>
+          ))}
 
-        <p>
-          <label htmlFor="reviewer">Your name</label>
-          <br />
-          <input id="reviewer" name="reviewer" required />
-          <br />
-          <small>
-            Typed rather than taken from a session, because this prototype has no
-            authentication.
-          </small>
-        </p>
+          <div className="field" style={{ marginTop: "1.5rem" }}>
+            <label className="field__label" htmlFor="reviewer">
+              Your name
+            </label>
+            <input className="input" id="reviewer" name="reviewer" required />
+            <small className="field__hint">
+              Typed rather than taken from a session, because this prototype has no
+              authentication.
+            </small>
+          </div>
 
-        <p>
-          <label htmlFor="note">Why</label>
-          <br />
-          <textarea id="note" name="note" rows={4} required style={{ width: "100%" }} />
-          <br />
-          <small>
-            Required. A decision with no reasoning behind it cannot be reviewed later, and the
-            database will not store one.
-          </small>
-        </p>
+          <div className="field">
+            <label className="field__label" htmlFor="note">
+              Why
+            </label>
+            <textarea className="textarea" id="note" name="note" rows={4} required />
+            <small className="field__hint">
+              Required. A decision with no reasoning behind it cannot be reviewed later, and the
+              database will not store one.
+            </small>
+          </div>
 
-        <p>
-          <button type="submit">Record the decision</button>
-        </p>
-      </fieldset>
+          <button className="btn" type="submit">
+            Record the decision
+          </button>
+        </fieldset>
+      </div>
     </form>
   );
 }
@@ -90,30 +98,30 @@ export function AuditTrail({
 }) {
   if (history.length === 0) {
     return (
-      <p>
+      <p className="measure">
         No decision has been recorded, so this campaign has no outcome. Nothing above is one.
       </p>
     );
   }
 
   return (
-    <ol>
+    <ol className="timeline">
       {history.map((decision) => {
         const run = runs.get(decision.triageRunId);
         const agreement = run === undefined ? null : agreementWith(run, decision.action);
 
         return (
-          <li key={decision.id} style={{ margin: "0.75rem 0" }}>
-            <p style={{ margin: 0 }}>
+          <li className={`timeline__item timeline__item--${decision.action}`} key={decision.id}>
+            <p className="timeline__who tnum">
               <strong>{OUTCOME_LABELS[decision.action]}</strong>
               {` by ${decision.reviewer}, ${moment(decision.decidedAt)}`}
             </p>
-            <p style={{ margin: "0.25rem 0", fontSize: "0.9rem" }}>
+            <p className="meta">
               {`Against agent file ${decision.triageRunId}. `}
               {agreement === null ? "That file is no longer readable." : agreement.summary}
             </p>
-            <blockquote style={{ margin: 0, paddingLeft: "0.75rem", borderLeft: "3px solid #ccc" }}>
-              <p style={{ margin: 0 }}>{decision.note}</p>
+            <blockquote className="quote">
+              <p className="voice-quoted">{decision.note}</p>
             </blockquote>
           </li>
         );
