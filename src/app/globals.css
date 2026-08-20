@@ -128,13 +128,22 @@ a:hover {
   flex: none;
 }
 
+.subsection {
+  margin: var(--s6) 0 var(--s3);
+  scroll-margin-top: 5rem;
+}
+
 .tnum {
   font-variant-numeric: tabular-nums;
 }
 
-/* The organizer's voice. Everything the campaign itself said is set in this. */
+/*
+ * The organizer's voice, and quoted human writing generally. Everything the campaign itself
+ * said, and every note a reviewer wrote, is set in this.
+ */
 
-.voice-organizer {
+.voice-organizer,
+.voice-quoted {
   font-family: var(--font-serif);
   font-size: 1.0625rem;
   line-height: 1.75;
@@ -754,7 +763,7 @@ a.btn--ghost:hover {
 }
 
 .rail a {
-  align-items: center;
+  align-items: baseline;
   color: var(--muted);
   display: flex;
   font-size: 0.8125rem;
@@ -771,9 +780,12 @@ a.btn--ghost:hover {
 }
 
 .rail__label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
+}
+
+.rail__spacer {
+  flex: none;
+  width: 8px;
 }
 
 /* The category summary strip */
