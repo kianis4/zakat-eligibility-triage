@@ -319,6 +319,14 @@ const SYSTEM_PROMPT = [
  * read as a set a reviewer would send are both invisible from inside a single category, and
  * eight calls would cost eight times as much to answer a worse version of the question.
  */
+/**
+ * The SDK owns the backoff; this sizes its budget. The default of two retries gave up inside
+ * a sustained rate-limit window on the PR #33 run, where the last five judge calls of the
+ * batch all died together, so the budget now spans roughly a minute of exponential backoff.
+ * A mock rejection is not retryable, so unit tests see exactly the calls they count.
+ */
+const JUDGE_CALL_RETRIES = 5;
+
 async function askJudge(
   campaign: CampaignInput,
   prompt: string,
@@ -327,6 +335,7 @@ async function askJudge(
   try {
     const result = await generateObject({
       model,
+      maxRetries: JUDGE_CALL_RETRIES,
       schema: ModelVerdict,
       system: SYSTEM_PROMPT,
       prompt,
@@ -344,9 +353,13 @@ async function askJudge(
         { cause },
       );
     }
+    const detail =
+      cause instanceof Error && cause.message.trim().length > 0
+        ? ` ${cause.message.trim().slice(0, 200)}`
+        : " The provider returned no error message.";
     throw new JudgeError(
       "model_call_failed",
-      `The judge call for campaign ${campaign.id} did not complete.`,
+      `The judge call for campaign ${campaign.id} did not complete.${detail}`,
       { cause },
     );
   }
@@ -510,14 +523,17 @@ export function summarizeJudgements(
 /**
  * Judges every fixture whose record the pipeline actually produced.
  *
- * Bounded concurrency and fixture order, for the reasons `scoreCorpus` gives. A judge error
- * is captured onto its outcome rather than thrown, so one bad response does not cost the run
- * the seventeen verdicts it already has.
+ * Bounded concurrency and fixture order, for the reasons `scoreCorpus` gives, but at two
+ * rather than four: the judge's calls are the largest in the run, and four of them abreast
+ * raced the provider's rate window on the PR #33 run until the tail of the batch starved.
+ * Two halves the burst for a couple of minutes of wall clock. A judge error is captured onto
+ * its outcome rather than thrown, so one bad response does not cost the run the seventeen
+ * verdicts it already has.
  */
 export async function judgeCorpus(
   scores: readonly FixtureScore[],
   model: LanguageModel,
-  concurrency = 4,
+  concurrency = 2,
 ): Promise<JudgeSummary> {
   const judgeable = scores.filter((score) => score.mapping !== null);
   const outcomes: JudgeOutcome[] = new Array(judgeable.length);
