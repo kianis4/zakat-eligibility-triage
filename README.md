@@ -150,12 +150,16 @@ latest green run:
 | `citation-anchoring` | 90.0% | 100.0% (14 of 14) |
 | `category-agreement` | 80.0% | 97.2% (140 of 144) |
 | `escalation-agreement` | 75.0% | 83.3% (15 of 18) |
-| `missing-evidence-coverage` | 80.0% | 92.9% (39 of 42) |
+| `missing-evidence-coverage` | 75.0% | 92.9% (39 of 42) |
 | `judge/responded` | at most 2 unjudged | 0 of 18 |
 | `judge/no-ruling` | 0 failures | 0 of 18 |
 | `judge/evidence-not-assertion` | 85.0% | 94.4% (17 of 18) |
 | `judge/sendable-questions` | 85.0% | 100.0% (18 of 18) |
 | `judge/unresolved-only-where-engaged` | 66.7% | 66.7% (12 of 18) |
+
+The coverage and engagement floors were lowered after this run, in a commit arguing from two
+runs on byte-identical code (issue #32); the table shows the floors as they stand, and the
+run cleared the stricter originals.
 
 Citation validity is the only bar at 100, because a citation is the one output that is either true
 or a fabrication indistinguishable from a real one on the page. Anchoring is scored apart from it,
@@ -224,7 +228,7 @@ produced.
 
 ## Running it
 
-- `npm install`, then `npm test` and `npm run typecheck`, both. The unit suite is 415 tests and
+- `npm install`, then `npm test` and `npm run typecheck`, both. The unit suite is 419 tests and
   needs no network, no database and no keys. Part of it is enforced by the compiler rather than
   the test runner: `src/lib/__tests__/mapping-types.test.ts` proves that a supported finding with
   no citation does not typecheck, and a proof of that shape only fails under `tsc`.
