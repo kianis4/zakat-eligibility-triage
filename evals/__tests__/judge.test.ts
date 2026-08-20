@@ -443,6 +443,22 @@ describe("asking the judge", () => {
     expect(thrown).toBeInstanceOf(JudgeError);
     expect((thrown as JudgeError).reason).toBe("model_call_failed");
   });
+
+  /**
+   * The PR #33 run produced five errors reading only "did not complete", which left the
+   * diagnosis (a sustained rate limit) to be inferred from their position in the batch. The
+   * cause now travels in the message, so the report names it.
+   */
+  it("names the underlying cause when the call never completed", async () => {
+    const thrown = await judgeRecord(
+      score.campaign,
+      mapping,
+      modelThrowing("429 rate_limit_error: input tokens per minute exceeded"),
+    ).catch((error: unknown) => error as JudgeError);
+
+    expect((thrown as JudgeError).message).toContain("did not complete.");
+    expect((thrown as JudgeError).message).toContain("429 rate_limit_error");
+  });
 });
 
 describe("adding the verdicts up", () => {
