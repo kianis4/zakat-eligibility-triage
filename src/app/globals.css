@@ -378,7 +378,8 @@ a.btn:hover {
   color: var(--ground);
 }
 
-.btn--ghost {
+.btn--ghost,
+a.btn--ghost {
   background: var(--ground);
   border-color: var(--border);
   color: var(--ink);
@@ -565,6 +566,13 @@ a.btn--ghost:hover {
   margin-bottom: var(--s2);
   padding: 0.15rem 0.7rem;
   text-transform: uppercase;
+}
+
+/* Whether the refusal reached anyone is part of the refusal, not a footnote to it. */
+
+.delivery {
+  color: var(--amber-ink);
+  font-weight: 600;
 }
 
 .attention__reason {

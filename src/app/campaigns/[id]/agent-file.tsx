@@ -179,7 +179,7 @@ export function AgentFile({ run }: { run: TriageRunRow }) {
       {run.escalation.escalate ? (
         <div className="attention">
           <p>The pipeline refused to triage this campaign and put these questions to you.</p>
-          <p className="meta">{deliveryLabel(run.slackDelivery)}</p>
+          <p className="meta delivery">{deliveryLabel(run.slackDelivery)}</p>
           {run.escalation.reasons.map((reason, index) => (
             <div className="attention__reason" key={`${reason.kind}-${index}`}>
               <p className="attention__chip">{reason.kind.replace(/_/g, " ")}</p>
