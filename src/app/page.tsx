@@ -111,9 +111,9 @@ export default function Home() {
           <Link className="btn" href="/campaigns">
             Open the queue
           </Link>
-          <a className="btn btn--ghost" href={REPOSITORY}>
-            The repository
-          </a>
+          <Link className="btn btn--ghost" href="/design">
+            The system design
+          </Link>
         </div>
       </section>
 
@@ -238,7 +238,8 @@ export default function Home() {
         <p className="measure">
           The gate went red four times before it went green. Each red caught something real, and
           none was fixed by lowering a bar without an argument. Every run is in{" "}
-          <a href={`${REPOSITORY}/actions`}>the repository&apos;s Actions</a>.
+          <a href={REPOSITORY}>the repository</a>&apos;s{" "}
+          <a href={`${REPOSITORY}/actions`}>Actions</a>.
         </p>
       </section>
     </main>
