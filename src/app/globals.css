@@ -168,6 +168,21 @@ a:hover {
   padding: var(--s3) 1.25rem;
 }
 
+/* The mark and the name are one control back to the queue. Only they are the target: the rest
+   of the bar stays inert, so nothing navigates on a stray click at the edge of the header. */
+.topbar__home {
+  align-items: center;
+  border-radius: 999px;
+  color: inherit;
+  display: flex;
+  gap: var(--s2);
+  text-decoration: none;
+}
+
+.topbar__home:hover .topbar__name {
+  color: var(--primary-ink);
+}
+
 .topbar__mark {
   color: var(--primary);
   display: flex;
@@ -364,6 +379,39 @@ a:hover {
   font-weight: 600;
   padding: 0.55rem 1.4rem;
   transition: background 150ms ease;
+}
+
+/* A triage run is two model calls and takes tens of seconds. While one is in flight the button
+   reports it and stops accepting clicks, so a waiting reviewer cannot file a second agent file
+   over the first. Reduced motion holds the mark still rather than removing the signal. */
+.btn[disabled] {
+  align-items: center;
+  cursor: progress;
+  display: inline-flex;
+  gap: 0.5rem;
+  opacity: 0.72;
+}
+
+.btn__spinner {
+  animation: btn-spin 700ms linear infinite;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  border-right-color: transparent;
+  display: inline-block;
+  height: 0.85em;
+  width: 0.85em;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn__spinner {
+    animation: none;
+  }
 }
 
 a.btn {
