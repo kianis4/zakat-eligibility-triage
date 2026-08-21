@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Lora, Plus_Jakarta_Sans } from "next/font/google";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import "./globals.css";
@@ -48,10 +49,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <header className="topbar">
           <div className="topbar__inner">
-            <span className="topbar__mark">
-              <Khatam size={18} />
-            </span>
-            <span className="topbar__name">Zakat-Eligibility Triage</span>
+            <Link className="topbar__home" href="/">
+              <span className="topbar__mark">
+                <Khatam size={18} />
+              </span>
+              <span className="topbar__name">Zakat-Eligibility Triage</span>
+            </Link>
           </div>
         </header>
         <div className="page">{children}</div>
