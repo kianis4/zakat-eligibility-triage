@@ -7,6 +7,7 @@ import { decisionHistory, triageRunsFor } from "../../../lib/decision";
 import { retrievePrecedents, type PrecedentForReviewer } from "../../../lib/precedent";
 import { Khatam } from "../../khatam";
 import { runTriageAction } from "../actions";
+import { SubmitButton } from "../submit-button";
 import { AgentFile } from "./agent-file";
 import { CaseRail } from "./case-rail";
 import { AuditTrail, DecisionForm } from "./decision-panel";
@@ -194,9 +195,7 @@ export default async function CampaignReviewPage({
                 The agent has not read this campaign yet. A decision is always recorded against a
                 specific agent file, so the pipeline runs first.
               </p>
-              <button className="btn" type="submit">
-                Run the triage
-              </button>
+              <SubmitButton pendingLabel="Reading the campaign">Run the triage</SubmitButton>
             </div>
           </form>
         ) : (
@@ -205,9 +204,9 @@ export default async function CampaignReviewPage({
             <form action={runTriageAction}>
               <input type="hidden" name="campaignId" value={campaign.id} />
               <p style={{ marginTop: "1.5rem" }}>
-                <button className="btn btn--quiet" type="submit">
+                <SubmitButton className="btn btn--quiet" pendingLabel="Reading the campaign">
                   Read the campaign again
-                </button>
+                </SubmitButton>
               </p>
               <p className="meta measure">
                 Files a new agent file. The one above is kept, and any decision already taken
