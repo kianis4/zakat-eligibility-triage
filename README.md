@@ -258,7 +258,7 @@ produced.
 
 ## Self-hosting
 
-- `npm install`, then `npm test` and `npm run typecheck`, both. The unit suite is 414 tests and
+- `npm install`, then `npm test` and `npm run typecheck`, both. The unit suite
   needs no network, no database and no keys. Part of it is enforced by the compiler rather than
   the test runner: `src/lib/__tests__/mapping-types.test.ts` proves that a supported finding with
   no citation does not typecheck, and a proof of that shape only fails under `tsc`.

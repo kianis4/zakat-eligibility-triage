@@ -178,12 +178,10 @@ export default function DesignPage() {
         </div>
       </section>
 
-      <footer className="page-footer">
-        <span>Suleyman Kiani</span>
-        <a href="https://suleyman.io">suleyman.io</a>
-        <a href={LIVE_APP}>live app</a>
-        <a href={REPOSITORY}>repository</a>
-      </footer>
+      <p className="measure">
+        By Suleyman Kiani: <a href="https://suleyman.io">suleyman.io</a>, the{" "}
+        <a href={LIVE_APP}>live app</a> and the <a href={REPOSITORY}>repository</a>.
+      </p>
     </main>
   );
 }

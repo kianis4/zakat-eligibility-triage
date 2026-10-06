@@ -17,6 +17,11 @@ const markup = renderToStaticMarkup(<DesignPage />);
 const PUBLIC = join(process.cwd(), "public");
 
 describe("the system design page", () => {
+  it("leaves the footer to the layout, so the page ends with one", () => {
+    expect(markup).not.toContain("<footer");
+    expect(markup).toContain('href="https://suleyman.io"');
+  });
+
   it("serves every diagram it references from public/", () => {
     const sources = [...markup.matchAll(/<img[^>]*\ssrc="([^"]+)"/g)].map((match) => match[1]);
 

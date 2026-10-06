@@ -216,15 +216,6 @@ a:hover {
   box-shadow: none;
 }
 
-.card__header {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s3);
-  justify-content: space-between;
-  margin-bottom: var(--s2);
-}
-
 .card > :last-child {
   margin-bottom: 0;
 }
@@ -311,11 +302,6 @@ a:hover {
 .pill--unknown {
   background: var(--amber-tint);
   color: var(--amber-ink);
-}
-
-.pill--quiet {
-  background: var(--tint);
-  color: var(--muted);
 }
 
 .chip {
@@ -436,19 +422,6 @@ a.btn--ghost:hover {
   color: var(--ink);
 }
 
-.btn--quiet {
-  background: var(--ground);
-  border-color: var(--border);
-  color: var(--ink);
-  font-size: 0.875rem;
-  padding: 0.4rem 1rem;
-}
-
-.btn--quiet:hover {
-  background: var(--tint);
-  color: var(--ink);
-}
-
 .backlink {
   align-items: center;
   color: var(--muted);
@@ -492,11 +465,6 @@ a.btn--ghost:hover {
   }
 }
 
-.field__pair {
-  display: flex;
-  gap: var(--s3);
-}
-
 .input,
 .textarea {
   background: var(--ground);
@@ -513,10 +481,6 @@ a.btn--ghost:hover {
   border-color: var(--primary);
   outline: 2px solid var(--primary);
   outline-offset: 0;
-}
-
-.input--short {
-  width: 7rem;
 }
 
 .textarea {
@@ -644,76 +608,6 @@ a.btn--ghost:hover {
   display: block;
   font-size: 0.75rem;
   margin-top: var(--s1);
-}
-
-/* The queue, as card rows */
-
-.queue {
-  border-collapse: separate;
-  border-spacing: 0 var(--s2);
-  width: 100%;
-}
-
-.queue th {
-  color: var(--muted);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  padding: 0 var(--s4) var(--s1) 0;
-  text-align: left;
-  text-transform: uppercase;
-}
-
-.queue th:last-child,
-.queue td:last-child {
-  padding-right: 1.25rem;
-  text-align: right;
-}
-
-.queue td {
-  background: var(--ground);
-  border-bottom: 1px solid var(--border);
-  border-top: 1px solid var(--border);
-  padding: 0.85rem var(--s4) 0.85rem 0;
-  vertical-align: middle;
-}
-
-.queue td:first-child {
-  border-left: 1px solid var(--border);
-  border-radius: var(--radius-card) 0 0 var(--radius-card);
-  padding-left: 1.25rem;
-}
-
-.queue td:last-child {
-  border-radius: 0 var(--radius-card) var(--radius-card) 0;
-  border-right: 1px solid var(--border);
-}
-
-.queue tbody tr {
-  transition: transform 150ms ease, box-shadow 150ms ease;
-}
-
-.queue tbody tr:hover {
-  box-shadow: var(--shadow-lift);
-  transform: translateY(-1px);
-}
-
-.queue tbody tr:hover td {
-  border-color: var(--primary-tint);
-}
-
-.queue__title {
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.queue__title:hover {
-  text-decoration: underline;
-}
-
-.queue__meta {
-  color: var(--muted);
-  font-size: 0.8125rem;
 }
 
 /* The case file: rail and content */
@@ -876,28 +770,6 @@ a.btn--ghost:hover {
   box-shadow: var(--shadow-card);
   margin: 0 0 var(--s3);
   padding: var(--s4) 1.25rem;
-}
-
-.outcomes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s1);
-  margin: var(--s3) 0 0;
-}
-
-.outcomes__item {
-  align-items: center;
-  background: var(--tint);
-  border-radius: 999px;
-  color: var(--muted);
-  display: flex;
-  font-size: 0.75rem;
-  gap: var(--s1);
-  padding: 0.15rem 0.7rem;
-}
-
-.outcomes__label {
-  font-weight: 600;
 }
 
 .questions {
@@ -1154,9 +1026,5 @@ code {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
-  }
-
-  .queue tbody tr:hover {
-    transform: none;
   }
 }
