@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 
-import { runTriageAction, submitDecision } from "../actions";
+import * as actions from "../actions";
+import { runTriageAction } from "../actions";
 
 /**
  * A form that arrives without the campaign it is about.
@@ -37,17 +38,10 @@ describe("a form that does not say which campaign it is about", () => {
       "/campaigns?error=That form did not say which campaign it was about",
     );
   });
+});
 
-  it("sends a decision back to the queue with the reason", async () => {
-    const submitted = new FormData();
-    submitted.append("action", "approve");
-    submitted.append("reviewer", "Amina Suleiman");
-    submitted.append("note", "The debt is currently due.");
-
-    const thrown = await failureFrom(submitDecision(submitted));
-
-    expect(thrown).not.toBeInstanceOf(ZodError);
-    expect(digestOf(thrown)).toContain("NEXT_REDIRECT");
-    expect(decodeURIComponent(digestOf(thrown))).toContain("/campaigns?error=That form did not");
+describe("the server actions", () => {
+  it("offer no way to record a decision", () => {
+    expect(Object.keys(actions).filter((name) => /decision/i.test(name))).toEqual([]);
   });
 });

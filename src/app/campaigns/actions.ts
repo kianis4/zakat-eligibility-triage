@@ -5,17 +5,11 @@ import { z } from "zod";
 
 import { getDatabase } from "../../db/index";
 import { campaigns } from "../../db/schema";
-import { DecisionInput, recordDecision } from "../../lib/decision";
 import { campaignRowFrom, fieldsOf, firstIssue, NewCampaignForm } from "../../lib/forms";
 import { runTriage } from "../../lib/triage";
 
 /**
  * The write side of the reviewer UI.
- *
- * NO AUTHENTICATION. This is a prototype, and the reviewer types their own name into the
- * decision form. That is a real limitation and not a simplification of one: an audit trail
- * whose author is self-reported records who someone said they were. A deployment binds the
- * reviewer from the session instead, and the `reviewer` field stops being an input.
  *
  * Everything arrives as form strings and is parsed by a schema before it reaches a query.
  * A failure sends the reviewer back to a page with the reason on it, rather than to a stack
@@ -82,29 +76,6 @@ export async function runTriageAction(formData: FormData): Promise<void> {
   if (failure !== null) {
     backTo(detail, `The triage run did not complete: ${failure}`);
   }
-
-  redirect(detail);
-}
-
-/**
- * Records the human decision, which is the only thing that publishes an outcome.
- *
- * There is no branch here that publishes anything else, and there could not usefully be one:
- * the schema has nowhere else to put an outcome, so a handler that wanted to skip this step
- * would have nothing to write (ADR-0008).
- */
-export async function submitDecision(formData: FormData): Promise<void> {
-  const fields = fieldsOf(formData);
-  const campaignId = campaignIdFrom(fields);
-  const detail = `/campaigns/${encodeURIComponent(campaignId)}`;
-
-  const submitted = DecisionInput.safeParse(fields);
-
-  if (!submitted.success) {
-    backTo(detail, firstIssue(submitted.error));
-  }
-
-  await recordDecision(submitted.data, getDatabase());
 
   redirect(detail);
 }

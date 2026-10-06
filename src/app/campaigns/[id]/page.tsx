@@ -3,14 +3,13 @@ import Link from "next/link";
 
 import { getDatabase, isDatabaseConfigured } from "../../../db/index";
 import { campaigns } from "../../../db/schema";
-import { decisionHistory, triageRunsFor } from "../../../lib/decision";
 import { retrievePrecedents, type PrecedentForReviewer } from "../../../lib/precedent";
+import { triageRunsFor } from "../../../lib/triage";
 import { Khatam } from "../../khatam";
 import { runTriageAction } from "../actions";
 import { SubmitButton } from "../submit-button";
 import { AgentFile } from "./agent-file";
 import { CaseRail } from "./case-rail";
-import { AuditTrail, DecisionForm } from "./decision-panel";
 import { ProvenanceLegend } from "./provenance";
 
 /**
@@ -20,9 +19,8 @@ import { ProvenanceLegend } from "./provenance";
  * it is on this page and nowhere near a prompt, which is the rule ADR-0004 sets and
  * `src/lib/__tests__/precedent-isolation.test.ts` enforces.
  *
- * The page has no outcome to show until the audit trail has something in it. That is not a
- * rendering choice: there is no column anywhere that could hold one, so the only thing this
- * page can report about a campaign's standing is what a human recorded (ADR-0008).
+ * The page has no outcome to show, ever. That is not a rendering choice: there is no column
+ * anywhere that could hold one, and the decision belongs to the person reading the page.
  *
  * The campaign's own words are set in a serif wherever they appear, here and in every cited
  * span below, because the document under examination should not look like the tool examining
@@ -115,22 +113,16 @@ export default async function CampaignReviewPage({
     );
   }
 
-  const [precedents, runs, history] = await Promise.all([
+  const [precedents, runs] = await Promise.all([
     retrievePrecedents(campaign, { db }),
     triageRunsFor(campaign.id, db),
-    decisionHistory(campaign.id, db),
   ]);
 
   const latestRun = runs.at(-1);
-  const runsById = new Map(runs.map((run) => [run.id, run]));
 
   return (
     <main className="case">
-      <CaseRail
-        decided={history.length > 0}
-        hasRun={latestRun !== undefined}
-        refused={latestRun?.escalation.escalate === true}
-      />
+      <CaseRail hasRun={latestRun !== undefined} refused={latestRun?.escalation.escalate === true} />
 
       <div>
         <Link className="backlink" href="/campaigns">
@@ -191,10 +183,7 @@ export default async function CampaignReviewPage({
           <form action={runTriageAction}>
             <input type="hidden" name="campaignId" value={campaign.id} />
             <div className="card measure">
-              <p>
-                The agent has not read this campaign yet. A decision is always recorded against a
-                specific agent file, so the pipeline runs first.
-              </p>
+              <p>The agent has not read this campaign yet.</p>
               <SubmitButton pendingLabel="Reading the campaign">Run the triage</SubmitButton>
             </div>
           </form>
@@ -208,10 +197,7 @@ export default async function CampaignReviewPage({
                   Read the campaign again
                 </SubmitButton>
               </p>
-              <p className="meta measure">
-                Files a new agent file. The one above is kept, and any decision already taken
-                against it keeps pointing at what its reviewer read.
-              </p>
+              <p className="meta measure">Files a new agent file. The one above is kept.</p>
             </form>
           </>
         )}
@@ -234,16 +220,6 @@ export default async function CampaignReviewPage({
         ) : (
           precedents.map((precedent) => <PrecedentCard key={precedent.id} precedent={precedent} />)
         )}
-
-        <h2 id="decision">Decision</h2>
-        {latestRun === undefined ? (
-          <p>Run the triage above before recording a decision.</p>
-        ) : (
-          <DecisionForm campaignId={campaign.id} run={latestRun} />
-        )}
-
-        <h2 id="audit-trail">Audit trail</h2>
-        <AuditTrail history={history} runs={runsById} />
       </div>
     </main>
   );

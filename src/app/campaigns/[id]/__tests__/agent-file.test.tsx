@@ -57,7 +57,6 @@ function runWith(overrides: Partial<TriageRunRow> = {}): TriageRunRow {
     escalation: NOT_ESCALATED,
     policyVersion: POLICY_VERSION,
     model: "claude-sonnet-5",
-    slackDelivery: null,
     createdAt: new Date("2026-08-19T11:00:00.000Z"),
     sequence: 1,
     ...overrides,
@@ -121,42 +120,28 @@ describe("the agent file on the reviewer's page", () => {
             },
           ],
         },
-        slackDelivery: "delivered",
       }),
     );
 
     expect(markup).toContain("Which portion of the amount raised");
-    expect(markup).toContain("Posted to the reviewer channel");
   });
 
-  it("says plainly when the refusal reached nobody", () => {
-    const undelivered = markupOf(
-      runWith({
-        escalation: {
-          escalate: true,
-          reasons: [{ kind: "nothing_resolvable", question: "Ask or decline?", citations: [] }],
-        },
-        slackDelivery: "not_configured",
-      }),
-    );
+  it("says nothing about sending the refusal anywhere, because it is not sent", () => {
+    const markups = [
+      markupOf(runWith()),
+      markupOf(
+        runWith({
+          escalation: {
+            escalate: true,
+            reasons: [{ kind: "nothing_resolvable", question: "Ask or decline?", citations: [] }],
+          },
+        }),
+      ),
+    ];
 
-    expect(undelivered).toContain("NOT DELIVERED");
-    expect(undelivered).toContain("No Slack webhook is configured");
-  });
-
-  it("says which failure kept the refusal from reaching anyone", () => {
-    const failed = markupOf(
-      runWith({
-        escalation: {
-          escalate: true,
-          reasons: [{ kind: "nothing_resolvable", question: "Ask or decline?", citations: [] }],
-        },
-        slackDelivery: "failed:500",
-      }),
-    );
-
-    expect(failed).toContain("NOT DELIVERED");
-    expect(failed).toContain("failed:500");
+    for (const markup of markups) {
+      expect(markup).not.toMatch(/slack|\bdeliver(ed)?\b|reviewer channel|notified/i);
+    }
   });
 
   it("records which model read the campaign and against which policy", () => {

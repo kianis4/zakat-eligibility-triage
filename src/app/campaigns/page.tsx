@@ -1,40 +1,12 @@
-import Link from "next/link";
-
-import { getDatabase, isDatabaseConfigured } from "../../db/index";
-import { campaignQueue, type QueueEntry } from "../../lib/decision";
+import { isDatabaseConfigured } from "../../db/index";
 import { Khatam } from "../khatam";
 import { createCampaign } from "./actions";
 
 /**
- * The reviewer's queue, and the form that puts a campaign into it.
- *
- * What the queue shows about a campaign is whether the agent has read it and whether a human
- * has decided it, and those are two separate columns because they are two separate things. A
- * campaign the pipeline finished an hour ago is not thereby decided, and this page has no way
- * to render it as though it were: the outcome column reads a decision row or shows nothing
- * (ADR-0008).
- *
- * The two columns are pills rather than sentences so the difference survives a scan down the
- * page, and the pill carries its own words in every case: nothing here is legible by colour
- * alone.
+ * The form that puts a campaign in front of the agent. There is no listing: a campaign is
+ * reached by its own link and by nothing else.
  */
 export const dynamic = "force-dynamic";
-
-const OUTCOME_LABELS = {
-  approve: "Approved",
-  request_info: "Information requested",
-  escalate: "Escalated",
-} as const;
-
-const OUTCOME_TONES = {
-  approve: "pill--yes",
-  request_info: "pill--unknown",
-  escalate: "pill--quiet",
-} as const;
-
-function day(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
 
 /**
  * Why the last submission bounced, carried back on the query string.
@@ -52,33 +24,6 @@ function SubmissionError({ reason }: { reason: string | undefined }) {
     <p className="alert" role="alert">
       {reason}
     </p>
-  );
-}
-
-function QueueRow({ entry }: { entry: QueueEntry }) {
-  return (
-    <tr>
-      <td>
-        <Link className="queue__title" href={`/campaigns/${encodeURIComponent(entry.id)}`}>
-          {entry.title}
-        </Link>
-      </td>
-      <td className="queue__meta tnum">{day(entry.createdAt)}</td>
-      <td>
-        <span className={`pill ${entry.hasTriageRun ? "pill--yes" : "pill--no"}`}>
-          {entry.hasTriageRun ? "Read by the agent" : "Not read yet"}
-        </span>
-      </td>
-      <td>
-        {entry.outcome === null ? (
-          <span className="pill pill--no">No decision recorded</span>
-        ) : (
-          <span className={`pill ${OUTCOME_TONES[entry.outcome]}`}>
-            {OUTCOME_LABELS[entry.outcome]}
-          </span>
-        )}
-      </td>
-    </tr>
   );
 }
 
@@ -177,50 +122,17 @@ export default async function CampaignQueuePage({
           <h1>Database not configured</h1>
           <SubmissionError reason={error} />
           <p>
-            DATABASE_URL is not set, so there is no queue to read and no campaign can be
-            submitted. Set it and reload; the suite runs without it.
+            DATABASE_URL is not set, so no campaign can be submitted. Set it and reload; the
+            suite runs without it.
           </p>
         </div>
       </main>
     );
   }
 
-  const queue = await campaignQueue(getDatabase());
-
   return (
     <main>
-      <h1>Campaigns</h1>
       <SubmissionError reason={error} />
-
-      <p className="measure">
-        Read by the agent means a triage file exists. It does not mean the campaign has an
-        outcome. Only a recorded human decision does that.
-      </p>
-
-      {queue.length === 0 ? (
-        <div className="state">
-          <Khatam className="state__mark" outline size={40} />
-          <p>No campaigns have been submitted yet.</p>
-        </div>
-      ) : (
-        <div className="table-scroll">
-          <table className="queue">
-            <thead>
-              <tr>
-                <th>Campaign</th>
-                <th>Submitted</th>
-                <th>Agent file</th>
-                <th>Decision</th>
-              </tr>
-            </thead>
-            <tbody>
-              {queue.map((entry) => (
-                <QueueRow key={entry.id} entry={entry} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
 
       <h2>Submit a campaign</h2>
       <div className="card">

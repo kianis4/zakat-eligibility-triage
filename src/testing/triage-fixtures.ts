@@ -103,11 +103,7 @@ export const ESCALATED: EscalationDecision = {
 };
 
 /**
- * An agent file ready to store, with the escalation and delivery state a caller wants.
- *
- * `slackDelivery` defaults to null and the fixture does not fill it in for an escalating
- * run, because the table refuses that pairing and a fixture that quietly repaired it would
- * hide the constraint the tests are here to prove.
+ * An agent file ready to store, with the escalation a caller wants.
  */
 export function triageRunRow(overrides: Partial<NewTriageRunRow> = {}): NewTriageRunRow {
   const mapping = overrides.mapping ?? mappingSupporting(["al-gharimin"]);
@@ -121,7 +117,6 @@ export function triageRunRow(overrides: Partial<NewTriageRunRow> = {}): NewTriag
     escalation: NOT_ESCALATED,
     policyVersion: POLICY_VERSION,
     model: "test-model",
-    slackDelivery: null,
     ...overrides,
   };
 }

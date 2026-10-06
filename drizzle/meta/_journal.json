@@ -29,6 +29,13 @@
       "when": 1787171879581,
       "tag": "0003_decision_names_its_own_campaigns_file",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791307972400,
+      "tag": "0004_the_donor_decides",
+      "breakpoints": true
     }
   ]
 }

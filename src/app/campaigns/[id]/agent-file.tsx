@@ -27,22 +27,6 @@ const FINDING_TONES = {
   insufficient_evidence: "unknown",
 } as const;
 
-const DELIVERY_LABELS: Record<string, string> = {
-  delivered: "Posted to the reviewer channel.",
-  not_configured: "NOT DELIVERED. No Slack webhook is configured, so nobody was notified.",
-};
-
-function deliveryLabel(delivery: string | null): string {
-  if (delivery === null) {
-    return "Nothing to deliver: the pipeline did not refuse.";
-  }
-
-  return (
-    DELIVERY_LABELS[delivery] ??
-    `NOT DELIVERED. The post to the reviewer channel failed (${delivery}), so nobody was notified.`
-  );
-}
-
 /**
  * A cited span, marked the way a person marks a document they are working through.
  *
@@ -179,7 +163,6 @@ export function AgentFile({ run }: { run: TriageRunRow }) {
       {run.escalation.escalate ? (
         <div className="attention">
           <p>The pipeline refused to triage this campaign and put these questions to you.</p>
-          <p className="meta delivery">{deliveryLabel(run.slackDelivery)}</p>
           {run.escalation.reasons.map((reason, index) => (
             <div className="attention__reason" key={`${reason.kind}-${index}`}>
               <p className="attention__chip">{reason.kind.replace(/_/g, " ")}</p>
@@ -194,7 +177,7 @@ export function AgentFile({ run }: { run: TriageRunRow }) {
         </div>
       ) : (
         <div className="calm">
-          <p>The pipeline did not refuse. {deliveryLabel(run.slackDelivery)}</p>
+          <p>The pipeline did not refuse.</p>
         </div>
       )}
 
