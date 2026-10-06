@@ -1,7 +1,7 @@
 # ADR-0006: The decision to refuse is deterministic code, not model judgment
 
 Date: 2026-08-19
-Status: accepted
+Status: accepted, amended by ADR-0010 (each question names who can answer it, the organizer or a scholar)
 
 ## Context
 ADR-0001 commits the system to preparing evidence rather than ruling, and section 6.3 of

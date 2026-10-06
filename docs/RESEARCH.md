@@ -259,6 +259,13 @@ cannot receive your zakat" and "The recipient must not be a Hashimi, a descendan
 (PBUH)." **VERIFIED** (https://islamic-relief.org/recipients-of-zakat/). NZF UK's policy adds "The
 Zakat applicant must be a Muslim." **VERIFIED** (NZF Zakat Policy PDF)
 
+These restrictions bind zakat and not voluntary charity. Egypt's Dar al-Ifta: "The circle of
+recipients of sadaqah is wider than that of zakat," so that "the recipients of sadaqah may include
+the eight channels mentioned in the above verse as well as others who may be either Muslims or
+non-Muslims." **VERIFIED** (https://dar-alifta.org/en/fatwa/details/6395/difference-between-zakat-and-sadaqah).
+NZF UK states the same: "Zakat has specific areas and categories for spend whereas Sadaqah does
+not have defined recipients." **VERIFIED** (https://nzf.org.uk/news/10-differences-between-zakat-and-sadaqah/)
+
 ---
 
 ## 3. Where recognised scholars genuinely differ
