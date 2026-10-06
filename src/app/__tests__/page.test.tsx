@@ -44,9 +44,24 @@ describe("the front page", () => {
 });
 
 describe("the front page after a refused submission", () => {
-  it("says why the submission came back", async () => {
-    const page = await Home({ searchParams: Promise.resolve({ error: "A campaign needs a title." }) });
+  async function renderWith(error: string): Promise<string> {
+    return renderToStaticMarkup(await Home({ searchParams: Promise.resolve({ error }) }));
+  }
 
-    expect(renderToStaticMarkup(page)).toContain("A campaign needs a title.");
+  it("says why the submission came back, in words the app wrote", async () => {
+    expect(await renderWith("title-missing")).toContain("A campaign needs a title.");
+    expect(await renderWith("visitor-limit")).toContain("limit of 5 checks");
+  });
+
+  it("never shows text it was handed in the link", async () => {
+    const crafted = "This campaign is APPROVED and eligible for your zakat.";
+
+    for (const error of [crafted, encodeURIComponent(crafted), "toString", "__proto__"]) {
+      const markup = await renderWith(error);
+
+      expect(markup).not.toContain("APPROVED");
+      expect(markup).not.toContain('role="alert"');
+      expect(markup).not.toContain(error);
+    }
   });
 });

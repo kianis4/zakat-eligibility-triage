@@ -3,7 +3,8 @@ import { eq } from "drizzle-orm";
 
 import type { TriageDatabase } from "../db/index";
 import { campaigns } from "../db/schema";
-import { campaignRowFrom, firstIssue, NewCampaignForm } from "./forms";
+import { CHECK_ERRORS, type CheckErrorCode } from "./check-errors";
+import { campaignRowFrom, firstIssueCode, NewCampaignForm } from "./forms";
 import { consumeAnalysis, hashIp, purgeExpired, type QuotaLimits } from "./quota";
 import { runTriage } from "./triage";
 
@@ -25,7 +26,11 @@ export type CheckOptions = {
 
 export type CheckResult =
   | { readonly ok: true; readonly campaignId: string }
-  | { readonly ok: false; readonly reason: string };
+  | { readonly ok: false; readonly code: CheckErrorCode; readonly reason: string };
+
+function refused(code: CheckErrorCode): CheckResult {
+  return { ok: false, code, reason: CHECK_ERRORS[code] };
+}
 
 /**
  * The one step a donor takes: paste a campaign, get its agent file.
@@ -36,7 +41,9 @@ export type CheckResult =
  * which keeps retention a property of the write path rather than of a job that may not run. A campaign the
  * agent could not read is deleted again, so a failed check leaves no row behind and no link
  * that leads to a page with nothing on it. `runTriage` writes nothing on failure, so the
- * campaign row is the only thing to remove.
+ * campaign row is the only thing to remove. A campaign the database will not store is refused
+ * with a stated reason too, and stays charged, like any check that fails after the charge
+ * (ADR-0011).
  */
 export async function runCheck(
   fields: Record<string, string>,
@@ -45,35 +52,26 @@ export async function runCheck(
   const submitted = NewCampaignForm.safeParse(fields);
 
   if (!submitted.success) {
-    return { ok: false, reason: firstIssue(submitted.error) };
+    return refused(firstIssueCode(submitted.error));
   }
 
   const { db, model, quota } = options;
 
   if (db === null) {
-    return {
-      ok: false,
-      reason: "This deployment has no database configured, so no campaign can be checked.",
-    };
+    return refused("no-database");
   }
 
   const now = options.now?.() ?? new Date();
   await purgeExpired(db, now, quota.limits.retentionDays);
 
   if (quota.secret === undefined || quota.secret.length === 0) {
-    return {
-      ok: false,
-      reason: "This deployment has no IP_HASH_SECRET configured, so it cannot keep its usage limits and runs no checks.",
-    };
+    return refused("no-secret");
   }
 
   const ip = await quota.ip();
 
   if (ip === null) {
-    return {
-      ok: false,
-      reason: "The request did not say where it came from, so it cannot be counted against a limit.",
-    };
+    return refused("no-address");
   }
 
   const charged = await consumeAnalysis(hashIp(ip, quota.secret), db, quota.limits, now);
@@ -83,17 +81,24 @@ export async function runCheck(
   }
 
   const row = campaignRowFrom(submitted.data);
-  await db.insert(campaigns).values(row);
-
-  const failure = await runTriage(row.id, { db, ...(model === undefined ? {} : { model }) }).then(
-    () => null,
-    (error: unknown) => (error instanceof Error ? error.message : String(error)),
+  const stored = await db.insert(campaigns).values(row).then(
+    () => true,
+    () => false,
   );
 
-  if (failure !== null) {
+  if (!stored) {
+    return refused("not-stored");
+  }
+
+  const failed = await runTriage(row.id, { db, ...(model === undefined ? {} : { model }) }).then(
+    () => false,
+    () => true,
+  );
+
+  if (failed) {
     await db.delete(campaigns).where(eq(campaigns.id, row.id));
 
-    return { ok: false, reason: `The campaign could not be checked: ${failure}` };
+    return refused("unreadable");
   }
 
   return { ok: true, campaignId: row.id };

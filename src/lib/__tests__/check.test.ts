@@ -1,4 +1,5 @@
 import { MockLanguageModelV3 } from "ai/test";
+import { sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { analysisQuota, campaigns, triageRuns } from "../../db/schema";
@@ -100,7 +101,41 @@ describe("checking a pasted campaign in one step", () => {
 
     const result = await runCheck({ title: "", story }, { db: database.db, model, quota: visitor });
 
-    expect(result).toEqual({ ok: false, reason: "A campaign needs a title." });
+    expect(result).toEqual({ ok: false, code: "title-missing", reason: "A campaign needs a title." });
+    expect(model.doGenerateCalls).toHaveLength(0);
+    expect(await database.db.select().from(campaigns)).toHaveLength(0);
+  });
+
+  it("refuses a goal larger than the stored amount can hold, before charging anything", async () => {
+    const model = modelAnswering([facts, mapping]);
+
+    const result = await runCheck(
+      { title: "Help the Haddad family", story, goalAmount: "1e15" },
+      { db: database.db, model, quota: visitor },
+    );
+
+    expect(result).toMatchObject({ ok: false, code: "goal-invalid" });
+    expect(model.doGenerateCalls).toHaveLength(0);
+    expect(await database.db.select().from(analysisQuota)).toHaveLength(0);
+  });
+
+  it("says so, rather than throwing, when the campaign cannot be stored", async () => {
+    await database.db.execute(sql`
+      create function refuse_campaign() returns trigger language plpgsql as $$
+      begin raise exception 'campaigns refused by the test'; end $$
+    `);
+    await database.db.execute(sql`
+      create trigger refuse_campaign before insert on campaigns
+      for each row execute function refuse_campaign()
+    `);
+    const model = modelAnswering([facts, mapping]);
+
+    const result = await runCheck(
+      { title: "Help the Haddad family", story },
+      { db: database.db, model, quota: visitor },
+    );
+
+    expect(result).toMatchObject({ ok: false, code: "not-stored" });
     expect(model.doGenerateCalls).toHaveLength(0);
     expect(await database.db.select().from(campaigns)).toHaveLength(0);
   });
@@ -111,6 +146,7 @@ describe("checking a pasted campaign in one step", () => {
     const result = await runCheck({ title: "Help the Haddad family", story }, { db: database.db, model: failing, quota: visitor });
 
     expect(result.ok).toBe(false);
+    expect(result).toMatchObject({ ok: false, code: "unreadable" });
     expect(result.ok ? "" : result.reason).toMatch(/could not be checked/);
     expect(await database.db.select().from(campaigns)).toHaveLength(0);
     expect(await database.db.select().from(triageRuns)).toHaveLength(0);
@@ -197,6 +233,7 @@ describe("checking with no database configured", () => {
   it("still reports what is wrong with the submission first", async () => {
     expect(await runCheck({ title: "Help", story: "" }, { db: null, quota: visitor })).toEqual({
       ok: false,
+      code: "story-missing",
       reason: "There is nothing to check without the story.",
     });
   });

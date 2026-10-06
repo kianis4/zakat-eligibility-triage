@@ -1,6 +1,10 @@
+import type { PGlite } from "@electric-sql/pglite";
 import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/pglite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import type { TriageDatabase } from "../../db/index";
+import * as schema from "../../db/schema";
 import { analysisQuota, campaigns, triageRuns } from "../../db/schema";
 import { createTestDatabase, type TestDatabase } from "../../db/testing";
 import { campaignRow, FIXTURE_CAMPAIGN, triageRunRow } from "../../testing/triage-fixtures";
@@ -94,17 +98,31 @@ describe("consumeAnalysis", () => {
     expect(rows.some((row) => row.bucket.includes(fresh))).toBe(false);
   });
 
-  it("never lets concurrent requests past the cap", async () => {
-    const hash = hashIp("203.0.113.7", "secret");
+  /**
+   * PGlite runs one transaction at a time, so firing concurrent requests at it cannot catch a
+   * read-then-write race: it passes for the racy version too. What makes the cap hold under
+   * concurrency is that each bucket is charged by a single conditional upsert, so the test pins
+   * the statements sent instead (ADR-0011).
+   */
+  it("charges each bucket with one conditional upsert and never reads the count first", async () => {
+    const statements: string[] = [];
+    const client = (database.db as unknown as { $client: PGlite }).$client;
+    const recorded = drizzle(client, {
+      schema,
+      logger: { logQuery: (query) => statements.push(query) },
+    }) as unknown as TriageDatabase;
 
-    const results = await Promise.all(
-      Array.from({ length: 10 }, () => consumeAnalysis(hash, database.db, limits, noon)),
-    );
+    await consumeAnalysis(hashIp("203.0.113.7", "secret"), recorded, limits, noon);
 
-    expect(results.filter((result) => result.ok)).toHaveLength(limits.perIp);
-    expect(await database.db.select().from(analysisQuota)).toEqual(
-      expect.arrayContaining([expect.objectContaining({ uses: limits.perIp })]),
-    );
+    const touchingQuota = statements.filter((statement) => statement.includes('"analysis_quota"'));
+
+    expect(touchingQuota).toHaveLength(2);
+
+    for (const statement of touchingQuota) {
+      expect(statement).toMatch(
+        /^insert into "analysis_quota" .* on conflict \("bucket"\) do update set "uses" = "analysis_quota"\."uses" \+ 1 where "analysis_quota"\."uses" < \$\d+ returning/,
+      );
+    }
   });
 
   it("starts each visitor afresh on a new UTC day", async () => {

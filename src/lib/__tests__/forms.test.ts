@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { campaignRowFrom, fieldsOf, firstIssue, NewCampaignForm } from "../forms";
+import { campaignRowFrom, fieldsOf, firstIssueCode, NewCampaignForm } from "../forms";
 
 const submitted = {
   title: "Help the Haddad family clear their hospital debt",
@@ -94,11 +94,35 @@ describe("reading a submitted campaign off a form", () => {
     const parsed = NewCampaignForm.safeParse({ ...submitted, story: "   " });
 
     expect(parsed.success).toBe(false);
-    expect(firstIssue(parsed.error!)).toMatch(/nothing to check/);
+    expect(firstIssueCode(parsed.error!)).toBe("story-missing");
   });
 
   it("refuses a goal that is not an amount", () => {
     expect(NewCampaignForm.safeParse({ ...submitted, goalAmount: "-5" }).success).toBe(false);
     expect(NewCampaignForm.safeParse({ ...submitted, goalAmount: "many" }).success).toBe(false);
+  });
+
+  it("refuses a goal the stored amount cannot hold, and names it", () => {
+    for (const goalAmount of ["1e15", "1000000000000", "Infinity", "1e400", "0.001", "10.005"]) {
+      const parsed = NewCampaignForm.safeParse({ ...submitted, goalAmount });
+
+      expect(parsed.success, goalAmount).toBe(false);
+      expect(firstIssueCode(parsed.error!), goalAmount).toBe("goal-invalid");
+    }
+
+    expect(firstIssueCode(NewCampaignForm.safeParse({ ...submitted, goalAmount: "many" }).error!)).toBe(
+      "goal-invalid",
+    );
+  });
+
+  it("accepts the largest goal the stored amount holds, to the cent", () => {
+    const row = campaignRowFrom(NewCampaignForm.parse({ ...submitted, goalAmount: "999999999999.99" }));
+
+    expect(row.goalAmount).toBe("999999999999.99");
+    expect(NewCampaignForm.safeParse({ ...submitted, goalAmount: "0.01" }).success).toBe(true);
+  });
+
+  it("names a field that is not a string with a generic code rather than the schema's words", () => {
+    expect(firstIssueCode(NewCampaignForm.safeParse({ story: "s" }).error!)).toBe("invalid");
   });
 });

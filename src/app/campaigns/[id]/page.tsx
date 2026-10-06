@@ -36,13 +36,10 @@ function day(date: Date): string {
 
 export default async function CampaignReviewPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
 }) {
   const { id } = await params;
-  const { error } = await searchParams;
 
   if (!isDatabaseConfigured()) {
     return (
@@ -67,7 +64,7 @@ export default async function CampaignReviewPage({
       <main>
         <div className="state">
           <Khatam className="state__mark" outline size={40} />
-          <h1>No campaign {id}</h1>
+          <h1>Campaign not found</h1>
           <p>
             {`This campaign was not found, or was deleted after ${quotaLimits(process.env).retentionDays} days.`}
           </p>
@@ -90,11 +87,6 @@ export default async function CampaignReviewPage({
 
         <div className="card">
           <h1>{campaign.title}</h1>
-          {error === undefined ? null : (
-            <p className="alert" role="alert">
-              {error}
-            </p>
-          )}
           <dl className="meta-grid">
             {campaign.category === null ? null : (
               <div>

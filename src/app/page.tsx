@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { checkCampaign } from "./campaigns/actions";
 import { SubmitButton } from "./campaigns/submit-button";
+import { checkErrorMessage } from "../lib/check-errors";
 import { quotaLimits } from "../lib/quota";
 import { Khatam } from "./khatam";
 import { SadaqahNote } from "./sadaqah-note";
@@ -187,6 +188,7 @@ export default async function Home({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
+  const message = error === undefined ? null : checkErrorMessage(error, quotaLimits(process.env));
 
   return (
     <main>
@@ -207,9 +209,9 @@ export default async function Home({
       </section>
 
       <section className="section">
-        {error === undefined ? null : (
+        {message === null ? null : (
           <p className="alert" role="alert">
-            {error}
+            {message}
           </p>
         )}
         <div className="card">

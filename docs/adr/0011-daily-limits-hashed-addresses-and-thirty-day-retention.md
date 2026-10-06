@@ -22,6 +22,13 @@ first and the site second, and a refusal on the site cap rolls the visitor's cha
 someone turned away because the site is spent loses nothing. The code is `consumeAnalysis` in
 `src/lib/quota.ts`.
 
+That the cap holds under concurrency rests on that statement shape alone: one
+`INSERT ... ON CONFLICT (bucket) DO UPDATE ... WHERE uses < cap` per bucket, with no read of the
+count before it. The suite cannot show the race directly, because PGlite runs one transaction at
+a time and a read-then-write version passes a concurrent test there too. So the test pins the
+statements `consumeAnalysis` sends instead, and fails if either bucket is read before it is
+charged or charged without the condition.
+
 The visitor is identified by their IP address, and the address is never stored. What is stored
 is an HMAC-SHA256 of it keyed with `IP_HASH_SECRET`. A plain hash would not be enough, because the
 IPv4 space is small enough to enumerate, and a hash anyone can recompute is the address with one
@@ -72,5 +79,7 @@ have chosen it knowingly. A production version would need something stronger tha
 tell visitors apart.
 
 A check is charged before the model runs, so a check that fails partway still counts against both
-limits. Refunding it would mean trusting the failure path to run, which is the path most likely
-not to.
+limits. That includes a campaign the database would not store, which comes back as a stated error
+rather than a crash, and one the agent could not read. Refunding it would mean trusting the
+failure path to run, which is the path most likely not to. The form bounds the stated goal to what
+its column holds, so a valid submission is not refused at the insert.

@@ -62,10 +62,15 @@ function utcDay(at: Date): string {
   return at.toISOString().slice(0, 10);
 }
 
-export type QuotaResult = { readonly ok: true } | { readonly ok: false; readonly reason: string };
+export type QuotaResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly code: "visitor-limit" | "site-limit"; readonly reason: string };
 
 class QuotaSpent extends Error {
-  constructor(readonly reason: string) {
+  constructor(
+    readonly code: "visitor-limit" | "site-limit",
+    readonly reason: string,
+  ) {
     super(reason);
   }
 }
@@ -104,19 +109,21 @@ export async function consumeAnalysis(
     await db.transaction(async (tx) => {
       if (!(await charge(tx, `ip:${ipHash}:${day}`, limits.perIp))) {
         throw new QuotaSpent(
+          "visitor-limit",
           `You have used today's limit of ${limits.perIp} checks. It resets at midnight UTC.`,
         );
       }
 
       if (!(await charge(tx, `global:${day}`, limits.perDay))) {
         throw new QuotaSpent(
+          "site-limit",
           "This site has used today's limit of checks for everyone. It resets at midnight UTC.",
         );
       }
     });
   } catch (error: unknown) {
     if (error instanceof QuotaSpent) {
-      return { ok: false, reason: error.reason };
+      return { ok: false, code: error.code, reason: error.reason };
     }
 
     throw error;

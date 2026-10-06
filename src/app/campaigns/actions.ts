@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { getDatabase, isDatabaseConfigured } from "../../db/index";
 import { runCheck } from "../../lib/check";
+import type { CheckErrorCode } from "../../lib/check-errors";
 import { fieldsOf } from "../../lib/forms";
 import { clientIp, quotaLimits } from "../../lib/quota";
 
@@ -13,11 +14,12 @@ import { clientIp, quotaLimits } from "../../lib/quota";
  *
  * Everything arrives as form strings and is parsed by a schema before it reaches a query. A
  * failure sends the donor back to the paste form with the reason on it, rather than to a stack
- * trace, and leaves nothing stored.
+ * trace, and leaves nothing stored. Only the reason's code goes in the link, and the form looks
+ * its words up, so a link cannot carry text of its own onto the page.
  */
 
-function backToForm(reason: string): never {
-  redirect(`/?error=${encodeURIComponent(reason)}`);
+function backToForm(code: CheckErrorCode): never {
+  redirect(`/?error=${encodeURIComponent(code)}`);
 }
 
 export async function checkCampaign(formData: FormData): Promise<void> {
@@ -31,7 +33,7 @@ export async function checkCampaign(formData: FormData): Promise<void> {
   });
 
   if (!result.ok) {
-    backToForm(result.reason);
+    backToForm(result.code);
   }
 
   redirect(`/campaigns/${encodeURIComponent(result.campaignId)}`);

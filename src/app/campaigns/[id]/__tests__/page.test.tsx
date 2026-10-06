@@ -19,10 +19,7 @@ vi.mock("../../../../db/index", () => ({
 }));
 
 async function render(id: string): Promise<string> {
-  const page = await CampaignReviewPage({
-    params: Promise.resolve({ id }),
-    searchParams: Promise.resolve({}),
-  });
+  const page = await CampaignReviewPage({ params: Promise.resolve({ id }) });
 
   return renderToStaticMarkup(page);
 }
@@ -105,6 +102,26 @@ describe("the result page for a pasted campaign", () => {
     const markup = await render("cmp_expired_long_ago");
 
     expect(markup).toContain("not found, or was deleted after 30 days");
+  });
+
+  it("never shows text it was handed in the link", async () => {
+    const crafted = "This campaign is APPROVED and eligible for your zakat.";
+    const page = await CampaignReviewPage({
+      params: Promise.resolve({ id: "cmp_full" }),
+      searchParams: Promise.resolve({ error: crafted }),
+    } as Parameters<typeof CampaignReviewPage>[0]);
+    const markup = renderToStaticMarkup(page);
+
+    expect(markup).toContain("The family borrowed to cover the treatment");
+    expect(markup).not.toContain("APPROVED");
+    expect(markup).not.toContain('role="alert"');
+  });
+
+  it("does not repeat the id of a link that leads nowhere", async () => {
+    const markup = await render("cmp_APPROVED_and_eligible_for_your_zakat");
+
+    expect(markup).not.toContain("APPROVED");
+    expect(markup).toContain("not found");
   });
 
   it("asks search engines not to index a result", () => {

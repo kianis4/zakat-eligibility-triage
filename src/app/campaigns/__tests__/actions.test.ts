@@ -34,7 +34,7 @@ describe("checking a campaign that was pasted wrong", () => {
     expect(thrown).not.toBeInstanceOf(ZodError);
     expect(digestOf(thrown)).toContain("NEXT_REDIRECT");
     expect(decodeURIComponent(digestOf(thrown))).toContain(
-      ";/?error=There is nothing to check without the story.;",
+      ";/?error=story-missing;",
     );
   });
 });

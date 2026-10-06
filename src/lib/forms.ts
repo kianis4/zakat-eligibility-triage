@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type { NewCampaignRow } from "../db/schema";
+import { CHECK_ERRORS, type CheckErrorCode } from "./check-errors";
 
 /**
  * A form's fields as strings, which is the only thing a form ever submits.
@@ -37,6 +38,9 @@ function optionalText(max: number, message: string) {
     .optional();
 }
 
+/** The largest amount `goal_amount`, a numeric(14,2), can hold. */
+const MAX_GOAL = 999_999_999_999.99;
+
 /**
  * A campaign as a donor pastes it, which is `CampaignInput` without its id or its organizer.
  *
@@ -50,22 +54,24 @@ export const NewCampaignForm = z.object({
   title: z
     .string()
     .trim()
-    .min(1, { message: "A campaign needs a title." })
-    .max(300, { message: "That title is longer than 300 characters. Paste the campaign's title only." }),
+    .min(1, { message: CHECK_ERRORS["title-missing"] })
+    .max(300, { message: CHECK_ERRORS["title-too-long"] }),
   story: z
     .string()
     .trim()
-    .min(1, { message: "There is nothing to check without the story." })
-    .max(20000, { message: "That story is longer than 20,000 characters. Paste the campaign's story only." }),
-  category: optionalText(100, "That category is longer than 100 characters."),
+    .min(1, { message: CHECK_ERRORS["story-missing"] })
+    .max(20000, { message: CHECK_ERRORS["story-too-long"] }),
+  category: optionalText(100, CHECK_ERRORS["category-too-long"]),
   goalAmount: z.preprocess(
     (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
     z.coerce
-      .number()
-      .positive({ message: "The stated goal is an amount greater than zero." })
+      .number({ message: CHECK_ERRORS["goal-invalid"] })
+      .positive({ message: CHECK_ERRORS["goal-invalid"] })
+      .max(MAX_GOAL, { message: CHECK_ERRORS["goal-invalid"] })
+      .refine((value) => Number(value.toFixed(2)) === value, { message: CHECK_ERRORS["goal-invalid"] })
       .optional(),
   ),
-  currency: optionalText(10, "That currency is longer than 10 characters."),
+  currency: optionalText(10, CHECK_ERRORS["currency-too-long"]),
 });
 
 export type NewCampaignForm = z.infer<typeof NewCampaignForm>;
@@ -82,11 +88,17 @@ export function campaignRowFrom(form: NewCampaignForm): NewCampaignRow {
 }
 
 /**
- * The first thing wrong with the submission, in the words the schema used.
+ * The first thing wrong with the submission, as the code for the words the schema used.
  *
- * One message rather than all of them, because it is going into a query string and back onto
- * the page above the form. A reviewer fixes the first problem and resubmits.
+ * One code rather than all of them, because it is going into a query string and back onto
+ * the page above the form. An issue the app wrote no words for, such as a field that is not a
+ * string at all, is the generic code.
  */
-export function firstIssue(error: z.ZodError): string {
-  return error.issues[0]?.message ?? "The submission could not be read.";
+export function firstIssueCode(error: z.ZodError): CheckErrorCode {
+  const message = error.issues[0]?.message;
+  const code = (Object.keys(CHECK_ERRORS) as CheckErrorCode[]).find(
+    (candidate) => CHECK_ERRORS[candidate] === message,
+  );
+
+  return code ?? "invalid";
 }
