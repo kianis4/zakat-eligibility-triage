@@ -7,9 +7,10 @@ import { Khatam } from "../khatam";
  * each one.
  *
  * Static all the way down. No database, no model call, nothing this page reads at request time,
- * so it prerenders and a reviewer with no credentials sees exactly what a reviewer with them
- * sees. Every sentence below is the showcase document's own, unchanged; the only editing was to
- * drop link boilerplate that a page inside the app does not need twice.
+ * so it prerenders and a reader with no credentials sees exactly what a reader with them sees.
+ * The prose began as the showcase document's own and now describes the donor tool. Diagrams 01
+ * and 03 were drawn for the reviewer tool this began as, and the lede says so rather than
+ * letting a picture contradict the text under it.
  *
  * The diagrams are dark renders on their own near-black canvas, which is why they sit in a panel
  * that carries that colour rather than the page's white. The page stays the page and the picture
@@ -37,12 +38,12 @@ const SECTIONS: readonly Section[] = [
   {
     number: "01",
     title: "The pipeline and its trust boundary",
-    adrs: ["ADR-0001", "ADR-0003", "ADR-0004", "ADR-0006", "ADR-0007", "ADR-0008"],
+    adrs: ["ADR-0001", "ADR-0003", "ADR-0004", "ADR-0006", "ADR-0007", "ADR-0010"],
     kicker: null,
     diagram: { file: "d1-pipeline-trust.png", width: 2400, height: 1546 },
     prose: [
-      "This is the whole pipeline and the line it is built around. A campaign comes in, one model call extracts a typed record of the facts, and a second maps the text against the eight recipient categories as supported, not supported, or insufficient evidence, with the exact span of story behind every mapping. Citations are the part I was strictest about: the model emits verbatim quotes and the server resolves them to offsets by exact search, so slicing the story at those offsets returns the quote by construction rather than by inspection, and a quote that cannot be located is a hard failure (ADR-0003). The refusal gate underneath is plain code over typed output with no model call, no clock and no network, so the same campaign refuses for the same reasons in the same order (ADR-0006). Four conditions fire it, and each carries the specific question a reviewer can answer, because a refusal that says only that a campaign needs review has moved the triage work back onto the person the triage was for.",
-      "The one decision behind this diagram is the red line. There is no code path in which an eligibility outcome is published without a recorded human decision, no schema field on the model side accepts a score or a confidence figure, and the only representation of an outcome anywhere in the schema is a row in the decisions table with a named reviewer and a written reason, held there by SQL CHECK constraints rather than by application code (ADR-0001, ADR-0008). Precedent retrieval sits behind a fence for the same reason: past adjudicated cases are useful to a person and dangerous in a prompt, so retrieval runs after generation, renders to the reviewer, and is kept out of the model's context by an import-graph test and a prompt-recording trace test rather than by a comment (ADR-0004). Everything in a citation position is either a byte-checked span of the campaign or human-authored corpus text retrieved by id, and the model's own prose is shape-guarded against quotation and chapter-and-verse references (ADR-0007).",
+      "This is the whole pipeline and the line it is built around. A donor pastes a campaign, one model call extracts a typed record of the facts, and a second maps the text against the eight recipient categories as supported, not supported, or insufficient evidence, with the exact span of story behind every mapping. Citations are the part I was strictest about: the model emits verbatim quotes and the server resolves them to offsets by exact search, so slicing the story at those offsets returns the quote by construction rather than by inspection, and a quote that cannot be located is a hard failure (ADR-0003). The refusal gate underneath is plain code over typed output with no model call, no clock and no network, so the same campaign refuses for the same reasons in the same order (ADR-0006). Four conditions fire it, and each carries the specific question that has to be answered and says who can answer it: the organizer, for what the page leaves out, or a scholar the donor trusts, for where recognised scholars differ (ADR-0010).",
+      "The one decision behind this diagram is the red line. The tool never rules. No schema field on the model side accepts a score or a confidence figure, and no table in the database has anywhere to put an outcome, so there is nothing for the system to publish; a schema guard fails the suite if a column named like a status or a verdict ever appears (ADR-0001, ADR-0010). The person who decides is the donor, with the scholar they follow, and nothing they decide is stored. The corpus of past adjudicated cases is still in the repository and still fenced out of every prompt by an import-graph test and a prompt-recording trace test, but the public tool does not show it, because a past ruling shown to a donor reads as an answer (ADR-0004, ADR-0010). Everything in a citation position is either a byte-checked span of the campaign or human-authored corpus text retrieved by id, and the model's own prose is shape-guarded against quotation and chapter-and-verse references (ADR-0007).",
     ],
   },
   {
@@ -52,19 +53,19 @@ const SECTIONS: readonly Section[] = [
     kicker: null,
     diagram: { file: "d2-eval-gate.png", width: 2400, height: 1717 },
     prose: [
-      "This is how I check the thing, and it is the part I would want a reviewer to press on. Eighteen hand-labelled synthetic campaigns run through two scorers that measure different things. The deterministic half counts what a written label can be right about: per-category status agreement, whether a citation slices its own quote back out of the story, exact-set agreement on which refusal conditions fired, and whether every category the label expects a question on got one. The judge half asks a different model, shown the campaign and the record and nothing else, for a pass or fail with a stated reason on four things no label can see. It is blind to the label because the deterministic half already scores agreement and scores it better, and blind to the precedent corpus because a judge holding past decisions would reward a record for resembling them (ADR-0009).",
+      "This is how I check the thing, and it is the part I would want anyone reading this to press on. Eighteen hand-labelled synthetic campaigns run through two scorers that measure different things. The deterministic half counts what a written label can be right about: per-category status agreement, whether a citation slices its own quote back out of the story, exact-set agreement on which refusal conditions fired, and whether every category the label expects a question on got one. The judge half asks a different model, shown the campaign and the record and nothing else, for a pass or fail with a stated reason on four things no label can see. It is blind to the label because the deterministic half already scores agreement and scores it better, and blind to the precedent corpus because a judge holding past decisions would reward a record for resembling them (ADR-0009).",
       "Every judge dimension is pass or fail and never a score, because a judge rating reasoning out of five would reintroduce through the test harness exactly the uncalibrated number ADR-0001 turned down. The timeline is the honest part. The gate went red four times before it went green, and each red caught something real, including one run where the harness charged its own parse failures to the system and reported twelve scholarly rulings that had never happened. A harness that cannot tell a failed measurement from a bad result reports the second when it means the first. One floor moved after all that, in a commit that argued from the report, and that is the only way a threshold is allowed to move here: lowering a bar to turn a red run green is the failure mode the rule exists to make visible.",
     ],
   },
   {
     number: "03",
     title: "Runtime and integrations",
-    adrs: ["ADR-0002", "ADR-0005", "ADR-0008"],
+    adrs: ["ADR-0002", "ADR-0005", "ADR-0011"],
     kicker: null,
     diagram: { file: "d3-deploy-integrations.png", width: 2400, height: 1964 },
     prose: [
-      "The runtime is deliberately small. One Vercel project running Next.js App Router with TypeScript end to end, one Neon Postgres database with pgvector, and two model vendors: Anthropic for the extraction and mapping calls, and OpenAI for the embeddings behind precedent retrieval. Models are injected everywhere, so the 419-test unit suite runs against mocks with no network, and PGlite boots the real shipped migrations so the tests exercise the schema production runs (ADR-0002, ADR-0005).",
-      "What I care about in this picture is which credential each thing holds. The unit job in CI holds none at all, and its build has to stay green with no database URL set, because an unset database is a state the reviewer page reports rather than crashes on. The eval job holds the model key and nothing else, no database URL and no webhook, and it fails when that key is missing rather than skipping, since a gate that passes without running is a green build for a run nobody performed. The eval job is also path-filtered, so a docs-only commit does not spend a corpus of model calls to measure nothing. The judge model exists only in CI and never runs in production, which is the whole reason it can afford to be a different model from the subject.",
+      "The runtime is deliberately small. One Vercel project running Next.js App Router with TypeScript end to end, one Neon Postgres database, and Anthropic for the extraction and mapping calls. OpenAI's embeddings are used only by the script that seeds the precedent corpus, which the public tool does not read when it checks a campaign. Models are injected everywhere, so the unit suite runs against mocks with no network, and PGlite boots the real shipped migrations so the tests exercise the schema production runs (ADR-0002, ADR-0005).",
+      "What I care about in this picture is which credential each thing holds. The unit job in CI holds none at all, and its build has to stay green with no database URL set, because an unset database is a state the result page reports rather than crashes on. The eval job holds the model key and nothing else, and it fails when that key is missing rather than skipping, since a gate that passes without running is a green build for a run nobody performed. The eval job is also path-filtered, so a docs-only commit does not spend a corpus of model calls to measure nothing. The judge model exists only in CI and never runs in production, which is the whole reason it can afford to be a different model from the subject. Production holds one more secret, the key that hashes a visitor's address for the daily limits, and without it the app runs no checks at all rather than counting raw addresses (ADR-0011).",
     ],
   },
   {
@@ -114,10 +115,17 @@ export default function DesignPage() {
           Zakat-Eligibility Triage: System Design
         </h1>
         <p className="measure design-lede">
-          A triage agent for crowdfunding campaigns. It reads a submitted campaign, assembles the
-          evidence a zakat determination would turn on, names what the text leaves missing or
-          contested, and hands the file to a qualified human reviewer. It never issues a religious
-          ruling. Four diagrams and the decisions behind them.
+          A check for donors. You paste a crowdfunding campaign you are thinking of giving zakat
+          to, and an agent sets out what the text does and does not say about each of the eight
+          categories of recipient, with the questions to ask the organizer and the ones to take to
+          a scholar you trust. It never issues a religious ruling. Four diagrams and the decisions
+          behind them.
+        </p>
+        <p className="measure design-lede">
+          Diagrams 01 and 03 show the earlier reviewer-tool architecture, from when this was built
+          for a platform&apos;s reviewers, with a review queue and a panel where a reviewer recorded
+          the outcome. Those parts are gone, and the prose under each diagram describes the tool as
+          it is now.
         </p>
       </header>
 

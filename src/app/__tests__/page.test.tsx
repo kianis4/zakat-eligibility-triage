@@ -37,6 +37,10 @@ describe("the front page", () => {
   it("speaks to a donor, not to a reviewer working a queue", () => {
     expect(markup).not.toMatch(/reviewer|queue|\bdecision|platform policy|precedent/i);
   });
+
+  it("argues the problem from the donor's side, not from a platform's review load", () => {
+    expect(markup).not.toMatch(/review load|throughput|badged/i);
+  });
 });
 
 describe("the front page after a refused submission", () => {

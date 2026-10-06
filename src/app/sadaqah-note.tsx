@@ -3,7 +3,8 @@
  *
  * The eight categories restrict zakat and nothing else. A campaign the text supports no
  * category for may still be a good home for voluntary charity, and a donor should not leave
- * the page thinking otherwise.
+ * the page thinking otherwise. The sources are under "Cross-cutting recipient restrictions" in
+ * section 2 of docs/RESEARCH.md.
  */
 export function SadaqahNote() {
   return (

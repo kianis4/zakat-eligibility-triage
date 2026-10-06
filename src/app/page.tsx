@@ -228,25 +228,23 @@ export default async function Home({
           named category a campaign falls under and not about how deserving it looks.
         </p>
         <p>
-          That review load is not spread evenly through the year. A Ramadan giving report cited in
-          section 1.5 of the research brief states that &quot;78% of Zakat donations came inside of
-          Ramadan&quot;, so the demand arrives compressed into thirty days, at the one point in the
-          year when there is least time to look closely. A triage system&apos;s value sits almost
-          entirely inside that window, and so does its risk.
+          Most of that giving happens in a short window. A Ramadan giving report cited in section
+          1.5 of the research brief states that &quot;78% of Zakat donations came inside of
+          Ramadan&quot;, so most donors are choosing where their zakat goes in the same thirty
+          days, with the least time in the year to look closely.
         </p>
         <p>
-          A wrong determination is a religious harm in both directions, and the failure asymmetry in
-          section 6 of the research brief is what shapes the design. A campaign wrongly badged
-          eligible may leave a donor&apos;s obligation undischarged, and that harm is silent. A
-          campaign wrongly denied loses access to the zakat donor pool at the moment that pool is
-          largest, which during Ramadan is effectively a denial for the year, and the harm falls on
-          people who are by construction likely to be poor. Only one of the two generates its own
-          corrective signal, and only one is recoverable.
+          Getting it wrong costs something in both directions, and the asymmetry in section 6 of
+          the research brief is what shapes this tool. Zakat given to a campaign outside the eight
+          categories may leave your obligation undischarged, and you will almost never find out. A
+          campaign passed over by mistake loses your zakat at the moment it needs it most, and the
+          harm falls on people who are by construction likely to be poor.
         </p>
         <p>
-          So the honest default under uncertainty is a question, not a verdict. It costs throughput
-          exactly where throughput is scarcest, which is the real price of this design and is stated
-          rather than hidden.
+          Campaign copy is written to raise money, not to settle a question of fiqh, and it rarely
+          states the facts a ruling would turn on. So the honest answer to most campaigns is a
+          question, not a verdict. This tool gives you the questions, says who can answer each
+          one, and leaves the answer with you and the scholar you follow.
         </p>
       </section>
 
