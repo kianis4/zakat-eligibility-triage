@@ -51,7 +51,12 @@ describe("no table carries an outcome", () => {
   const tables = exported.filter((value): value is PgTable => is(value, PgTable));
 
   it("walks every table the schema exports", () => {
-    expect(tables.map(getTableName).sort()).toEqual(["campaigns", "precedents", "triage_runs"]);
+    expect(tables.map(getTableName).sort()).toEqual([
+      "analysis_quota",
+      "campaigns",
+      "precedents",
+      "triage_runs",
+    ]);
   });
 
   it("finds no outcome-shaped column anywhere in the schema", () => {
@@ -110,7 +115,7 @@ describe("the database the shipped migrations build", () => {
       sql`select table_name as name from information_schema.tables where table_schema = 'public'`,
     );
 
-    expect(names.sort()).toEqual(["campaigns", "precedents", "triage_runs"]);
+    expect(names.sort()).toEqual(["analysis_quota", "campaigns", "precedents", "triage_runs"]);
   });
 
   it("keeps no delivery state on a triage run", async () => {

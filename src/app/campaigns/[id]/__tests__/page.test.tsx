@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { campaigns, triageRuns } from "../../../../db/schema";
 import { createTestDatabase, type TestDatabase } from "../../../../db/testing";
 import { triageRunRow } from "../../../../testing/triage-fixtures";
-import CampaignReviewPage from "../page";
+import CampaignReviewPage, { metadata } from "../page";
 
 /**
  * The page reads through `getDatabase`, so the handle is swapped for a PGlite one built from the
@@ -99,6 +99,16 @@ describe("the result page for a pasted campaign", () => {
 
     expect(markup).not.toMatch(/reviewer|queue|\bdecision|platform policy|precedent/i);
     expect(markup).not.toContain("Read the campaign again");
+  });
+
+  it("says a link that leads nowhere was never stored or has passed its retention", async () => {
+    const markup = await render("cmp_expired_long_ago");
+
+    expect(markup).toContain("not found, or was deleted after 30 days");
+  });
+
+  it("asks search engines not to index a result", () => {
+    expect(metadata.robots).toEqual({ index: false, follow: false });
   });
 
   it("says that the eight categories restrict zakat and not sadaqah", async () => {

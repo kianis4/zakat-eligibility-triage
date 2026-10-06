@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { checkCampaign } from "./campaigns/actions";
 import { SubmitButton } from "./campaigns/submit-button";
+import { quotaLimits } from "../lib/quota";
 import { Khatam } from "./khatam";
 import { SadaqahNote } from "./sadaqah-note";
 
@@ -155,6 +156,31 @@ function PasteForm() {
   );
 }
 
+/**
+ * What happens to what the donor pastes, stated before they paste it. Each sentence is a
+ * property the code holds: the retention purge, the unlisted result route with its noindex
+ * header, and the salted hash that is the only form of an address the rate limit stores.
+ */
+function PrivacyNotice() {
+  const { retentionDays } = quotaLimits(process.env);
+
+  return (
+    <div className="card measure">
+      <p>
+        {`What you paste is stored for ${retentionDays} days, so the link to your result keeps working, and is then deleted.`}{" "}
+        There are no accounts. The link is unguessable and unlisted: nothing on this site links
+        to it and search engines are asked not to index it, so it reaches whoever you share it
+        with.
+      </p>
+      <p>
+        Your IP address is kept only as a salted hash, for rate limiting, and for no more than
+        two days. The campaign text is sent to Anthropic&apos;s API to be read. Do not paste
+        anything private, such as a name, an address or a message that was not public.
+      </p>
+    </div>
+  );
+}
+
 export default async function Home({
   searchParams,
 }: {
@@ -190,6 +216,7 @@ export default async function Home({
           <PasteForm />
         </div>
         <SadaqahNote />
+        <PrivacyNotice />
       </section>
 
       <section className="section measure">

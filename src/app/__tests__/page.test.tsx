@@ -23,6 +23,17 @@ describe("the front page", () => {
     expect(markup).toMatch(/sadaqah/i);
   });
 
+  it("tells the donor what is kept, for how long, and who else reads it", () => {
+    const text = markup.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+
+    expect(text).toMatch(/stored for 30 days/);
+    expect(text).toMatch(/no accounts/i);
+    expect(text).toMatch(/unlisted/);
+    expect(text).toMatch(/salted hash/);
+    expect(text).toMatch(/Anthropic/);
+    expect(text).toMatch(/private/);
+  });
+
   it("speaks to a donor, not to a reviewer working a queue", () => {
     expect(markup).not.toMatch(/reviewer|queue|\bdecision|platform policy|precedent/i);
   });

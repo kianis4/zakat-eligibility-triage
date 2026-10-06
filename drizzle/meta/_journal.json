@@ -43,6 +43,13 @@
       "when": 1791308303938,
       "tag": "0005_pasted_by_a_donor",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791308591945,
+      "tag": "0006_analyses_per_day",
+      "breakpoints": true
     }
   ]
 }

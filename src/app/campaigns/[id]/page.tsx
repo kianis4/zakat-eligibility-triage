@@ -1,8 +1,10 @@
 import { eq } from "drizzle-orm";
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { getDatabase, isDatabaseConfigured } from "../../../db/index";
 import { campaigns } from "../../../db/schema";
+import { quotaLimits } from "../../../lib/quota";
 import { triageRunsFor } from "../../../lib/triage";
 import { Khatam } from "../../khatam";
 import { SadaqahNote } from "../../sadaqah-note";
@@ -24,6 +26,9 @@ import { ProvenanceLegend } from "./provenance";
  * it.
  */
 export const dynamic = "force-dynamic";
+
+/** A result is reached by its link and by nothing else, so it is kept out of search. */
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 function day(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -63,7 +68,9 @@ export default async function CampaignReviewPage({
         <div className="state">
           <Khatam className="state__mark" outline size={40} />
           <h1>No campaign {id}</h1>
-          <p>Nothing is stored under that identifier.</p>
+          <p>
+            {`This campaign was not found, or was deleted after ${quotaLimits(process.env).retentionDays} days.`}
+          </p>
         </div>
       </main>
     );

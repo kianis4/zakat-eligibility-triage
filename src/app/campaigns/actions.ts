@@ -1,10 +1,12 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { getDatabase, isDatabaseConfigured } from "../../db/index";
 import { runCheck } from "../../lib/check";
 import { fieldsOf } from "../../lib/forms";
+import { clientIp, quotaLimits } from "../../lib/quota";
 
 /**
  * The write side of the app: one step, from a pasted campaign to its result page.
@@ -21,6 +23,11 @@ function backToForm(reason: string): never {
 export async function checkCampaign(formData: FormData): Promise<void> {
   const result = await runCheck(fieldsOf(formData), {
     db: isDatabaseConfigured() ? getDatabase() : null,
+    quota: {
+      secret: process.env.IP_HASH_SECRET,
+      ip: async () => clientIp(await headers()),
+      limits: quotaLimits(process.env),
+    },
   });
 
   if (!result.ok) {

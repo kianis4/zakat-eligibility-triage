@@ -1,7 +1,9 @@
 import { sql } from "drizzle-orm";
 import {
   bigserial,
+  date,
   index,
+  integer,
   jsonb,
   numeric,
   pgEnum,
@@ -127,6 +129,20 @@ export const triageRuns = pgTable("triage_runs", {
     .notNull()
     .default(sql`clock_timestamp()`),
   sequence: bigserial("sequence", { mode: "number" }).notNull(),
+});
+
+/**
+ * How many analyses a bucket has spent on one UTC day, which is the whole rate limit.
+ *
+ * A bucket is a visitor's salted IP hash with the day appended, or `global:<day>` for the
+ * site-wide cap, so a visitor's count resets at midnight UTC without a job to reset it. The
+ * raw address is never stored, and rows older than yesterday are purged on the next check.
+ * The column names stay clear of the outcome vocabulary the schema guard watches for.
+ */
+export const analysisQuota = pgTable("analysis_quota", {
+  bucket: text("bucket").primaryKey(),
+  day: date("day").notNull(),
+  uses: integer("uses").notNull(),
 });
 
 export type PrecedentRow = typeof precedents.$inferSelect;
