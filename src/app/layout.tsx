@@ -35,7 +35,7 @@ const lora = Lora({
 export const metadata: Metadata = {
   title: "Zakat-Eligibility Triage",
   description:
-    "Assembles cited evidence about a crowdfunding campaign for a qualified human reviewer.",
+    "Assembles cited evidence about a crowdfunding campaign for the donor deciding whether to give zakat to it.",
 };
 
 export const viewport: Viewport = {

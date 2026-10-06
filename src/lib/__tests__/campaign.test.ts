@@ -23,15 +23,15 @@ describe("CampaignInput", () => {
 
     expect(parsed.id).toBe("cmp_0001");
     expect(parsed.goalAmount).toBe(18000);
-    expect(parsed.organizer.name).toBe("Layla Nasser");
-    expect(parsed.organizer.relationshipToBeneficiary).toBe("daughter of the beneficiaries");
+    expect(parsed.organizer?.name).toBe("Layla Nasser");
+    expect(parsed.organizer?.relationshipToBeneficiary).toBe("daughter of the beneficiaries");
   });
 
   it("treats relationshipToBeneficiary as optional", () => {
     const { relationshipToBeneficiary: _omitted, ...organizer } = validCampaign.organizer;
     const parsed = CampaignInput.parse({ ...validCampaign, organizer });
 
-    expect(parsed.organizer.relationshipToBeneficiary).toBeUndefined();
+    expect(parsed.organizer?.relationshipToBeneficiary).toBeUndefined();
   });
 
   it("keeps category a free-form platform string rather than our own taxonomy", () => {
@@ -52,11 +52,21 @@ describe("CampaignInput", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects a campaign with no organizer", () => {
-    const { organizer: _omitted, ...withoutOrganizer } = validCampaign;
-    const result = CampaignInput.safeParse(withoutOrganizer);
+  /**
+   * A donor pastes what the campaign page shows them, which is a title and a story and not
+   * always anything else. The rest is optional because a donor may not have it.
+   */
+  it("accepts a campaign that is only a title and a story", () => {
+    const parsed = CampaignInput.parse({
+      id: "cmp_0002",
+      title: validCampaign.title,
+      story: validCampaign.story,
+    });
 
-    expect(result.success).toBe(false);
+    expect(parsed.category).toBeUndefined();
+    expect(parsed.goalAmount).toBeUndefined();
+    expect(parsed.currency).toBeUndefined();
+    expect(parsed.organizer).toBeUndefined();
   });
 
   it("rejects an organizer missing a location", () => {

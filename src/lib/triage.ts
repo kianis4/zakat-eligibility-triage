@@ -41,23 +41,17 @@ function modelIdOf(model: LanguageModel): string {
  * `goalAmount` comes back from a numeric column as a string, and the pipeline's input schema
  * wants a number. The conversion happens here rather than in the schema so the column keeps
  * storing money exactly, and `CampaignInput` parses the result so a row that cannot make a
- * valid campaign fails before a model is called on it.
+ * valid campaign fails before a model is called on it. A field the donor left blank is null
+ * in the row and absent from the input, so the prompts print no line for it.
  */
 export function campaignFromRow(row: CampaignRow): CampaignInput {
   return CampaignInput.parse({
     id: row.id,
     title: row.title,
     story: row.story,
-    category: row.category,
-    goalAmount: Number(row.goalAmount),
-    currency: row.currency,
-    organizer: {
-      name: row.organizerName,
-      location: row.organizerLocation,
-      ...(row.organizerRelationshipToBeneficiary === null
-        ? {}
-        : { relationshipToBeneficiary: row.organizerRelationshipToBeneficiary }),
-    },
+    ...(row.category === null ? {} : { category: row.category }),
+    ...(row.goalAmount === null ? {} : { goalAmount: Number(row.goalAmount) }),
+    ...(row.currency === null ? {} : { currency: row.currency }),
   });
 }
 

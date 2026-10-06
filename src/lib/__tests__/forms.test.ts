@@ -8,9 +8,6 @@ const submitted = {
   category: "Medical",
   goalAmount: "9000",
   currency: "JOD",
-  organizerName: "Yusuf Haddad",
-  organizerLocation: "Irbid, Jordan",
-  organizerRelationshipToBeneficiary: "brother",
 };
 
 function formDataFrom(fields: Record<string, string>): FormData {
@@ -56,23 +53,51 @@ describe("reading a submitted campaign off a form", () => {
     expect(row.goalAmount).toBe("9000.55");
   });
 
-  it("turns an untouched relationship field back into no declaration", () => {
+  it("accepts a title and a story with nothing else filled in", () => {
     const row = campaignRowFrom(
-      NewCampaignForm.parse({ ...submitted, organizerRelationshipToBeneficiary: "  " }),
+      NewCampaignForm.parse({
+        title: submitted.title,
+        story: submitted.story,
+        category: " ",
+        goalAmount: "",
+        currency: "",
+      }),
     );
 
-    expect(row.organizerRelationshipToBeneficiary).toBeNull();
+    expect(row.title).toBe(submitted.title);
+    expect(row.story).toBe(submitted.story);
+    expect(row.category).toBeNull();
+    expect(row.goalAmount).toBeNull();
+    expect(row.currency).toBeNull();
+  });
+
+  it("accepts a title and a story when the optional fields are absent altogether", () => {
+    expect(NewCampaignForm.safeParse({ title: submitted.title, story: submitted.story }).success).toBe(
+      true,
+    );
+  });
+
+  it("refuses a title or a story longer than a campaign page carries", () => {
+    const longTitle = NewCampaignForm.safeParse({ ...submitted, title: "t".repeat(301) });
+    const longStory = NewCampaignForm.safeParse({ ...submitted, story: "s".repeat(20001) });
+
+    expect(longTitle.success).toBe(false);
+    expect(longStory.success).toBe(false);
+    expect(NewCampaignForm.safeParse({ ...submitted, story: "s".repeat(20000) }).success).toBe(true);
+  });
+
+  it("refuses a campaign with no title", () => {
+    expect(NewCampaignForm.safeParse({ ...submitted, title: "  " }).success).toBe(false);
   });
 
   it("refuses a campaign with no story to read", () => {
     const parsed = NewCampaignForm.safeParse({ ...submitted, story: "   " });
 
     expect(parsed.success).toBe(false);
-    expect(firstIssue(parsed.error!)).toMatch(/nothing to triage/);
+    expect(firstIssue(parsed.error!)).toMatch(/nothing to check/);
   });
 
   it("refuses a goal that is not an amount", () => {
-    expect(NewCampaignForm.safeParse({ ...submitted, goalAmount: "" }).success).toBe(false);
     expect(NewCampaignForm.safeParse({ ...submitted, goalAmount: "-5" }).success).toBe(false);
     expect(NewCampaignForm.safeParse({ ...submitted, goalAmount: "many" }).success).toBe(false);
   });

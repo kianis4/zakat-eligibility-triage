@@ -24,32 +24,48 @@ export function fieldsOf(formData: FormData): Record<string, string> {
 }
 
 /**
- * A submitted campaign as the form supplies it, which is `CampaignInput` without its id.
- *
- * The id is generated on the server. A form that carries one lets the submitter choose the
- * key that every triage run and every decision will hang off, and the campaign this system
- * stores has to be the campaign the platform submitted rather than the one a request named.
- *
- * The organizer is flat here because form fields are flat, and it is nested again on the way
- * into the row. The relationship is the one optional field, and an untouched input arrives as
- * the empty string rather than as absent, so it is turned back into absent explicitly: stored
- * as an empty string it would render as a declared relationship of nothing.
+ * A field the donor may leave blank. An untouched input arrives as the empty string rather than
+ * as absent, so it is turned back into absent explicitly: stored as an empty string it would
+ * render as a category of nothing.
  */
-export const NewCampaignForm = z.object({
-  title: z.string().trim().min(1, { message: "A campaign needs a title." }),
-  story: z.string().trim().min(1, { message: "There is nothing to triage without the story." }),
-  category: z.string().trim().min(1, { message: "Record the platform category as submitted." }),
-  goalAmount: z.coerce
-    .number()
-    .positive({ message: "The stated goal is an amount greater than zero." }),
-  currency: z.string().trim().min(1, { message: "Record the currency the goal is stated in." }),
-  organizerName: z.string().trim().min(1, { message: "Record who submitted the campaign." }),
-  organizerLocation: z.string().trim().min(1, { message: "Record where the organizer is." }),
-  organizerRelationshipToBeneficiary: z
+function optionalText(max: number, message: string) {
+  return z
     .string()
     .trim()
-    .transform((relationship) => (relationship === "" ? undefined : relationship))
-    .optional(),
+    .max(max, { message })
+    .transform((value) => (value === "" ? undefined : value))
+    .optional();
+}
+
+/**
+ * A campaign as a donor pastes it, which is `CampaignInput` without its id or its organizer.
+ *
+ * The id is generated on the server. A form that carries one lets the submitter choose the
+ * key that the agent file and the shared link hang off.
+ *
+ * Only the title and the story are required, because they are what every campaign page shows.
+ * The lengths bound what a single paste can cost, and are generous for a real campaign page.
+ */
+export const NewCampaignForm = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, { message: "A campaign needs a title." })
+    .max(300, { message: "That title is longer than 300 characters. Paste the campaign's title only." }),
+  story: z
+    .string()
+    .trim()
+    .min(1, { message: "There is nothing to check without the story." })
+    .max(20000, { message: "That story is longer than 20,000 characters. Paste the campaign's story only." }),
+  category: optionalText(100, "That category is longer than 100 characters."),
+  goalAmount: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.coerce
+      .number()
+      .positive({ message: "The stated goal is an amount greater than zero." })
+      .optional(),
+  ),
+  currency: optionalText(10, "That currency is longer than 10 characters."),
 });
 
 export type NewCampaignForm = z.infer<typeof NewCampaignForm>;
@@ -59,12 +75,9 @@ export function campaignRowFrom(form: NewCampaignForm): NewCampaignRow {
     id: `cmp_${randomUUID()}`,
     title: form.title,
     story: form.story,
-    category: form.category,
-    goalAmount: form.goalAmount.toFixed(2),
-    currency: form.currency,
-    organizerName: form.organizerName,
-    organizerLocation: form.organizerLocation,
-    organizerRelationshipToBeneficiary: form.organizerRelationshipToBeneficiary ?? null,
+    category: form.category ?? null,
+    goalAmount: form.goalAmount?.toFixed(2) ?? null,
+    currency: form.currency ?? null,
   };
 }
 

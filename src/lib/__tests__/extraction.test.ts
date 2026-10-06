@@ -361,4 +361,34 @@ describe("the extraction prompt for a fully specified campaign", () => {
       "ff4434f1fd18cc52d89e282c0f6b5a8585074409405501370193fbce508ced17",
     );
   });
+
+  it("prints no category or goal line when the donor did not supply one", async () => {
+    const model = modelReturning(noQuotes);
+    await extractFacts({ id: fixture.id, title: fixture.title, story: fixture.story }, model);
+
+    const user = model.doGenerateCalls[0]?.prompt[1];
+
+    expect(user?.content).toEqual([
+      {
+        type: "text",
+        text: [
+          "Campaign title: Three months of rent and food for Rukiya and her boys",
+          "",
+          "Campaign story:",
+          fixture.story,
+        ].join("\n"),
+      },
+    ]);
+  });
+
+  it("never puts the organizer into the prompt", async () => {
+    const model = modelReturning(noQuotes);
+    await extractFacts(fixture, model);
+
+    const call = JSON.stringify(model.doGenerateCalls[0]?.prompt);
+
+    expect(fixture.organizer?.name).toBe("Sumaya Idrissi");
+    expect(call).not.toContain("Sumaya Idrissi");
+    expect(call).not.toContain("Birmingham, United Kingdom");
+  });
 });

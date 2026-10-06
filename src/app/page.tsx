@@ -1,9 +1,12 @@
 import Link from "next/link";
 
+import { checkCampaign } from "./campaigns/actions";
+import { SubmitButton } from "./campaigns/submit-button";
 import { Khatam } from "./khatam";
+import { SadaqahNote } from "./sadaqah-note";
 
 /**
- * The landing page, which is the README made walkable.
+ * The landing page: the paste form, then the README made walkable.
  *
  * Every sentence here is the README's or an ADR's, verbatim or lightly adapted to the surface.
  * Nothing on this page states a claim, a number, or a point of fiqh that is not already argued
@@ -15,10 +18,9 @@ const REPOSITORY = "https://github.com/kianis4/zakat-eligibility-triage";
 const STEPS = [
   "extracts a typed record of the facts from free-text campaign copy",
   "maps the text against each of the eight recipient categories as supported, not supported, or insufficient evidence, citing the exact span behind every mapping",
-  "reports what evidence is missing and what a reviewer should ask the organizer",
-  "retrieves comparable previously adjudicated cases and shows them to the reviewer as precedent, rather than feeding them back to the model to imitate",
-  "refuses to determine ambiguous cases and escalates with the question a human must answer",
-  "records the human decision, which is authoritative",
+  "reports what evidence is missing and what to ask the organizer",
+  "refuses to determine ambiguous cases and says which question has to be answered, and whether the organizer or a scholar can answer it",
+  "stores nothing about what you decide, because what you decide is yours",
 ] as const;
 
 const INVARIANTS = [
@@ -34,11 +36,6 @@ const INVARIANTS = [
     adr: "ADR-0003",
   },
   {
-    invariant: "Retrieved precedent renders to the reviewer and never enters a prompt.",
-    how: "Retrieval belongs to the render, and src/lib/triage.ts has no way to reach it. A prompt-recording trace test and an import-graph fence hold it.",
-    adr: "ADR-0004",
-  },
-  {
     invariant: "The refusal is deterministic code over typed output.",
     how: "The model cannot talk the pipeline out of an escalation, and escalate: true carries a non-empty reason list, so a bare needs-review flag cannot be constructed.",
     adr: "ADR-0006",
@@ -49,10 +46,9 @@ const INVARIANTS = [
     adr: "ADR-0007",
   },
   {
-    invariant:
-      "The only representation of an outcome in the entire schema is a human decision row.",
-    how: "SQL CHECK constraints enforce it, and the suite proves the constraints by inserting past the application-level validation.",
-    adr: "ADR-0008",
+    invariant: "No table in the schema carries an outcome.",
+    how: "A schema guard fails the suite when any column is named like a status, a verdict or an eligibility flag, and the guard is itself tested against a schema that has one.",
+    adr: "ADR-0010",
   },
 ] as const;
 
@@ -96,25 +92,104 @@ function Eyebrow({ children }: { children: string }) {
   );
 }
 
-export default function Home() {
+/**
+ * The one form on the site. Only the title and the story are required, because they are what
+ * every campaign page shows; the rest helps the agent read the story and is often not to hand.
+ */
+function PasteForm() {
+  return (
+    <form action={checkCampaign}>
+      <div className="field-grid">
+        <div className="field field--wide">
+          <label className="field__label" htmlFor="title">
+            Campaign title
+          </label>
+          <input className="input" id="title" maxLength={300} name="title" required />
+        </div>
+
+        <div className="field field--wide">
+          <label className="field__label" htmlFor="story">
+            Campaign story, pasted as the page shows it
+          </label>
+          <textarea
+            className="textarea"
+            id="story"
+            maxLength={20000}
+            name="story"
+            required
+            rows={10}
+          />
+        </div>
+
+        <div className="field field--wide">
+          <label className="field__label" htmlFor="category">
+            Category on the campaign page, if it shows one
+          </label>
+          <input className="input" id="category" maxLength={100} name="category" />
+        </div>
+
+        <div className="field">
+          <label className="field__label" htmlFor="goalAmount">
+            Stated goal, if any
+          </label>
+          <input
+            className="input"
+            id="goalAmount"
+            min="0"
+            name="goalAmount"
+            step="0.01"
+            type="number"
+          />
+        </div>
+
+        <div className="field">
+          <label className="field__label" htmlFor="currency">
+            Currency
+          </label>
+          <input className="input" id="currency" maxLength={10} name="currency" size={5} />
+        </div>
+      </div>
+
+      <SubmitButton pendingLabel="Reading the campaign">Check the campaign</SubmitButton>
+    </form>
+  );
+}
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
+
   return (
     <main>
       <section className="hero">
         <Khatam className="hero__mark" outline size={56} />
         <h1>Zakat-Eligibility Triage</h1>
         <p className="hero__lede">
-          A triage agent for crowdfunding campaigns. It reads a submitted campaign, assembles the
-          evidence a zakat determination would turn on, names what the text leaves missing or
-          contested, and hands the file to a qualified human reviewer.
+          Paste a crowdfunding campaign you are thinking of giving zakat to. An agent reads it,
+          sets out what the text does and does not say about each of the eight categories of
+          zakat recipient, and gives you the questions to ask before you give. It never tells
+          you whether to give.
         </p>
         <div className="hero__actions">
-          <Link className="btn" href="/campaigns">
-            Open the queue
-          </Link>
           <Link className="btn btn--ghost" href="/design">
             The system design
           </Link>
         </div>
+      </section>
+
+      <section className="section">
+        {error === undefined ? null : (
+          <p className="alert" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="card">
+          <PasteForm />
+        </div>
+        <SadaqahNote />
       </section>
 
       <section className="section measure">
@@ -129,7 +204,7 @@ export default function Home() {
           That review load is not spread evenly through the year. A Ramadan giving report cited in
           section 1.5 of the research brief states that &quot;78% of Zakat donations came inside of
           Ramadan&quot;, so the demand arrives compressed into thirty days, at the one point in the
-          year when reviewer attention is scarcest. A triage system&apos;s value sits almost
+          year when there is least time to look closely. A triage system&apos;s value sits almost
           entirely inside that window, and so does its risk.
         </p>
         <p>
@@ -151,8 +226,8 @@ export default function Home() {
       <section className="section">
         <Eyebrow>What it does</Eyebrow>
         <p className="measure">
-          Prepares a cited evidence file about a submitted campaign so that a qualified human
-          reviewer can adjudicate it. For a submitted campaign it:
+          Prepares a cited evidence file about a pasted campaign, for the donor deciding whether
+          to give their zakat to it. For a pasted campaign it:
         </p>
         <ol className="steps">
           {STEPS.map((step) => (
@@ -164,9 +239,9 @@ export default function Home() {
       <section className="section">
         <Eyebrow>Trust design</Eyebrow>
         <p className="measure">
-          The agent prepares the file and a qualified human adjudicates. That boundary is
-          architectural rather than a disclaimer: there is no code path in which a determination is
-          published without a recorded human decision.
+          The agent prepares the file and you decide. That boundary is architectural rather than
+          a disclaimer: no table in the schema can hold an outcome, so there is nothing for the
+          system to publish.
         </p>
         <div className="grid-2">
           {INVARIANTS.map((entry) => (

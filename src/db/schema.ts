@@ -28,22 +28,19 @@ import type { MissingEvidenceReport } from "../lib/missing-evidence";
 export const EMBEDDING_DIMENSIONS = 1536;
 
 /**
- * A submitted campaign, stored in the shape `CampaignInput` describes.
+ * A campaign a donor pasted, stored in the shape `CampaignInput` describes.
  *
- * The organizer is flattened into columns rather than kept as a document because a
- * reviewer queue filters on it. `goalAmount` is numeric and comes back as a string, since
- * a float would round money for the sake of a convenience the reviewer UI does not need.
+ * Only the title and the story are required, as on the form. Nothing about the organizer is
+ * stored: the donor is asked for none of it and no prompt reads it. `goalAmount` is numeric
+ * and comes back as a string, since a float would round money for no benefit.
  */
 export const campaigns = pgTable("campaigns", {
   id: text("id").primaryKey(),
   title: text("title").notNull(),
   story: text("story").notNull(),
-  category: text("category").notNull(),
-  goalAmount: numeric("goal_amount", { precision: 14, scale: 2 }).notNull(),
-  currency: text("currency").notNull(),
-  organizerName: text("organizer_name").notNull(),
-  organizerLocation: text("organizer_location").notNull(),
-  organizerRelationshipToBeneficiary: text("organizer_relationship_to_beneficiary"),
+  category: text("category"),
+  goalAmount: numeric("goal_amount", { precision: 14, scale: 2 }),
+  currency: text("currency"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

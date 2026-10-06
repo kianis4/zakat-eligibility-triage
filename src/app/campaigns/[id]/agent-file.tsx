@@ -1,5 +1,6 @@
 import type { TriageRunRow } from "../../../db/schema";
-import { RECIPIENT_CATEGORIES } from "../../../lib/categories";
+import { CROSS_CUTTING_RESTRICTIONS, RECIPIENT_CATEGORIES } from "../../../lib/categories";
+import { audienceOf, type EscalationReason } from "../../../lib/escalation";
 import type { Citation, ScholarlyDifferenceReference } from "../../../lib/mapping";
 import { Attributed } from "./provenance";
 
@@ -7,13 +8,18 @@ import { Attributed } from "./provenance";
  * The agent's file, rendered as evidence rather than as an answer.
  *
  * Nothing on this page is an outcome, and the wording is chosen so that nothing reads like
- * one. A category is supported by the text or it is not; the campaign is neither, until a
- * human records a decision (ADR-0008).
+ * one. A category is supported by the text or it is not; the campaign is neither, and the
+ * donor reading the file is the one who decides whether to give.
  *
- * The layout carries the same argument the wording does. The refusal is the loudest thing on
- * the page because the question it raises is the product, and the summary strip exists so a
- * reviewer can see all eight categories before reading any of them.
+ * The layout carries the same argument the wording does. The questions come before the
+ * findings because they are what the donor acts on, sorted by who can answer them, and the
+ * summary strip exists so a reader can see all eight categories before reading any of them.
  */
+
+/** The restrictions that run between a particular donor and recipient, which only the donor can check. */
+const DONOR_RESTRICTIONS = CROSS_CUTTING_RESTRICTIONS.filter(
+  (restriction) => restriction.whereItBinds === "donor",
+);
 
 const FINDING_LABELS = {
   supported: "Supported by the text",
@@ -151,7 +157,28 @@ function Finding({ run, category }: { run: TriageRunRow; category: (typeof RECIP
   );
 }
 
+/**
+ * One refusal and the spans of story that raised it, filed under whoever can answer it.
+ */
+function Reason({ reason }: { reason: EscalationReason }) {
+  return (
+    <div className="attention__reason">
+      <p className="attention__chip">{reason.kind.replace(/_/g, " ")}</p>
+      <Attributed kind="model">
+        <p className="attention__question">{reason.question}</p>
+      </Attributed>
+      {reason.citations.map((citation) => (
+        <Quoted key={`${citation.start}-${citation.end}`} citation={citation} tone="refusal" />
+      ))}
+    </div>
+  );
+}
+
 export function AgentFile({ run }: { run: TriageRunRow }) {
+  const reasons = run.escalation.escalate ? run.escalation.reasons : [];
+  const forOrganizer = reasons.filter((reason) => audienceOf(reason.kind) === "organizer");
+  const forScholar = reasons.filter((reason) => audienceOf(reason.kind) === "scholar");
+
   return (
     <section>
       <p className="meta">
@@ -162,18 +189,10 @@ export function AgentFile({ run }: { run: TriageRunRow }) {
       <h3 className="subsection" id="refusal">Refusal</h3>
       {run.escalation.escalate ? (
         <div className="attention">
-          <p>The pipeline refused to triage this campaign and put these questions to you.</p>
-          {run.escalation.reasons.map((reason, index) => (
-            <div className="attention__reason" key={`${reason.kind}-${index}`}>
-              <p className="attention__chip">{reason.kind.replace(/_/g, " ")}</p>
-              <Attributed kind="model">
-                <p className="attention__question">{reason.question}</p>
-              </Attributed>
-              {reason.citations.map((citation) => (
-                <Quoted key={`${citation.start}-${citation.end}`} citation={citation} tone="refusal" />
-              ))}
-            </div>
-          ))}
+          <p>
+            The pipeline refused to triage this campaign. The questions below are why, sorted by
+            who can answer them.
+          </p>
         </div>
       ) : (
         <div className="calm">
@@ -181,26 +200,55 @@ export function AgentFile({ run }: { run: TriageRunRow }) {
         </div>
       )}
 
+      <h3 className="subsection" id="ask-organizer">Questions to ask the organizer</h3>
+      {forOrganizer.length === 0 && run.missingEvidence.questions.length === 0 ? (
+        <p>Nothing was left unresolved for want of a fact the organizer could supply.</p>
+      ) : (
+        <>
+          {forOrganizer.length === 0 ? null : (
+            <div className="attention">
+              {forOrganizer.map((reason, index) => (
+                <Reason key={`${reason.kind}-${index}`} reason={reason} />
+              ))}
+            </div>
+          )}
+          {run.missingEvidence.questions.length === 0 ? null : (
+            <ol className="questions">
+              {run.missingEvidence.questions.map((question) => (
+                <li key={question}>
+                  <Attributed kind="model">
+                    <span>{question}</span>
+                  </Attributed>
+                </li>
+              ))}
+            </ol>
+          )}
+        </>
+      )}
+
+      <h3 className="subsection" id="ask-scholar">Questions to take to a scholar you trust</h3>
+      {forScholar.length === 0 ? (
+        <p>The text put this campaign inside no recorded disagreement between scholars.</p>
+      ) : (
+        <div className="attention">
+          {forScholar.map((reason, index) => (
+            <Reason key={`${reason.kind}-${index}`} reason={reason} />
+          ))}
+        </div>
+      )}
+
+      <h3 className="subsection" id="only-you">What only you can check</h3>
+      {DONOR_RESTRICTIONS.map((restriction) => (
+        <Attributed kind="corpus" key={restriction.id}>
+          <p style={{ margin: 0 }}>{restriction.summary}</p>
+        </Attributed>
+      ))}
+
       <h3 className="subsection" id="findings">What the text says about each category</h3>
       <CategoryStrip run={run} />
       {RECIPIENT_CATEGORIES.map((category) => (
         <Finding key={category.id} run={run} category={category} />
       ))}
-
-      <h3 className="subsection" id="questions">What to ask the organizer</h3>
-      {run.missingEvidence.questions.length === 0 ? (
-        <p>Nothing was left unresolved for want of a fact the organizer could supply.</p>
-      ) : (
-        <ol className="questions">
-          {run.missingEvidence.questions.map((question) => (
-            <li key={question}>
-              <Attributed kind="model">
-                <span>{question}</span>
-              </Attributed>
-            </li>
-          ))}
-        </ol>
-      )}
     </section>
   );
 }

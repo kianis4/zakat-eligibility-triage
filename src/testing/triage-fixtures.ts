@@ -33,12 +33,9 @@ export function campaignRow(campaign: CampaignInput = FIXTURE_CAMPAIGN): NewCamp
     id: campaign.id,
     title: campaign.title,
     story: campaign.story,
-    category: campaign.category,
-    goalAmount: campaign.goalAmount.toFixed(2),
-    currency: campaign.currency,
-    organizerName: campaign.organizer.name,
-    organizerLocation: campaign.organizer.location,
-    organizerRelationshipToBeneficiary: campaign.organizer.relationshipToBeneficiary ?? null,
+    category: campaign.category ?? null,
+    goalAmount: campaign.goalAmount?.toFixed(2) ?? null,
+    currency: campaign.currency ?? null,
   };
 }
 
@@ -95,8 +92,7 @@ export const ESCALATED: EscalationDecision = {
   reasons: [
     {
       kind: "nothing_resolvable",
-      question:
-        "Should the organizer be asked for the missing information, or should this campaign be declined without a further round?",
+      question: "Who will receive the money you raise, and what will it be spent on?",
       citations: [],
     },
   ],

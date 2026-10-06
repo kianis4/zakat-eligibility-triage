@@ -1,81 +1,31 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { z } from "zod";
 
-import { getDatabase } from "../../db/index";
-import { campaigns } from "../../db/schema";
-import { campaignRowFrom, fieldsOf, firstIssue, NewCampaignForm } from "../../lib/forms";
-import { runTriage } from "../../lib/triage";
+import { getDatabase, isDatabaseConfigured } from "../../db/index";
+import { runCheck } from "../../lib/check";
+import { fieldsOf } from "../../lib/forms";
 
 /**
- * The write side of the reviewer UI.
+ * The write side of the app: one step, from a pasted campaign to its result page.
  *
- * Everything arrives as form strings and is parsed by a schema before it reaches a query.
- * A failure sends the reviewer back to a page with the reason on it, rather than to a stack
- * trace, and nothing is written on the way. That includes a missing campaign id, which is the
- * one failure with no campaign page to return to: those go back to the queue, because the
- * form was assembled wrong and there is no detail page the reviewer could have come from.
+ * Everything arrives as form strings and is parsed by a schema before it reaches a query. A
+ * failure sends the donor back to the paste form with the reason on it, rather than to a stack
+ * trace, and leaves nothing stored.
  */
 
-const CampaignId = z.string().min(1);
-
-const QUEUE = "/campaigns";
-
-function backTo(path: string, reason: string): never {
-  redirect(`${path}?error=${encodeURIComponent(reason)}`);
+function backToForm(reason: string): never {
+  redirect(`/?error=${encodeURIComponent(reason)}`);
 }
 
-/**
- * The campaign this submission is about, or the queue with an explanation.
- *
- * A blank or absent id means the hidden field did not make it into the post. There is nothing
- * to look up and nowhere campaign-specific to go, and throwing here would put a raw schema
- * error in front of a reviewer, which is the behaviour this module says it does not have.
- */
-function campaignIdFrom(fields: Record<string, string>): string {
-  const parsed = CampaignId.safeParse(fields.campaignId);
+export async function checkCampaign(formData: FormData): Promise<void> {
+  const result = await runCheck(fieldsOf(formData), {
+    db: isDatabaseConfigured() ? getDatabase() : null,
+  });
 
-  if (!parsed.success) {
-    backTo(QUEUE, "That form did not say which campaign it was about, so nothing was recorded.");
+  if (!result.ok) {
+    backToForm(result.reason);
   }
 
-  return parsed.data;
-}
-
-export async function createCampaign(formData: FormData): Promise<void> {
-  const submitted = NewCampaignForm.safeParse(fieldsOf(formData));
-
-  if (!submitted.success) {
-    backTo(QUEUE, firstIssue(submitted.error));
-  }
-
-  const row = campaignRowFrom(submitted.data);
-  await getDatabase().insert(campaigns).values(row);
-
-  redirect(`/campaigns/${encodeURIComponent(row.id)}`);
-}
-
-/**
- * Runs the pipeline over a campaign and files the agent's reading of it.
- *
- * A failed run is reported and nothing is stored, which is `runTriage`'s behaviour rather
- * than this handler's: a model that fabricates a quote fails the whole file (ADR-0003), and
- * the reviewer is told that the campaign has not been read rather than shown a partial file
- * they cannot tell is partial.
- */
-export async function runTriageAction(formData: FormData): Promise<void> {
-  const campaignId = campaignIdFrom(fieldsOf(formData));
-  const detail = `/campaigns/${encodeURIComponent(campaignId)}`;
-
-  const failure = await runTriage(campaignId, { db: getDatabase() }).then(
-    () => null,
-    (error: unknown) => (error instanceof Error ? error.message : String(error)),
-  );
-
-  if (failure !== null) {
-    backTo(detail, `The triage run did not complete: ${failure}`);
-  }
-
-  redirect(detail);
+  redirect(`/campaigns/${encodeURIComponent(result.campaignId)}`);
 }

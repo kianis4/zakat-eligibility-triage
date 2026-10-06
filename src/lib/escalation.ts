@@ -39,6 +39,19 @@ export const EscalationReason = z.object({
 
 export type EscalationReason = z.infer<typeof EscalationReason>;
 
+export type QuestionAudience = "organizer" | "scholar";
+
+/**
+ * Who can answer a refusal's question, which is where the result page files it.
+ *
+ * A scholarly difference is a question only a scholar can answer, and the donor takes it to
+ * one they trust. Every other refusal turns on a fact the organizer holds. Computed at render
+ * from the kind rather than stored, because it is a function of the kind and nothing else.
+ */
+export function audienceOf(kind: EscalationReason["kind"]): QuestionAudience {
+  return kind === "scholarly_difference" ? "scholar" : "organizer";
+}
+
 /**
  * Whether the pipeline hands this campaign to a human unfinished, and why.
  *
@@ -102,10 +115,9 @@ function mixedUseReasons(mapping: CategoryMapping): EscalationReason[] {
  * than as an account of the disagreement. Nothing is summarised afresh here, and under
  * ADR-0007 nothing about the disagreement is authored anywhere in the pipeline.
  *
- * The question asks which position platform policy applies to this campaign. It never asks
- * the reviewer to settle the fiqh: that is not a question a triage file gets to put, and
- * the platform choosing a position for its own badge is a different act from a scholar
- * resolving the difference.
+ * The question asks which position the donor's own scholar holds and whether it covers this
+ * campaign. It never asks the donor to settle the fiqh: that is not a question a triage file
+ * gets to put, and the page files it under the questions to take to a scholar.
  */
 function scholarlyDifferenceReasons(mapping: CategoryMapping): EscalationReason[] {
   return RECIPIENT_CATEGORY_IDS.flatMap((category) => {
@@ -123,7 +135,7 @@ function scholarlyDifferenceReasons(mapping: CategoryMapping): EscalationReason[
           `Recognised scholars differ on ${difference.entry.topic}, and this campaign sits inside that difference.`,
           sentence(difference.whyThisApplies),
           sentence(difference.entry.summary),
-          "Which of those positions does platform policy apply to this campaign?",
+          "Which position does the scholar you follow hold, and does it cover this campaign?",
         ].join(" "),
         citations: finding.status === "supported" ? [...finding.citations] : [],
       },
@@ -161,7 +173,7 @@ function claimWithoutSupportReasons(
           ? "The campaign asserts its own zakat eligibility."
           : sentence(`The campaign asserts its own zakat eligibility, in its words: "${claim.quote}"`),
         "No category of recipient came out supported by the story, so the assertion rests on nothing the text states.",
-        "On which basis, if any, should that claim be assessed?",
+        "What makes the people this campaign helps eligible to receive zakat, and who exactly will receive the money you raise?",
       ].join(" "),
       citations: claim.quote === null ? [] : [resolveCitation(campaign.story, claim.quote)],
     },
@@ -171,10 +183,9 @@ function claimWithoutSupportReasons(
 /**
  * Every category came back unresolved and the story does not say who the money is for.
  *
- * This is refuse-and-ask-the-organizer territory like the rest, but the reviewer has a prior
- * question: whether a campaign this thin is worth a round of correspondence at all. Asking
- * that explicitly is what stops the missing-evidence report from being sent reflexively to
- * an organizer who has not yet said anything to follow up on.
+ * This is refuse-and-ask-the-organizer territory like the rest, and the first thing to ask is
+ * the fact the whole file is missing: who the money is for and what it buys. Until the
+ * organizer answers that, the per-category questions have nothing to attach to.
  */
 function nothingResolvableReasons(
   facts: ExtractedFacts,
@@ -193,7 +204,7 @@ function nothingResolvableReasons(
       kind: "nothing_resolvable" as const,
       question: [
         "No category of recipient was resolved either way and the story does not say who the money is for.",
-        "Should the organizer be asked for the missing information, or should this campaign be declined without a further round?",
+        "Who will receive the money you raise, and what will it be spent on?",
       ].join(" "),
       citations: [],
     },

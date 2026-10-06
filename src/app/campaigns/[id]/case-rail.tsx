@@ -22,11 +22,11 @@ export function CaseRail({ hasRun, refused }: { hasRun: boolean; refused: boolea
 
   if (hasRun) {
     items.push({ href: "#refusal", label: "Refusal", ...(refused ? { dot: "unknown" } : {}) });
+    items.push({ href: "#ask-organizer", label: "Questions to ask the organizer" });
+    items.push({ href: "#ask-scholar", label: "Questions to take to a scholar you trust" });
+    items.push({ href: "#only-you", label: "What only you can check" });
     items.push({ href: "#findings", label: "What the text says about each category" });
-    items.push({ href: "#questions", label: "What to ask the organizer" });
   }
-
-  items.push({ href: "#precedent", label: "Precedent" });
 
   return (
     <nav aria-label="Sections" className="rail">

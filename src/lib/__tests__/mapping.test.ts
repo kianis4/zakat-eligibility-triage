@@ -871,4 +871,42 @@ describe("the mapping prompt for a fully specified campaign", () => {
       "9b9a2819373f68a497fddc8803a182a5c237ebcd68cd742d6380b6ec14e01db0",
     );
   });
+
+  it("prints no category or goal line when the donor did not supply one", async () => {
+    const model = modelReturning(nothingSupported);
+    await mapCategories({ id: fixture.id, title: fixture.title, story: fixture.story }, noQuotes, model);
+
+    const user = model.doGenerateCalls[0]?.prompt[1];
+    const text = user?.role === "user" && user.content[0]?.type === "text" ? user.content[0].text : "";
+
+    expect(text.split("\n").slice(0, 3)).toEqual([
+      "Campaign title: Three months of rent and food for Rukiya and her boys",
+      "",
+      "Facts already extracted from this story, each anchored to a span of it:",
+    ]);
+  });
+
+  it("states the goal without a currency when only the amount was supplied", async () => {
+    const model = modelReturning(nothingSupported);
+    await mapCategories(
+      { id: fixture.id, title: fixture.title, story: fixture.story, goalAmount: 1800 },
+      noQuotes,
+      model,
+    );
+
+    const call = JSON.stringify(model.doGenerateCalls[0]?.prompt);
+
+    expect(call).toContain("Stated goal: 1800\\n");
+    expect(call).not.toContain("undefined");
+  });
+
+  it("never puts the organizer into the prompt", async () => {
+    const model = modelReturning(nothingSupported);
+    await mapCategories(fixture, noQuotes, model);
+
+    const call = JSON.stringify(model.doGenerateCalls[0]?.prompt);
+
+    expect(call).not.toContain("Sumaya Idrissi");
+    expect(call).not.toContain("Birmingham, United Kingdom");
+  });
 });
