@@ -1,8 +1,11 @@
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+
 import { MockLanguageModelV3 } from "ai/test";
 import { describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 
-import type { CampaignInput } from "../campaign";
+import { CampaignInput } from "../campaign";
 import { ExtractionError, extractFacts } from "../extraction";
 
 const campaign: CampaignInput = {
@@ -297,5 +300,65 @@ describe("extractFacts re-asking once", () => {
 
     expect((error as ExtractionError).reason).toBe("model_call_failed");
     expect(unreachable.doGenerateCalls).toHaveLength(1);
+  });
+});
+
+/**
+ * The exact request the eval corpus sends, pinned so a change to how a campaign is rendered
+ * into the prompt cannot move the eval baseline unnoticed.
+ *
+ * Fixture 0001 supplies every optional field, which is the shape every eval fixture has. The
+ * user text is pinned literally so a failure says which line moved, and the whole prompt,
+ * system text included, is pinned by hash so nothing else can move either.
+ */
+describe("the extraction prompt for a fully specified campaign", () => {
+  const fixture = CampaignInput.parse(
+    JSON.parse(
+      readFileSync(
+        new URL(
+          "../../../fixtures/evals/0001-rent-shortfall-for-a-mother-of-two.json",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ),
+  );
+
+  const noQuotes = {
+    beneficiary: { kind: "unclear", description: "Not stated." },
+    statedPurposes: [],
+    amountsMentioned: [],
+    organizerRoleClaim: null,
+    hardshipClaims: [],
+    explicitZakatClaim: { present: false, quote: null },
+    fundRecipient: { recipient: "unstated", quote: null },
+  };
+
+  it("is byte-identical to the request the eval baseline was measured on", async () => {
+    const model = modelReturning(noQuotes);
+    await extractFacts(fixture, model);
+
+    const prompt = model.doGenerateCalls[0]?.prompt;
+    const user = prompt?.[1];
+
+    expect(user).toEqual({
+      role: "user",
+      content: [
+        {
+          type: "text",
+          text: [
+            "Campaign title: Three months of rent and food for Rukiya and her boys",
+            "Platform category: Poverty Relief",
+            "Stated goal: 1800 GBP",
+            "",
+            "Campaign story:",
+            fixture.story,
+          ].join("\n"),
+        },
+      ],
+    });
+    expect(createHash("sha256").update(JSON.stringify(prompt)).digest("hex")).toBe(
+      "ff4434f1fd18cc52d89e282c0f6b5a8585074409405501370193fbce508ced17",
+    );
   });
 });
