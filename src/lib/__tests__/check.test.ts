@@ -151,6 +151,20 @@ describe("checking a pasted campaign in one step", () => {
     expect(await database.db.select().from(campaigns)).toHaveLength(0);
     expect(await database.db.select().from(triageRuns)).toHaveLength(0);
   });
+
+  it("still answers the donor when the database goes away mid-check", async () => {
+    const lost = await createTestDatabase();
+    const dropsTheDatabase = new MockLanguageModelV3({
+      doGenerate: async () => {
+        await lost.close();
+        throw new Error("provider down");
+      },
+    });
+
+    const result = await runCheck({ title: "Help the Haddad family", story }, { db: lost.db, model: dropsTheDatabase, quota: visitor });
+
+    expect(result).toMatchObject({ ok: false, code: "unreadable" });
+  });
 });
 
 /**

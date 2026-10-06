@@ -96,7 +96,12 @@ export async function runCheck(
   );
 
   if (failed) {
-    await db.delete(campaigns).where(eq(campaigns.id, row.id));
+    // If the database is the thing that failed, the row is left for the retention purge; the
+    // donor still gets an answer rather than an error page.
+    await db
+      .delete(campaigns)
+      .where(eq(campaigns.id, row.id))
+      .catch(() => undefined);
 
     return refused("unreadable");
   }
