@@ -1,17 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 
-import { runTriageAction, submitDecision } from "../actions";
+import * as actions from "../actions";
+import { checkCampaign } from "../actions";
 
 /**
- * A form that arrives without the campaign it is about.
+ * A submission the schema refuses goes back to the paste form with the reason on it.
  *
- * This is the shape of a template bug rather than of reviewer error: a hidden field that
- * stopped being rendered posts every other field intact. The module says a failure sends the
- * reviewer somewhere with the reason on it, and it used to throw a raw schema error here
- * instead, which is a stack trace on a reviewer's screen and a claim the code did not honour.
- *
- * Nothing is written on this path, so there is no database and no need for one: the id is
+ * Nothing is written on this path, so there is no database and no need for one: the form is
  * checked before anything is opened.
  */
 async function failureFrom(work: Promise<unknown>): Promise<unknown> {
@@ -27,27 +23,24 @@ function digestOf(error: unknown): string {
     : "";
 }
 
-describe("a form that does not say which campaign it is about", () => {
-  it("sends a triage request back to the queue with the reason", async () => {
-    const thrown = await failureFrom(runTriageAction(new FormData()));
+describe("checking a campaign that was pasted wrong", () => {
+  it("sends the donor back to the paste form with the reason", async () => {
+    const submitted = new FormData();
+    submitted.append("title", "Help the Haddad family");
+    submitted.append("story", "   ");
+
+    const thrown = await failureFrom(checkCampaign(submitted));
 
     expect(thrown).not.toBeInstanceOf(ZodError);
     expect(digestOf(thrown)).toContain("NEXT_REDIRECT");
     expect(decodeURIComponent(digestOf(thrown))).toContain(
-      "/campaigns?error=That form did not say which campaign it was about",
+      ";/?error=story-missing;",
     );
   });
+});
 
-  it("sends a decision back to the queue with the reason", async () => {
-    const submitted = new FormData();
-    submitted.append("action", "approve");
-    submitted.append("reviewer", "Amina Suleiman");
-    submitted.append("note", "The debt is currently due.");
-
-    const thrown = await failureFrom(submitDecision(submitted));
-
-    expect(thrown).not.toBeInstanceOf(ZodError);
-    expect(digestOf(thrown)).toContain("NEXT_REDIRECT");
-    expect(decodeURIComponent(digestOf(thrown))).toContain("/campaigns?error=That form did not");
+describe("the server actions", () => {
+  it("offer one step, the check, and no way to record a decision", () => {
+    expect(Object.keys(actions).sort()).toEqual(["checkCampaign"]);
   });
 });

@@ -15,7 +15,9 @@ import { Khatam } from "./khatam";
  *
  * The bar carries the product's own name and nothing else. The visual language is a tribute to
  * the platforms this tool would sit beside; the name and the mark are not, and neither appears
- * here. docs/design.md holds the rest of the contract.
+ * here. The footer says so in words on every page, because a donor arriving from a campaign
+ * link could otherwise take the tool for the platform's own. docs/design.md holds the rest of
+ * the contract.
  */
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -32,10 +34,11 @@ const lora = Lora({
   variable: "--font-lora",
 });
 
+const INDEPENDENCE = "Independent project, not affiliated with LaunchGood or any crowdfunding platform.";
+
 export const metadata: Metadata = {
   title: "Zakat-Eligibility Triage",
-  description:
-    "Assembles cited evidence about a crowdfunding campaign for a qualified human reviewer.",
+  description: `Assembles cited evidence about a crowdfunding campaign for the donor deciding whether to give zakat to it. ${INDEPENDENCE}`,
 };
 
 export const viewport: Viewport = {
@@ -57,7 +60,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </Link>
           </div>
         </header>
-        <div className="page">{children}</div>
+        <div className="page">
+          {children}
+          <footer className="page-footer">
+            <span>{INDEPENDENCE}</span>
+          </footer>
+        </div>
       </body>
     </html>
   );

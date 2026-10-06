@@ -13,9 +13,13 @@ export const Organizer = z.object({
 });
 
 /**
- * A submitted campaign in the shape the platform hands it to us.
+ * A campaign as a donor pasted it, or as an eval fixture records it.
  *
- * `category` stays a plain string on purpose. It is the platform's own
+ * Only the title and the story are required, because they are what every campaign page shows.
+ * The rest is optional because a donor may not have it, and the prompts print a line for a
+ * field only when it is present. The organizer is never printed into a prompt at all.
+ *
+ * `category` stays a plain string on purpose. It is the campaign page's own
  * taxonomy, it changes without our involvement, and it is not evidence of
  * anything. Modelling it as an enum here would quietly turn a merchandising
  * label into a category of zakat recipient.
@@ -24,10 +28,10 @@ export const CampaignInput = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   story: z.string().min(1),
-  category: z.string().min(1),
-  goalAmount: z.number().positive(),
-  currency: z.string().min(1),
-  organizer: Organizer,
+  category: z.string().min(1).optional(),
+  goalAmount: z.number().positive().optional(),
+  currency: z.string().min(1).optional(),
+  organizer: Organizer.optional(),
 });
 
 export type Organizer = z.infer<typeof Organizer>;

@@ -1,7 +1,7 @@
 # ADR-0008: A campaign's outcome is a decision row, and there is nowhere else to put one
 
 Date: 2026-08-19
-Status: accepted
+Status: superseded by ADR-0010
 
 ## Context
 ADR-0001 states that no code path publishes an eligibility outcome without a recorded human

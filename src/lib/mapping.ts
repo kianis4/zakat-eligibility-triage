@@ -756,8 +756,12 @@ async function attemptMapping(
       system: SYSTEM_PROMPT,
       prompt: [
         `Campaign title: ${input.title}`,
-        `Platform category (the organizer's own selection, evidence of nothing): ${input.category}`,
-        `Stated goal: ${input.goalAmount} ${input.currency}`,
+        ...(input.category === undefined
+          ? []
+          : [`Platform category (the organizer's own selection, evidence of nothing): ${input.category}`]),
+        ...(input.goalAmount === undefined
+          ? []
+          : [`Stated goal: ${[input.goalAmount, input.currency].filter((part) => part !== undefined).join(" ")}`]),
         "",
         "Facts already extracted from this story, each anchored to a span of it:",
         JSON.stringify(facts, null, 2),

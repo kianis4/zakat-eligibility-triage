@@ -8,7 +8,7 @@ import {
   scholarlyDifferenceById,
   type RecipientCategory,
 } from "../categories";
-import { evaluateEscalation } from "../escalation";
+import { audienceOf, ESCALATION_REASON_KINDS, evaluateEscalation } from "../escalation";
 import type { ExtractedFacts } from "../extraction";
 import { type CategoryMapping, type CategoryFinding, mapCategories } from "../mapping";
 
@@ -315,11 +315,15 @@ describe("a campaign that lands on a scholarly difference", () => {
       .trim();
 
     expect(authored).toBe(
-      "Recognised scholars differ on , and this campaign sits inside that difference. Which of those positions does platform policy apply to this campaign?",
+      "Recognised scholars differ on , and this campaign sits inside that difference. Which position does the scholar you follow hold, and does it cover this campaign?",
     );
   });
 
-  it("asks what platform policy applies rather than asking the reviewer to settle the fiqh", () => {
+  /**
+   * The donor is the one who has to act on a difference, and the honest thing to hand them is
+   * the question to take to a scholar they trust. No platform is party to that question.
+   */
+  it("asks which position the donor's own scholar holds rather than what a platform applies", () => {
     const decision = evaluateEscalation(waterCampaign, waterFacts, mapping);
 
     if (!decision.escalate) {
@@ -328,8 +332,8 @@ describe("a campaign that lands on a scholarly difference", () => {
 
     const [difference] = decision.reasons;
 
-    expect(difference.question).toContain("platform policy");
-    expect(difference.question).toContain("this campaign");
+    expect(difference.question).toContain("the scholar you follow");
+    expect(difference.question).not.toMatch(/platform/i);
     expect(difference.question.endsWith("?")).toBe(true);
   });
 });
@@ -367,7 +371,7 @@ describe("a campaign that asserts its own eligibility with nothing behind the as
     ),
   });
 
-  it("treats the claim as a question for the reviewer rather than as evidence", () => {
+  it("treats the claim as a question for the organizer rather than as evidence", () => {
     const decision = evaluateEscalation(claimCampaign, claimFacts, mapping);
 
     if (!decision.escalate) {
@@ -379,7 +383,9 @@ describe("a campaign that asserts its own eligibility with nothing behind the as
     const [claim] = decision.reasons;
 
     expect(claim.question).toContain(claimQuote);
-    expect(claim.question).toContain("On which basis");
+    expect(claim.question).not.toContain("On which basis");
+    expect(claim.question).toMatch(/\byou\b[^.]*\?$/);
+    expect(claim.question).not.toMatch(/platform/i);
     expect(claim.question.endsWith("?")).toBe(true);
   });
 
@@ -440,7 +446,7 @@ describe("a campaign the story resolves nothing about", () => {
     ),
   );
 
-  it("asks the reviewer whether to engage at all", () => {
+  it("asks the organizer who the money is for", () => {
     const decision = evaluateEscalation(emptyCampaign, emptyFacts, mapping);
 
     if (!decision.escalate) {
@@ -451,7 +457,9 @@ describe("a campaign the story resolves nothing about", () => {
 
     const [nothing] = decision.reasons;
 
-    expect(nothing.question).toContain("declined");
+    expect(nothing.question).not.toContain("declined");
+    expect(nothing.question).toMatch(/\byou\b[^.]*\?$/);
+    expect(nothing.question).not.toMatch(/platform/i);
     expect(nothing.question.endsWith("?")).toBe(true);
     expect(nothing.citations).toEqual([]);
   });
@@ -522,5 +530,20 @@ describe("evaluateEscalation", () => {
     expect(evaluateEscalation(cleanCampaign, cleanFacts, mapping)).toEqual(
       evaluateEscalation(cleanCampaign, cleanFacts, mapping),
     );
+  });
+});
+
+/**
+ * Who a refusal's question is for. A donor can put a factual question to the organizer, and
+ * cannot put a question about where scholars differ to anyone but a scholar.
+ */
+describe("audienceOf", () => {
+  it("sends a scholarly difference to a scholar and everything else to the organizer", () => {
+    expect(Object.fromEntries(ESCALATION_REASON_KINDS.map((kind) => [kind, audienceOf(kind)]))).toEqual({
+      mixed_use: "organizer",
+      scholarly_difference: "scholar",
+      claim_without_support: "organizer",
+      nothing_resolvable: "organizer",
+    });
   });
 });

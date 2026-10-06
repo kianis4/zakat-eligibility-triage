@@ -1,9 +1,14 @@
 import Link from "next/link";
 
+import { checkCampaign } from "./campaigns/actions";
+import { SubmitButton } from "./campaigns/submit-button";
+import { checkErrorMessage } from "../lib/check-errors";
+import { quotaLimits } from "../lib/quota";
 import { Khatam } from "./khatam";
+import { SadaqahNote } from "./sadaqah-note";
 
 /**
- * The landing page, which is the README made walkable.
+ * The landing page: the paste form, then the README made walkable.
  *
  * Every sentence here is the README's or an ADR's, verbatim or lightly adapted to the surface.
  * Nothing on this page states a claim, a number, or a point of fiqh that is not already argued
@@ -15,10 +20,9 @@ const REPOSITORY = "https://github.com/kianis4/zakat-eligibility-triage";
 const STEPS = [
   "extracts a typed record of the facts from free-text campaign copy",
   "maps the text against each of the eight recipient categories as supported, not supported, or insufficient evidence, citing the exact span behind every mapping",
-  "reports what evidence is missing and what a reviewer should ask the organizer",
-  "retrieves comparable previously adjudicated cases and shows them to the reviewer as precedent, rather than feeding them back to the model to imitate",
-  "refuses to determine ambiguous cases and escalates with the question a human must answer",
-  "records the human decision, which is authoritative",
+  "reports what evidence is missing and what to ask the organizer",
+  "refuses to determine ambiguous cases and says which question has to be answered, and whether the organizer or a scholar can answer it",
+  "stores nothing about what you decide, because what you decide is yours",
 ] as const;
 
 const INVARIANTS = [
@@ -34,11 +38,6 @@ const INVARIANTS = [
     adr: "ADR-0003",
   },
   {
-    invariant: "Retrieved precedent renders to the reviewer and never enters a prompt.",
-    how: "Retrieval belongs to the render, and src/lib/triage.ts has no way to reach it. A prompt-recording trace test and an import-graph fence hold it.",
-    adr: "ADR-0004",
-  },
-  {
     invariant: "The refusal is deterministic code over typed output.",
     how: "The model cannot talk the pipeline out of an escalation, and escalate: true carries a non-empty reason list, so a bare needs-review flag cannot be constructed.",
     adr: "ADR-0006",
@@ -49,10 +48,9 @@ const INVARIANTS = [
     adr: "ADR-0007",
   },
   {
-    invariant:
-      "The only representation of an outcome in the entire schema is a human decision row.",
-    how: "SQL CHECK constraints enforce it, and the suite proves the constraints by inserting past the application-level validation.",
-    adr: "ADR-0008",
+    invariant: "No table in the schema carries an outcome.",
+    how: "A schema guard fails the suite when any column is named like a status, a verdict or an eligibility flag, and the guard is itself tested against a schema that has one.",
+    adr: "ADR-0010",
   },
 ] as const;
 
@@ -96,25 +94,131 @@ function Eyebrow({ children }: { children: string }) {
   );
 }
 
-export default function Home() {
+/**
+ * The one form on the site. Only the title and the story are required, because they are what
+ * every campaign page shows; the rest helps the agent read the story and is often not to hand.
+ */
+function PasteForm() {
+  return (
+    <form action={checkCampaign}>
+      <div className="field-grid">
+        <div className="field field--wide">
+          <label className="field__label" htmlFor="title">
+            Campaign title
+          </label>
+          <input className="input" id="title" maxLength={300} name="title" required />
+        </div>
+
+        <div className="field field--wide">
+          <label className="field__label" htmlFor="story">
+            Campaign story, pasted as the page shows it
+          </label>
+          <textarea
+            className="textarea"
+            id="story"
+            maxLength={20000}
+            name="story"
+            required
+            rows={10}
+          />
+        </div>
+
+        <div className="field field--wide">
+          <label className="field__label" htmlFor="category">
+            Category on the campaign page, if it shows one
+          </label>
+          <input className="input" id="category" maxLength={100} name="category" />
+        </div>
+
+        <div className="field">
+          <label className="field__label" htmlFor="goalAmount">
+            Stated goal, if any
+          </label>
+          <input
+            className="input"
+            id="goalAmount"
+            min="0"
+            name="goalAmount"
+            step="0.01"
+            type="number"
+          />
+        </div>
+
+        <div className="field">
+          <label className="field__label" htmlFor="currency">
+            Currency
+          </label>
+          <input className="input" id="currency" maxLength={10} name="currency" size={5} />
+        </div>
+      </div>
+
+      <SubmitButton pendingLabel="Reading the campaign">Check the campaign</SubmitButton>
+    </form>
+  );
+}
+
+/**
+ * What happens to what the donor pastes, stated before they paste it. Each sentence is a
+ * property the code holds: the retention purge, the unlisted result route with its noindex
+ * header, and the salted hash that is the only form of an address the rate limit stores.
+ */
+function PrivacyNotice() {
+  const { retentionDays } = quotaLimits(process.env);
+
+  return (
+    <div className="card measure">
+      <p>
+        {`What you paste is stored for ${retentionDays} days, so the link to your result keeps working, and is then deleted.`}{" "}
+        There are no accounts. The link is unguessable and unlisted: nothing on this site links
+        to it and search engines are asked not to index it, so it reaches whoever you share it
+        with.
+      </p>
+      <p>
+        Your IP address is kept only as a salted hash, for rate limiting, and for no more than
+        two days. The campaign text is sent to Anthropic&apos;s API to be read. Do not paste
+        anything private, such as a name, an address or a message that was not public.
+      </p>
+    </div>
+  );
+}
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
+  const message = error === undefined ? null : checkErrorMessage(error, quotaLimits(process.env));
+
   return (
     <main>
       <section className="hero">
         <Khatam className="hero__mark" outline size={56} />
         <h1>Zakat-Eligibility Triage</h1>
         <p className="hero__lede">
-          A triage agent for crowdfunding campaigns. It reads a submitted campaign, assembles the
-          evidence a zakat determination would turn on, names what the text leaves missing or
-          contested, and hands the file to a qualified human reviewer.
+          Paste a crowdfunding campaign you are thinking of giving zakat to. An agent reads it,
+          sets out what the text does and does not say about each of the eight categories of
+          zakat recipient, and gives you the questions to ask before you give. It never tells
+          you whether to give.
         </p>
         <div className="hero__actions">
-          <Link className="btn" href="/campaigns">
-            Open the queue
-          </Link>
           <Link className="btn btn--ghost" href="/design">
             The system design
           </Link>
         </div>
+      </section>
+
+      <section className="section">
+        {message === null ? null : (
+          <p className="alert" role="alert">
+            {message}
+          </p>
+        )}
+        <div className="card">
+          <PasteForm />
+        </div>
+        <SadaqahNote />
+        <PrivacyNotice />
       </section>
 
       <section className="section measure">
@@ -126,33 +230,31 @@ export default function Home() {
           named category a campaign falls under and not about how deserving it looks.
         </p>
         <p>
-          That review load is not spread evenly through the year. A Ramadan giving report cited in
-          section 1.5 of the research brief states that &quot;78% of Zakat donations came inside of
-          Ramadan&quot;, so the demand arrives compressed into thirty days, at the one point in the
-          year when reviewer attention is scarcest. A triage system&apos;s value sits almost
-          entirely inside that window, and so does its risk.
+          Most of that giving happens in a short window. A Ramadan giving report cited in section
+          1.5 of the research brief states that &quot;78% of Zakat donations came inside of
+          Ramadan&quot;, so most donors are choosing where their zakat goes in the same thirty
+          days, with the least time in the year to look closely.
         </p>
         <p>
-          A wrong determination is a religious harm in both directions, and the failure asymmetry in
-          section 6 of the research brief is what shapes the design. A campaign wrongly badged
-          eligible may leave a donor&apos;s obligation undischarged, and that harm is silent. A
-          campaign wrongly denied loses access to the zakat donor pool at the moment that pool is
-          largest, which during Ramadan is effectively a denial for the year, and the harm falls on
-          people who are by construction likely to be poor. Only one of the two generates its own
-          corrective signal, and only one is recoverable.
+          Getting it wrong costs something in both directions, and the asymmetry in section 6 of
+          the research brief is what shapes this tool. Zakat given to a campaign outside the eight
+          categories may leave your obligation undischarged, and you will almost never find out. A
+          campaign passed over by mistake loses your zakat at the moment it needs it most, and the
+          harm falls on people who are by construction likely to be poor.
         </p>
         <p>
-          So the honest default under uncertainty is a question, not a verdict. It costs throughput
-          exactly where throughput is scarcest, which is the real price of this design and is stated
-          rather than hidden.
+          Campaign copy is written to raise money, not to settle a question of fiqh, and it rarely
+          states the facts a ruling would turn on. So the honest answer to most campaigns is a
+          question, not a verdict. This tool gives you the questions, says who can answer each
+          one, and leaves the answer with you and the scholar you follow.
         </p>
       </section>
 
       <section className="section">
         <Eyebrow>What it does</Eyebrow>
         <p className="measure">
-          Prepares a cited evidence file about a submitted campaign so that a qualified human
-          reviewer can adjudicate it. For a submitted campaign it:
+          Prepares a cited evidence file about a pasted campaign, for the donor deciding whether
+          to give their zakat to it. For a pasted campaign it:
         </p>
         <ol className="steps">
           {STEPS.map((step) => (
@@ -164,9 +266,9 @@ export default function Home() {
       <section className="section">
         <Eyebrow>Trust design</Eyebrow>
         <p className="measure">
-          The agent prepares the file and a qualified human adjudicates. That boundary is
-          architectural rather than a disclaimer: there is no code path in which a determination is
-          published without a recorded human decision.
+          The agent prepares the file and you decide. That boundary is architectural rather than
+          a disclaimer: no table in the schema can hold an outcome, so there is nothing for the
+          system to publish.
         </p>
         <div className="grid-2">
           {INVARIANTS.map((entry) => (

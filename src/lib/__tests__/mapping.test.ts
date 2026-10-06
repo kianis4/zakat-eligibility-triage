@@ -1,8 +1,11 @@
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+
 import { MockLanguageModelV3 } from "ai/test";
 import { describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 
-import type { CampaignInput } from "../campaign";
+import { CampaignInput } from "../campaign";
 import { POLICY_VERSION, RECIPIENT_CATEGORY_IDS, scholarlyDifferenceById } from "../categories";
 import type { ExtractedFacts } from "../extraction";
 import { CategoryFinding, MappingError, mapCategories, resolveCitation } from "../mapping";
@@ -808,5 +811,102 @@ describe("a question the reviewer cannot send as it stands", () => {
     });
 
     expect(parsed.success).toBe(false);
+  });
+});
+
+/**
+ * The exact request the eval corpus sends, pinned for the reason the extraction test gives:
+ * a change to how a campaign is rendered into the prompt must not move the eval baseline
+ * unnoticed. The facts are fixed here so the hash depends on nothing but the rendering.
+ */
+describe("the mapping prompt for a fully specified campaign", () => {
+  const fixture = CampaignInput.parse(
+    JSON.parse(
+      readFileSync(
+        new URL(
+          "../../../fixtures/evals/0001-rent-shortfall-for-a-mother-of-two.json",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ),
+  );
+
+  const noQuotes: ExtractedFacts = {
+    beneficiary: { kind: "unclear", description: "x" },
+    statedPurposes: [],
+    amountsMentioned: [],
+    organizerRoleClaim: null,
+    hardshipClaims: [],
+    explicitZakatClaim: { present: false, quote: null },
+    fundRecipient: { recipient: "unstated", quote: null },
+  };
+
+  const nothingSupported = {
+    findings: RECIPIENT_CATEGORY_IDS.map((id) => ({
+      category: id,
+      quotes: [],
+      status: "not_supported",
+      rationale: "The story says nothing about this.",
+      scholarlyDifference: null,
+    })),
+    mixedUseSignals: [],
+  };
+
+  it("is byte-identical to the request the eval baseline was measured on", async () => {
+    const model = modelReturning(nothingSupported);
+    await mapCategories(fixture, noQuotes, model);
+
+    const prompt = model.doGenerateCalls[0]?.prompt;
+    const user = prompt?.[1];
+    const text = user?.role === "user" && user.content[0]?.type === "text" ? user.content[0].text : "";
+
+    expect(text.split("\n").slice(0, 4)).toEqual([
+      "Campaign title: Three months of rent and food for Rukiya and her boys",
+      "Platform category (the organizer's own selection, evidence of nothing): Poverty Relief",
+      "Stated goal: 1800 GBP",
+      "",
+    ]);
+    expect(createHash("sha256").update(JSON.stringify(prompt)).digest("hex")).toBe(
+      "9b9a2819373f68a497fddc8803a182a5c237ebcd68cd742d6380b6ec14e01db0",
+    );
+  });
+
+  it("prints no category or goal line when the donor did not supply one", async () => {
+    const model = modelReturning(nothingSupported);
+    await mapCategories({ id: fixture.id, title: fixture.title, story: fixture.story }, noQuotes, model);
+
+    const user = model.doGenerateCalls[0]?.prompt[1];
+    const text = user?.role === "user" && user.content[0]?.type === "text" ? user.content[0].text : "";
+
+    expect(text.split("\n").slice(0, 3)).toEqual([
+      "Campaign title: Three months of rent and food for Rukiya and her boys",
+      "",
+      "Facts already extracted from this story, each anchored to a span of it:",
+    ]);
+  });
+
+  it("states the goal without a currency when only the amount was supplied", async () => {
+    const model = modelReturning(nothingSupported);
+    await mapCategories(
+      { id: fixture.id, title: fixture.title, story: fixture.story, goalAmount: 1800 },
+      noQuotes,
+      model,
+    );
+
+    const call = JSON.stringify(model.doGenerateCalls[0]?.prompt);
+
+    expect(call).toContain("Stated goal: 1800\\n");
+    expect(call).not.toContain("undefined");
+  });
+
+  it("never puts the organizer into the prompt", async () => {
+    const model = modelReturning(nothingSupported);
+    await mapCategories(fixture, noQuotes, model);
+
+    const call = JSON.stringify(model.doGenerateCalls[0]?.prompt);
+
+    expect(call).not.toContain("Sumaya Idrissi");
+    expect(call).not.toContain("Birmingham, United Kingdom");
   });
 });

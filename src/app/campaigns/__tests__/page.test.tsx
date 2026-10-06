@@ -1,28 +1,27 @@
-import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import CampaignQueuePage from "../page";
+import CampaignsPage from "../page";
 
-describe("the campaign queue page", () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
+function digestOf(error: unknown): string {
+  return typeof error === "object" && error !== null && "digest" in error
+    ? String((error as { digest: unknown }).digest)
+    : "";
+}
 
-  it("renders an unconfigured state rather than throwing when there is no database", async () => {
-    vi.stubEnv("DATABASE_URL", "");
+/**
+ * There is no listing. A campaign is reached by the link the donor was given and by nothing
+ * else, so the path that used to hold a queue sends the reader to the paste form.
+ */
+describe("/campaigns", () => {
+  it("lists nothing and sends the reader to the paste form", () => {
+    let thrown: unknown = null;
 
-    const page = await CampaignQueuePage({ searchParams: Promise.resolve({}) });
+    try {
+      CampaignsPage();
+    } catch (error: unknown) {
+      thrown = error;
+    }
 
-    expect(renderToStaticMarkup(page)).toContain("Database not configured");
-  });
-
-  it("tells a reviewer why their submission bounced", async () => {
-    vi.stubEnv("DATABASE_URL", "");
-
-    const page = await CampaignQueuePage({
-      searchParams: Promise.resolve({ error: "There is nothing to triage without the story." }),
-    });
-
-    expect(renderToStaticMarkup(page)).toContain("There is nothing to triage without the story.");
+    expect(digestOf(thrown)).toMatch(/^NEXT_REDIRECT;[a-z]+;\/;/);
   });
 });

@@ -9,20 +9,12 @@ import { campaigns, triageRuns } from "../../db/schema";
 import { createTestDatabase, type TestDatabase } from "../../db/testing";
 import { campaignRow, FIXTURE_CAMPAIGN } from "../../testing/triage-fixtures";
 import { POLICY_VERSION, RECIPIENT_CATEGORY_IDS } from "../categories";
-import {
-  agreementWith,
-  publishedOutcome,
-  recordDecision,
-  supportedCategories,
-} from "../decision";
 import { ExtractionError } from "../extraction";
 import { MappingError } from "../mapping";
 import * as triage from "../triage";
 import { runTriage } from "../triage";
 
 const SRC = fileURLToPath(new URL("../../", import.meta.url));
-
-const webhookUrl = "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX";
 
 const question =
   "Could you tell us who receives the money once it is raised, and what it pays for first?";
@@ -113,19 +105,6 @@ function refusingModel() {
   return modelAnswering([factsPayload("unclear"), mappingPayload("insufficient_evidence")]);
 }
 
-type Call = { url: string; init: RequestInit | undefined };
-
-function fetchReturning(status: number): { fetch: typeof globalThis.fetch; calls: Call[] } {
-  const calls: Call[] = [];
-
-  const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    calls.push({ url: String(input), init });
-    return { status, ok: status >= 200 && status < 300 } as Response;
-  }) as typeof globalThis.fetch;
-
-  return { fetch, calls };
-}
-
 describe("runTriage", () => {
   let database: TestDatabase;
 
@@ -157,7 +136,6 @@ describe("runTriage", () => {
     expect(stored[0]?.facts.beneficiary.kind).toBe("family_member");
     expect(stored[0]?.mapping.categories["al-gharimin"]?.status).toBe("supported");
     expect(stored[0]?.escalation.escalate).toBe(false);
-    expect(stored[0]?.slackDelivery).toBeNull();
   });
 
   it("records the model that produced the file", async () => {
@@ -173,70 +151,27 @@ describe("runTriage", () => {
     const run = await runTriage(FIXTURE_CAMPAIGN.id, {
       db: database.db,
       model: refusingModel(),
-      slack: { webhookUrl, fetch: fetchReturning(200).fetch },
     });
 
     expect(run.missingEvidence.items).toHaveLength(8);
     expect(run.missingEvidence.questions).toEqual([question]);
   });
 
-  it("posts the refusal to Slack and records that it landed", async () => {
-    const { fetch, calls } = fetchReturning(200);
-
+  /**
+   * A refusal is the donor's to read on the result page, so it is stored like any other file
+   * and sent nowhere. Nothing is recorded about delivery because nothing is delivered.
+   */
+  it("stores a refusal with no delivery state and sends it nowhere", async () => {
     const run = await runTriage(FIXTURE_CAMPAIGN.id, {
       db: database.db,
       model: refusingModel(),
-      slack: { webhookUrl, fetch },
-    });
-
-    expect(run.escalation.escalate).toBe(true);
-    expect(run.slackDelivery).toBe("delivered");
-    expect(calls).toHaveLength(1);
-    expect(calls[0]?.url).toBe(webhookUrl);
-    expect(String(calls[0]?.init?.body)).toContain("Escalated, not determined");
-  });
-
-  it("records an undelivered refusal rather than throwing when no webhook is configured", async () => {
-    const run = await runTriage(FIXTURE_CAMPAIGN.id, {
-      db: database.db,
-      model: refusingModel(),
-      slack: { webhookUrl: "" },
-    });
-
-    expect(run.escalation.escalate).toBe(true);
-    expect(run.slackDelivery).toBe("not_configured");
-    expect(await database.db.select().from(triageRuns)).toHaveLength(1);
-  });
-
-  it("keeps the run when Slack rejects the post, and records the status", async () => {
-    const { fetch } = fetchReturning(500);
-
-    const run = await runTriage(FIXTURE_CAMPAIGN.id, {
-      db: database.db,
-      model: refusingModel(),
-      slack: { webhookUrl, fetch },
     });
 
     const stored = await database.db.select().from(triageRuns);
 
-    expect(run.slackDelivery).toBe("failed:500");
+    expect(run.escalation.escalate).toBe(true);
     expect(stored).toHaveLength(1);
-    expect(stored[0]?.escalation.escalate).toBe(true);
-  });
-
-  it("keeps the run when the post never reaches Slack at all", async () => {
-    const unreachable = (async () => {
-      throw new TypeError("fetch failed");
-    }) as unknown as typeof globalThis.fetch;
-
-    const run = await runTriage(FIXTURE_CAMPAIGN.id, {
-      db: database.db,
-      model: refusingModel(),
-      slack: { webhookUrl, fetch: unreachable },
-    });
-
-    expect(run.slackDelivery).toBe("failed:unreachable");
-    expect(await database.db.select().from(triageRuns)).toHaveLength(1);
+    expect(stored[0]).not.toHaveProperty("slackDelivery");
   });
 
   it("appends a second file rather than rewriting the first", async () => {
@@ -249,7 +184,6 @@ describe("runTriage", () => {
       db: database.db,
       model: refusingModel(),
       now: () => new Date("2026-08-19T12:00:00.000Z"),
-      slack: { webhookUrl: "" },
     });
 
     const stored = await database.db.select().from(triageRuns);
@@ -293,55 +227,6 @@ describe("runTriage", () => {
     await expect(
       runTriage("cmp_never_submitted", { db: database.db, model: resolvingModel() }),
     ).rejects.toThrow(/cmp_never_submitted/);
-  });
-});
-
-/**
- * The invariant, end to end, over a pipeline run rather than over a fixture.
- *
- * The constraint tests in `src/db/__tests__/decision-invariant.test.ts` prove the database
- * refuses what it should. This proves the other half: that a finished, clean, unrefused agent
- * file publishes nothing on its own, and that the only thing which changes that is a human
- * recording a decision.
- */
-describe("a campaign the agent finished still has no outcome", () => {
-  let database: TestDatabase;
-
-  beforeEach(async () => {
-    database = await createTestDatabase();
-    await database.db.insert(campaigns).values(campaignRow());
-  });
-
-  afterEach(async () => {
-    await database.close();
-  });
-
-  it("publishes nothing until a human decides, and then publishes their decision", async () => {
-    const run = await runTriage(FIXTURE_CAMPAIGN.id, {
-      db: database.db,
-      model: resolvingModel(),
-    });
-
-    expect(run.escalation.escalate).toBe(false);
-    expect(supportedCategories(run.mapping)).toEqual(["al-gharimin"]);
-    expect(await publishedOutcome(FIXTURE_CAMPAIGN.id, database.db)).toBeNull();
-
-    await recordDecision(
-      {
-        campaignId: FIXTURE_CAMPAIGN.id,
-        triageRunId: run.id,
-        action: "approve",
-        reviewer: "Amina Suleiman",
-        note: "The debt is named and currently due, and the beneficiary is a person.",
-      },
-      database.db,
-    );
-
-    const outcome = await publishedOutcome(FIXTURE_CAMPAIGN.id, database.db);
-
-    expect(outcome?.action).toBe("approve");
-    expect(outcome?.triageRunId).toBe(run.id);
-    expect(agreementWith(run, "approve").agreed).toBe(true);
   });
 });
 

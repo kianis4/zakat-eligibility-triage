@@ -1,8 +1,10 @@
 # Design contract
 
-The visual language of a warm, trustworthy Muslim crowdfunding platform, applied to a reviewer
-tool. It is a tribute in form only: no other platform's name, logo, or wordmark appears anywhere in
-this app, and the product stays itself.
+The visual language of a warm, trustworthy Muslim crowdfunding platform, applied to a public
+check a donor runs on a campaign before giving zakat to it. It is a tribute in form only: no other
+platform's name, logo, or wordmark appears anywhere in this app, the footer says on every page that
+the project is independent and not affiliated with any crowdfunding platform, and the product stays
+itself.
 
 ## Ground and ink
 

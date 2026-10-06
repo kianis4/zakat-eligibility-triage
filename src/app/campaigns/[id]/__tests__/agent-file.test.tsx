@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import type { TriageRunRow } from "../../../../db/schema";
 import {
+  CROSS_CUTTING_RESTRICTIONS,
   POLICY_VERSION,
   RECIPIENT_CATEGORY_IDS,
   SCHOLARLY_DIFFERENCE_IDS,
@@ -57,7 +58,6 @@ function runWith(overrides: Partial<TriageRunRow> = {}): TriageRunRow {
     escalation: NOT_ESCALATED,
     policyVersion: POLICY_VERSION,
     model: "claude-sonnet-5",
-    slackDelivery: null,
     createdAt: new Date("2026-08-19T11:00:00.000Z"),
     sequence: 1,
     ...overrides,
@@ -68,7 +68,7 @@ function markupOf(run: TriageRunRow): string {
   return renderToStaticMarkup(<AgentFile run={run} />);
 }
 
-describe("the agent file on the reviewer's page", () => {
+describe("the agent file on the result page", () => {
   it("attributes the model's own sentences to the model", () => {
     const markup = markupOf(runWith());
 
@@ -94,7 +94,7 @@ describe("the agent file on the reviewer's page", () => {
     expect(markup).toContain(difference.summary.slice(0, 90));
   });
 
-  it("shows the questions a reviewer would send the organizer", () => {
+  it("shows the questions a donor would send the organizer", () => {
     const markup = markupOf(runWith());
 
     expect(markup).toContain(question);
@@ -121,42 +121,28 @@ describe("the agent file on the reviewer's page", () => {
             },
           ],
         },
-        slackDelivery: "delivered",
       }),
     );
 
     expect(markup).toContain("Which portion of the amount raised");
-    expect(markup).toContain("Posted to the reviewer channel");
   });
 
-  it("says plainly when the refusal reached nobody", () => {
-    const undelivered = markupOf(
-      runWith({
-        escalation: {
-          escalate: true,
-          reasons: [{ kind: "nothing_resolvable", question: "Ask or decline?", citations: [] }],
-        },
-        slackDelivery: "not_configured",
-      }),
-    );
+  it("says nothing about sending the refusal anywhere, because it is not sent", () => {
+    const markups = [
+      markupOf(runWith()),
+      markupOf(
+        runWith({
+          escalation: {
+            escalate: true,
+            reasons: [{ kind: "nothing_resolvable", question: "Ask or decline?", citations: [] }],
+          },
+        }),
+      ),
+    ];
 
-    expect(undelivered).toContain("NOT DELIVERED");
-    expect(undelivered).toContain("No Slack webhook is configured");
-  });
-
-  it("says which failure kept the refusal from reaching anyone", () => {
-    const failed = markupOf(
-      runWith({
-        escalation: {
-          escalate: true,
-          reasons: [{ kind: "nothing_resolvable", question: "Ask or decline?", citations: [] }],
-        },
-        slackDelivery: "failed:500",
-      }),
-    );
-
-    expect(failed).toContain("NOT DELIVERED");
-    expect(failed).toContain("failed:500");
+    for (const markup of markups) {
+      expect(markup).not.toMatch(/slack|\bdeliver(ed)?\b|reviewer channel|notified/i);
+    }
   });
 
   it("records which model read the campaign and against which policy", () => {
@@ -165,5 +151,74 @@ describe("the agent file on the reviewer's page", () => {
     expect(markup).toContain("claude-sonnet-5");
     expect(markup).toContain(POLICY_VERSION);
     expect(markup).toContain("This file decides nothing");
+  });
+});
+
+/**
+ * The donor is the person who acts on the file, and there are two people they can take a
+ * question to. The page sorts every question by who can answer it.
+ */
+describe("the questions, sorted by who can answer them", () => {
+  const organizerQuestion = "Which portion of the amount raised does each of those uses account for?";
+  const scholarQuestion = "Which position does the scholar you follow hold, and does it cover this campaign?";
+
+  const refused = runWith({
+    escalation: {
+      escalate: true,
+      reasons: [
+        { kind: "mixed_use", question: organizerQuestion, citations: [] },
+        { kind: "scholarly_difference", question: scholarQuestion, citations: [] },
+      ],
+    },
+  });
+
+  function section(markup: string, id: string): string {
+    const start = markup.indexOf(`id="${id}"`);
+    const next = markup.indexOf("<h3", start + 1);
+
+    expect(start).toBeGreaterThan(-1);
+
+    return markup.slice(start, next === -1 ? undefined : next);
+  }
+
+  it("puts the organizer's questions under their own heading, missing evidence included", () => {
+    const markup = markupOf(refused);
+    const organizer = section(markup, "ask-organizer");
+
+    expect(organizer).toContain("Questions to ask the organizer");
+    expect(organizer).toContain(organizerQuestion);
+    expect(organizer).toContain(question);
+    expect(organizer).not.toContain(scholarQuestion);
+  });
+
+  it("puts a scholarly difference under a heading of its own, for a scholar the donor trusts", () => {
+    const markup = markupOf(refused);
+    const scholar = section(markup, "ask-scholar");
+
+    expect(scholar).toContain("Questions to take to a scholar you trust");
+    expect(scholar).toContain(scholarQuestion);
+    expect(scholar).not.toContain(organizerQuestion);
+  });
+
+  it("shows the restrictions only the donor can check, and none that bind the recipient", () => {
+    const markup = markupOf(runWith());
+    const donor = CROSS_CUTTING_RESTRICTIONS.filter((entry) => entry.whereItBinds === "donor");
+    const recipient = CROSS_CUTTING_RESTRICTIONS.filter((entry) => entry.whereItBinds !== "donor");
+
+    expect(donor.length).toBeGreaterThan(0);
+
+    for (const entry of donor) {
+      expect(markup).toContain(entry.summary.replace(/'/g, "&#x27;"));
+    }
+
+    for (const entry of recipient) {
+      expect(markup).not.toContain(entry.summary.replace(/'/g, "&#x27;"));
+    }
+  });
+
+  it("speaks to the donor, not to a reviewer working a queue", () => {
+    for (const markup of [markupOf(runWith()), markupOf(refused)]) {
+      expect(markup).not.toMatch(/reviewer|queue|\bdecision|platform policy/i);
+    }
   });
 });

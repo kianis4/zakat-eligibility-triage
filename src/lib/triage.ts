@@ -5,25 +5,12 @@ import type { LanguageModel } from "ai";
 import { eq } from "drizzle-orm";
 
 import type { TriageDatabase } from "../db/index";
-import {
-  campaigns,
-  triageRuns,
-  type CampaignRow,
-  type SlackDelivery,
-  type TriageRunRow,
-} from "../db/schema";
+import { campaigns, triageRuns, type CampaignRow, type TriageRunRow } from "../db/schema";
 import { CampaignInput } from "./campaign";
-import type { EscalationDecision } from "./escalation";
 import { evaluateEscalation } from "./escalation";
 import { extractFacts } from "./extraction";
 import { mapCategories } from "./mapping";
 import { buildMissingEvidenceReport } from "./missing-evidence";
-import {
-  postEscalationToSlack,
-  SlackConfigError,
-  SlackDeliveryError,
-  type SlackPostOptions,
-} from "./slack";
 
 /**
  * Precedent is deliberately absent from this module, and its absence is the design.
@@ -42,8 +29,6 @@ export type RunTriageOptions = {
   model?: LanguageModel;
   /** Injected so a test can pin the timestamp the row records. */
   now?: () => Date;
-  /** Passed through to the Slack post, which is where the webhook and the fetch come from. */
-  slack?: SlackPostOptions;
 };
 
 function modelIdOf(model: LanguageModel): string {
@@ -56,64 +41,18 @@ function modelIdOf(model: LanguageModel): string {
  * `goalAmount` comes back from a numeric column as a string, and the pipeline's input schema
  * wants a number. The conversion happens here rather than in the schema so the column keeps
  * storing money exactly, and `CampaignInput` parses the result so a row that cannot make a
- * valid campaign fails before a model is called on it.
+ * valid campaign fails before a model is called on it. A field the donor left blank is null
+ * in the row and absent from the input, so the prompts print no line for it.
  */
 export function campaignFromRow(row: CampaignRow): CampaignInput {
   return CampaignInput.parse({
     id: row.id,
     title: row.title,
     story: row.story,
-    category: row.category,
-    goalAmount: Number(row.goalAmount),
-    currency: row.currency,
-    organizer: {
-      name: row.organizerName,
-      location: row.organizerLocation,
-      ...(row.organizerRelationshipToBeneficiary === null
-        ? {}
-        : { relationshipToBeneficiary: row.organizerRelationshipToBeneficiary }),
-    },
+    ...(row.category === null ? {} : { category: row.category }),
+    ...(row.goalAmount === null ? {} : { goalAmount: Number(row.goalAmount) }),
+    ...(row.currency === null ? {} : { currency: row.currency }),
   });
-}
-
-/**
- * Sends the refusal to a channel and reports what happened to it.
- *
- * Every outcome is recorded and none of them stops the run being written. The refusal is
- * already assembled at this point, with the question a reviewer has to answer in it, and
- * losing that to a webhook returning 500 would throw away the most valuable thing the
- * pipeline produced for the sake of the least valuable step in it.
- *
- * A missing webhook records `not_configured` rather than passing silently. `postEscalationToSlack`
- * is right to throw on it, because a caller that escalates and sends nothing has failed at
- * the only thing escalation is for. What this caller can do that the poster cannot is make
- * the failure visible: the state is stored and the reviewer page shows the refusal as
- * undelivered, so an unconfigured deployment is something a person can see rather than
- * something the system forgets.
- *
- * The last branch swallows an error to record it, which is a thing worth being uneasy about.
- * It is bounded to a post that never got a response, has no status to name, and would
- * otherwise take the whole run down; `failed:unreachable` is what the reviewer reads.
- */
-async function deliver(
-  campaign: CampaignInput,
-  escalation: EscalationDecision,
-  options: SlackPostOptions,
-): Promise<SlackDelivery> {
-  try {
-    await postEscalationToSlack(campaign, escalation, options);
-    return "delivered";
-  } catch (error: unknown) {
-    if (error instanceof SlackConfigError) {
-      return "not_configured";
-    }
-
-    if (error instanceof SlackDeliveryError) {
-      return `failed:${error.status}`;
-    }
-
-    return "failed:unreachable";
-  }
 }
 
 /**
@@ -127,14 +66,14 @@ async function deliver(
  *
  * What this function does not do is decide anything. It stores facts, a mapping, what is
  * missing and whether the pipeline refused, and every one of those is evidence. The campaign
- * has no outcome when this returns, and acquires one only when a human records a decision
- * against the run it wrote (ADR-0008).
+ * has no outcome when this returns and never acquires one here: the donor reading the file
+ * decides, and records nothing in this system when they do.
  */
 export async function runTriage(
   campaignId: string,
   options: RunTriageOptions,
 ): Promise<TriageRunRow> {
-  const { db, now, slack = {} } = options;
+  const { db, now } = options;
 
   const [row] = await db.select().from(campaigns).where(eq(campaigns.id, campaignId)).limit(1);
 
@@ -150,8 +89,6 @@ export async function runTriage(
   const missingEvidence = buildMissingEvidenceReport(mapping);
   const escalation = evaluateEscalation(campaign, facts, mapping);
 
-  const slackDelivery = escalation.escalate ? await deliver(campaign, escalation, slack) : null;
-
   const [stored] = await db
     .insert(triageRuns)
     .values({
@@ -163,10 +100,23 @@ export async function runTriage(
       escalation,
       policyVersion: mapping.policyVersion,
       model: modelIdOf(model),
-      slackDelivery,
       ...(now === undefined ? {} : { createdAt: now() }),
     })
     .returning();
 
   return stored as TriageRunRow;
+}
+
+/**
+ * Every agent file written about a campaign, oldest first. The result page shows the last.
+ */
+export async function triageRunsFor(
+  campaignId: string,
+  db: TriageDatabase,
+): Promise<TriageRunRow[]> {
+  return db
+    .select()
+    .from(triageRuns)
+    .where(eq(triageRuns.campaignId, campaignId))
+    .orderBy(triageRuns.sequence);
 }

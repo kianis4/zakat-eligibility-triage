@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { campaignRowFrom, fieldsOf, firstIssue, NewCampaignForm } from "../forms";
+import { campaignRowFrom, fieldsOf, firstIssueCode, NewCampaignForm } from "../forms";
 
 const submitted = {
   title: "Help the Haddad family clear their hospital debt",
@@ -8,9 +8,6 @@ const submitted = {
   category: "Medical",
   goalAmount: "9000",
   currency: "JOD",
-  organizerName: "Yusuf Haddad",
-  organizerLocation: "Irbid, Jordan",
-  organizerRelationshipToBeneficiary: "brother",
 };
 
 function formDataFrom(fields: Record<string, string>): FormData {
@@ -56,24 +53,76 @@ describe("reading a submitted campaign off a form", () => {
     expect(row.goalAmount).toBe("9000.55");
   });
 
-  it("turns an untouched relationship field back into no declaration", () => {
+  it("accepts a title and a story with nothing else filled in", () => {
     const row = campaignRowFrom(
-      NewCampaignForm.parse({ ...submitted, organizerRelationshipToBeneficiary: "  " }),
+      NewCampaignForm.parse({
+        title: submitted.title,
+        story: submitted.story,
+        category: " ",
+        goalAmount: "",
+        currency: "",
+      }),
     );
 
-    expect(row.organizerRelationshipToBeneficiary).toBeNull();
+    expect(row.title).toBe(submitted.title);
+    expect(row.story).toBe(submitted.story);
+    expect(row.category).toBeNull();
+    expect(row.goalAmount).toBeNull();
+    expect(row.currency).toBeNull();
+  });
+
+  it("accepts a title and a story when the optional fields are absent altogether", () => {
+    expect(NewCampaignForm.safeParse({ title: submitted.title, story: submitted.story }).success).toBe(
+      true,
+    );
+  });
+
+  it("refuses a title or a story longer than a campaign page carries", () => {
+    const longTitle = NewCampaignForm.safeParse({ ...submitted, title: "t".repeat(301) });
+    const longStory = NewCampaignForm.safeParse({ ...submitted, story: "s".repeat(20001) });
+
+    expect(longTitle.success).toBe(false);
+    expect(longStory.success).toBe(false);
+    expect(NewCampaignForm.safeParse({ ...submitted, story: "s".repeat(20000) }).success).toBe(true);
+  });
+
+  it("refuses a campaign with no title", () => {
+    expect(NewCampaignForm.safeParse({ ...submitted, title: "  " }).success).toBe(false);
   });
 
   it("refuses a campaign with no story to read", () => {
     const parsed = NewCampaignForm.safeParse({ ...submitted, story: "   " });
 
     expect(parsed.success).toBe(false);
-    expect(firstIssue(parsed.error!)).toMatch(/nothing to triage/);
+    expect(firstIssueCode(parsed.error!)).toBe("story-missing");
   });
 
   it("refuses a goal that is not an amount", () => {
-    expect(NewCampaignForm.safeParse({ ...submitted, goalAmount: "" }).success).toBe(false);
     expect(NewCampaignForm.safeParse({ ...submitted, goalAmount: "-5" }).success).toBe(false);
     expect(NewCampaignForm.safeParse({ ...submitted, goalAmount: "many" }).success).toBe(false);
+  });
+
+  it("refuses a goal the stored amount cannot hold, and names it", () => {
+    for (const goalAmount of ["1e15", "1000000000000", "Infinity", "1e400", "0.001", "10.005"]) {
+      const parsed = NewCampaignForm.safeParse({ ...submitted, goalAmount });
+
+      expect(parsed.success, goalAmount).toBe(false);
+      expect(firstIssueCode(parsed.error!), goalAmount).toBe("goal-invalid");
+    }
+
+    expect(firstIssueCode(NewCampaignForm.safeParse({ ...submitted, goalAmount: "many" }).error!)).toBe(
+      "goal-invalid",
+    );
+  });
+
+  it("accepts the largest goal the stored amount holds, to the cent", () => {
+    const row = campaignRowFrom(NewCampaignForm.parse({ ...submitted, goalAmount: "999999999999.99" }));
+
+    expect(row.goalAmount).toBe("999999999999.99");
+    expect(NewCampaignForm.safeParse({ ...submitted, goalAmount: "0.01" }).success).toBe(true);
+  });
+
+  it("names a field that is not a string with a generic code rather than the schema's words", () => {
+    expect(firstIssueCode(NewCampaignForm.safeParse({ story: "s" }).error!)).toBe("invalid");
   });
 });

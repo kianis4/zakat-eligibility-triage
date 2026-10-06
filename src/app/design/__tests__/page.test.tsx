@@ -17,6 +17,11 @@ const markup = renderToStaticMarkup(<DesignPage />);
 const PUBLIC = join(process.cwd(), "public");
 
 describe("the system design page", () => {
+  it("leaves the footer to the layout, so the page ends with one", () => {
+    expect(markup).not.toContain("<footer");
+    expect(markup).toContain('href="https://suleyman.io"');
+  });
+
   it("serves every diagram it references from public/", () => {
     const sources = [...markup.matchAll(/<img[^>]*\ssrc="([^"]+)"/g)].map((match) => match[1]);
 
@@ -46,7 +51,20 @@ describe("the system design page", () => {
     expect(markup).toContain("What the evals cannot prove");
   });
 
-  it("keeps the reviewer within reach of the running app and the source", () => {
+  it("describes the donor tool, not the reviewer queue it began as", () => {
+    const text = markup.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+
+    expect(text).toMatch(/donor/);
+    expect(text).not.toMatch(/decisions table|Slack|webhook|renders to the reviewer/);
+  });
+
+  it("says that diagrams 01 and 03 still draw the earlier reviewer tool", () => {
+    const text = markup.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+
+    expect(text).toMatch(/Diagrams 01 and 03 show the earlier reviewer-tool architecture/);
+  });
+
+  it("keeps the reader within reach of the running app and the source", () => {
     expect(markup).toContain("https://zakat-eligibility-triage.vercel.app");
     expect(markup).toContain("https://github.com/kianis4/zakat-eligibility-triage");
   });

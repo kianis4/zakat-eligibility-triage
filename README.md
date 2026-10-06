@@ -1,77 +1,91 @@
-# Zakat-Eligibility Triage
+# Can my zakat go to this campaign?
 
-A triage agent for crowdfunding campaigns. It reads a submitted campaign, assembles the evidence a
-zakat determination would turn on, names what the text leaves missing or contested, and hands the
-file to a qualified human reviewer. It **never issues a religious ruling**. Every claim it makes
-is traceable to a span of the campaign it read, and nothing it produces is a score.
+Zakat-Eligibility Triage is a free check for donors. You paste a crowdfunding campaign you are
+thinking of giving zakat to, and an agent reads it, sets out what the text does and does not say
+about each of the eight categories of zakat recipient, and gives you the questions to ask before
+you give. It **never tells you whether to give**. Every claim it makes is traceable to a span of
+the campaign you pasted, and nothing it produces is a score.
 
-The deployed prototype is public and needs no credentials:
-**https://zakat-eligibility-triage.vercel.app**. Submit a campaign, watch the pipeline run, and
-read the reviewer file it assembles. `docs/RESEARCH.md` is the sourced domain brief this design
-argues from, and `docs/adr/` holds the nine decision records the invariants below cite.
+It runs at **https://zakat-eligibility-triage.vercel.app**. `docs/RESEARCH.md` is the sourced
+domain brief the design argues from, and `docs/adr/` holds the decision records the invariants
+below cite.
+
+## What it does for you
+
+You paste the campaign's title and story, and if the page shows them, its category, its goal and
+its currency. Nothing else is needed and nothing asks who you are. In one step it:
+
+1. extracts a typed record of the facts from the campaign copy
+2. maps the text against each of the eight recipient categories as supported, not supported, or
+   insufficient evidence, citing the exact span behind every mapping
+3. reports what evidence is missing and what to ask the organizer
+4. refuses to settle ambiguous cases, and says which question has to be answered and who can
+   answer it
+5. stores nothing about what you decide, because what you decide is yours
+
+The result has its own link, so you can come back to it or send it to someone you want to ask.
+
+## Why it never rules
+
+Whether a gift discharges your zakat is a religious determination, and a tool has no standing to
+make it. Where recognised scholars genuinely differ, choosing one position over another is itself
+a religious act (section 3 of the research brief), and that choice belongs to you and the scholar
+you follow, not to software or to a platform's policy you have never read. A stated verdict would
+also become the answer people stop checking, however carefully it was worded (ADR-0001).
+
+So the tool prepares the file and you decide. That boundary is in the schema rather than in a
+disclaimer: no table in the database has anywhere to put an outcome, so there is nothing for the
+system to publish even by mistake (ADR-0010).
+
+## Who answers which question
+
+Four conditions stop the check and turn it into a question, and each question goes to the person
+who can actually answer it (ADR-0006, ADR-0010).
+
+- **Mixed use.** Money split between a use a category covers and one it does not. Ask the
+  organizer how the money is divided.
+- **Claim without support.** The campaign says it is zakat eligible and the text does not carry
+  the facts that would need. Ask the organizer for them.
+- **Nothing resolvable.** Every category is open and no beneficiary is identified anywhere in the
+  text. Ask the organizer who the money is for.
+- **Scholarly difference.** The deciding question is one recognised scholars genuinely differ on,
+  such as the scope of fi sabilillah, tamlik, or organisational overhead. The difference is named
+  and you are asked to take it to a scholar you trust: which position do they hold, and does it
+  cover this campaign? The tool does not pick a school.
+
+The result also lists the restrictions that bind you as the giver rather than the campaign, such
+as not giving zakat to your own immediate family.
+
+## Sadaqah is different
+
+The eight categories restrict zakat only. Sadaqah, voluntary charity, is not limited to them, so a
+campaign this check finds little support for may still be a good place for your sadaqah. The
+sources are in section 2 of the research brief, under the cross-cutting recipient restrictions.
 
 ## The problem
 
 Zakat is obligatory almsgiving, and it may only go to the eight categories of recipient named in
 Surah At-Tawbah (9:60). The word rendered "only" is why the list is read as exhaustive rather than
 illustrative, so eligibility is a question about which named category a campaign falls under and
-not about how deserving it looks. Donors on a Muslim crowdfunding platform filter for campaigns
-carrying the designation, which makes the designation a claim the platform makes on a donor's
-behalf about whether an obligation will be discharged.
+not about how deserving it looks.
 
-That review load is not spread evenly through the year. LaunchGood's Ramadan giving report states
-that "78% of Zakat donations came inside of Ramadan" (section 1.5 of the research brief), so the
-demand arrives compressed into thirty days, at the one point in the year when reviewer attention
-is scarcest. A triage system's value sits almost entirely inside that window, and so does its
-risk.
+Most of that giving happens in a short window. A Ramadan giving report cited in section 1.5 of
+the research brief states that "78% of Zakat donations came inside of Ramadan", so most donors are
+choosing where their zakat goes in the same thirty days, with the least time in the year to look
+closely.
 
-A wrong determination is a religious harm in both directions, and the failure asymmetry in section
-6 of the research brief is what shapes the design. A campaign wrongly badged eligible may leave a
-donor's obligation undischarged, and that harm is silent: the donor will almost never learn of it,
-the platform cannot identify who was affected, and each publicised instance erodes the reason the
-badge exists. A campaign wrongly denied loses access to the zakat donor pool at the moment that
-pool is largest, which during Ramadan is effectively a denial for the year, and the harm falls on
-people who are by construction likely to be poor. Only one of the two generates its own corrective
-signal, and only one is recoverable.
+Getting it wrong costs something in both directions, and the failure asymmetry in section 6 of
+the research brief is what shapes the design. Zakat given to a campaign outside the eight
+categories may leave a donor's obligation undischarged, and that harm is silent: the donor will
+almost never learn of it. A campaign passed over by mistake loses zakat at the moment it needs it
+most, and the harm falls on people who are by construction likely to be poor. Only one of the two
+generates its own corrective signal, and only one is recoverable.
 
-The binary also hides a third outcome that campaign prose actually warrants. Campaign copy is
-marketing, not a case file: it rarely states the beneficiary's assets, who owns an asset
-afterward, or whether a debt is lawfully incurred and currently due, and forcing a two-way answer
-on text lacking the determinative fact converts a known unknown into a confident error. So the
-honest default under uncertainty is a question, not a verdict. It costs throughput exactly where
-throughput is scarcest, which is the real price of this design and is stated rather than hidden.
-
-## What it does
-
-For a submitted campaign it:
-
-1. extracts a typed record of the facts from free-text campaign copy
-2. maps the text against each of the eight recipient categories as supported, not supported, or
-   insufficient evidence, citing the exact span behind every mapping
-3. reports what evidence is missing and what a reviewer should ask the organizer
-4. retrieves comparable previously adjudicated cases and shows them to the reviewer as precedent,
-   rather than feeding them back to the model to imitate
-5. refuses to determine ambiguous cases and escalates with the question a human must answer
-6. records the human decision, which is authoritative
-
-## What it refuses to be
-
-The refusal is the feature, not a limitation worked around. Four conditions stop the pipeline and
-send the file to a person, each naming the question waiting there:
-
-- **Mixed use.** Money split between a use a category covers and one it does not.
-- **Scholarly difference.** The determinative question is one recognised scholars genuinely differ
-  on, such as the scope of fi sabilillah, tamlik, or organisational overhead. The difference is
-  named and the reviewer is asked which position platform policy applies. The system does not pick
-  a school, because choosing one is a religious act.
-- **Claim without support.** The campaign asserts its own zakat eligibility and the text does not
-  carry the facts that assertion would need.
-- **Nothing resolvable.** Every category is open and no beneficiary is identified anywhere in the
-  text, which puts a question about the queue itself to the reviewer.
-
-An escalation is delivered over a real Slack webhook with a link back to the reviewer page. A
-refusal saying only that a campaign needs review would move the triage work back onto the person
-the triage was for, so every refusal carries an answerable question and the spans behind it.
+Campaign copy is marketing, not a case file. It rarely states the beneficiary's assets, who owns
+an asset afterward, or whether a debt is lawfully incurred and currently due, and forcing a yes or
+no on text lacking the deciding fact converts a known unknown into a confident error. So the
+honest answer under uncertainty is a question, not a verdict, and the tool's job is to make that
+question specific enough to send.
 
 ## The three statuses
 
@@ -89,39 +103,50 @@ Gesturing has an operational test, because it was the word doing the most work a
 definition: a story gestures at a category when it states a concrete fact the category's
 qualifying facts would directly resolve or quantify, so a rent shortfall the page asks money to
 cover leaves the debt line unresolved while general hardship ambiance gestures at nothing in
-particular. The distinction decides what gets sent, because organizer questions attach to
+particular. The distinction decides what gets asked, because organizer questions attach to
 `insufficient_evidence` alone. All of it lives in the `CategoryFinding` docblock in
 `src/lib/mapping.ts` and nowhere else, because every restatement of a definition can rot.
 
 ## Trust design
 
-The agent prepares the file and a qualified human adjudicates. That boundary is architectural
-rather than a disclaimer: there is no code path in which a determination is published without a
-recorded human decision.
-
 | Invariant | How it is enforced | Record |
 | --- | --- | --- |
 | The agent never issues a religious ruling. It emits findings about text evidence, and carries no score or confidence figure anywhere. | A number would be a determination with a decimal point in it, and no field in any schema accepts one. | ADR-0001 |
 | Citations are verbatim quotes resolved to offsets server side. | A supported finding with no citation is unrepresentable: the union types the citation list as non-empty, so it fails to construct in TypeScript and to parse at runtime. `src/lib/__tests__/mapping-types.test.ts` proves the compile-time half. | ADR-0003 |
-| Retrieved precedent renders to the reviewer and never enters a prompt. | Retrieval belongs to the render, and `src/lib/triage.ts` has no way to reach it. A prompt-recording trace test and an import-graph fence hold it (`src/lib/__tests__/precedent-isolation.test.ts`). | ADR-0004 |
-| The refusal is deterministic code over typed output. | The model cannot talk the pipeline out of an escalation, and `escalate: true` carries a non-empty reason list, so a bare needs-review flag cannot be constructed. | ADR-0006 |
+| Past adjudicated cases never enter a prompt, and are not shown to donors either. | A prompt-recording trace test and an import-graph fence hold the first half (`src/lib/__tests__/precedent-isolation.test.ts`). The result page renders no precedent, because a past ruling shown to a donor reads as the answer. | ADR-0004, ADR-0010 |
+| The refusal is deterministic code over typed output, and every question names who can answer it. | The model cannot talk the pipeline out of an escalation, and `escalate: true` carries a non-empty reason list, so a bare needs-review flag cannot be constructed. The audience is a pure function of the reason's kind, computed at render. | ADR-0006, ADR-0010 |
 | Nothing in citation position is model-authored. | Campaign spans are byte-checked against the story, scholarly-difference text is retrieved by id from versioned human-authored data, and model prose is guarded against quotation and citation shapes. | ADR-0007 |
-| The only representation of an outcome in the entire schema is a human decision row. | SQL CHECK constraints enforce it, and the suite proves the constraints by inserting past the application-level validation. | ADR-0008 |
+| No table in the schema carries an outcome. | A schema guard fails the suite when any column is named like a status, a verdict or an eligibility flag, and the guard is itself tested against a schema that has one. | ADR-0010 |
+
+## Privacy and limits
+
+What you paste is stored for 30 days so the link to your result keeps working, and is then
+deleted. There are no accounts. The link is unguessable and unlisted: nothing on the site links to
+it and result pages ask search engines not to index them. Your IP address is never stored; the
+rate limit keeps only an HMAC of it, keyed with a secret, for two days at most. The campaign text
+is sent to Anthropic's API to be read, so please do not paste anything private.
+
+Every check costs real model credit, so the hosted site allows 5 checks per visitor and 100 in
+total per UTC day. The limits are charged before any model call, they hold under concurrent
+requests, and a deployment without its hashing secret runs no checks at all rather than running
+without limits. ADR-0011 records the design and its known weaknesses: the visitor's address comes
+from a header a self-hosted proxy may let a client set, and one determined person can use up the
+whole day's cap. For a free demo I would rather the site stop for the day than run up an
+open-ended bill.
 
 ## Architecture
 
-Next.js App Router and TypeScript end to end, on Vercel. Neon Postgres with pgvector for precedent
-retrieval, Drizzle for the schema, and the AI SDK's `generateObject` with zod schemas for every
-model call. Models are injected, so the unit suite runs against mocks with no network, and PGlite
-boots the real shipped migrations so tests exercise the same schema production runs (ADR-0002,
-ADR-0005). The six steps above are a linear assembly with rule-based gates, deliberately not an
-agent loop: nothing in it chooses its own next action, so what a reviewer reads is the output of a
-path that can be read off the source.
+Next.js App Router and TypeScript end to end, on Vercel. Neon Postgres for campaigns, results and
+the daily limits, Drizzle for the schema, and the AI SDK's `generateObject` with zod schemas for
+every model call. Models are injected, so the unit suite runs against mocks with no network, and
+PGlite boots the real shipped migrations so tests exercise the same schema production runs
+(ADR-0002, ADR-0005). The steps above are a linear assembly with rule-based gates, deliberately not
+an agent loop: nothing in it chooses its own next action, so what you read is the output of a path
+that can be read off the source.
 
 Four diagrams and the decisions behind them are served by the app itself, at
-**https://zakat-eligibility-triage.vercel.app/design**: the pipeline and its trust boundary, the
-evaluation gate, the runtime and its integrations, and the operations layer this pattern comes
-from.
+**https://zakat-eligibility-triage.vercel.app/design**. Diagrams 01 and 03 still draw the earlier
+reviewer-tool architecture; the text under each one describes the tool as it is now.
 
 ## Evaluation
 
@@ -231,22 +256,31 @@ produced.
   honoured by these models, so the same campaign can map differently on two runs, which is part of
   why the bars are loose rather than tight.
 
-## Running it
+## Self-hosting
 
-- `npm install`, then `npm test` and `npm run typecheck`, both. The unit suite is 419 tests and
+- `npm install`, then `npm test` and `npm run typecheck`, both. The unit suite
   needs no network, no database and no keys. Part of it is enforced by the compiler rather than
   the test runner: `src/lib/__tests__/mapping-types.test.ts` proves that a supported finding with
   no citation does not typecheck, and a proof of that shape only fails under `tsc`.
 - `npm run build` is expected to stay green with no `DATABASE_URL` set. An unset database is a
-  supported state the reviewer page reports rather than crashes on.
-- The app needs `DATABASE_URL` (Postgres with pgvector), `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`
-  (embeddings); optional `SLACK_WEBHOOK_URL` for escalation delivery and `APP_BASE_URL` for the
-  link in the Slack message. See `.env.example`, which records what each unset value does.
-  Migrations are the SQL files in `drizzle/` applied in journal order, and the precedent corpus is
-  seeded with `npm run seed:precedents`.
-- The eval run does touch the network, because measuring the pipeline means running it. It writes
-  `evals/report.md`, gitignored and uploaded as a CI artifact on success and failure alike, prints
-  the gate arithmetic to the terminal, and exits non-zero if any gate was missed.
+  supported state the site reports rather than crashes on.
+- Migrations are the SQL files in `drizzle/` applied in journal order. The precedent corpus is
+  seeded with `npm run seed:precedents`, which is optional: the public tool never reads it.
+- `.env.example` records what each variable does and what happens when it is unset:
+
+| Variable | Needed for | Default |
+| --- | --- | --- |
+| `ANTHROPIC_API_KEY` | every check, and the eval run | none |
+| `DATABASE_URL` | Postgres with pgvector; unset refuses checks with that reason | none |
+| `IP_HASH_SECRET` | the rate limit; unset refuses every check. Generate with `openssl rand -hex 32` | none |
+| `ANALYSES_PER_IP_PER_DAY` | checks per visitor per UTC day | 5 |
+| `ANALYSES_PER_DAY` | checks for the whole site per UTC day | 100 |
+| `RETENTION_DAYS` | days a pasted campaign and its result are kept | 30 |
+| `OPENAI_API_KEY` | seeding the precedent corpus only | none |
+
+The eval run does touch the network, because measuring the pipeline means running it. It writes
+`evals/report.md`, gitignored and uploaded as a CI artifact on success and failure alike, prints
+the gate arithmetic to the terminal, and exits non-zero if any gate was missed.
 
 ```sh
 export ANTHROPIC_API_KEY=...   # a missing key fails the run rather than skipping it
@@ -259,8 +293,18 @@ Two corpora, both synthetic and written by hand for this repository. No real cam
 charity data, no real organizations or organizer names, no personal information.
 
 - `fixtures/precedents/` holds twelve previously adjudicated cases with the reviewer's recorded
-  reasoning, seeded into the retrieval index and shown to a reviewer as reference. Provenance:
+  reasoning, from when this was a reviewer tool. They are no longer shown to anyone; they stay so
+  the fence that keeps them out of every prompt stays tested. Provenance:
   [`fixtures/precedents/README.md`](fixtures/precedents/README.md).
 - `fixtures/evals/` holds the eighteen labelled campaigns, each stating the per-category status,
   the refusal and the questions this repository expects. Provenance, including what a
   self-authored corpus cannot prove: [`fixtures/evals/README.md`](fixtures/evals/README.md).
+
+## Origins
+
+This began as an interview project for LaunchGood's Applied AI Engineer role, built as a triage
+tool for a platform's own reviewers, and it is shared publicly with their permission. I rebuilt it
+afterwards as a tool for donors, because the person who most needs these questions is the one
+deciding where their own zakat goes. It is an independent project, not affiliated with LaunchGood
+or any crowdfunding platform, and nothing here speaks for them. Where `docs/RESEARCH.md` cites a
+platform's published policy or giving report, it does so as a public source.

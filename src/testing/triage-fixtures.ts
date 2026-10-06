@@ -33,12 +33,9 @@ export function campaignRow(campaign: CampaignInput = FIXTURE_CAMPAIGN): NewCamp
     id: campaign.id,
     title: campaign.title,
     story: campaign.story,
-    category: campaign.category,
-    goalAmount: campaign.goalAmount.toFixed(2),
-    currency: campaign.currency,
-    organizerName: campaign.organizer.name,
-    organizerLocation: campaign.organizer.location,
-    organizerRelationshipToBeneficiary: campaign.organizer.relationshipToBeneficiary ?? null,
+    category: campaign.category ?? null,
+    goalAmount: campaign.goalAmount?.toFixed(2) ?? null,
+    currency: campaign.currency ?? null,
   };
 }
 
@@ -95,19 +92,14 @@ export const ESCALATED: EscalationDecision = {
   reasons: [
     {
       kind: "nothing_resolvable",
-      question:
-        "Should the organizer be asked for the missing information, or should this campaign be declined without a further round?",
+      question: "Who will receive the money you raise, and what will it be spent on?",
       citations: [],
     },
   ],
 };
 
 /**
- * An agent file ready to store, with the escalation and delivery state a caller wants.
- *
- * `slackDelivery` defaults to null and the fixture does not fill it in for an escalating
- * run, because the table refuses that pairing and a fixture that quietly repaired it would
- * hide the constraint the tests are here to prove.
+ * An agent file ready to store, with the escalation a caller wants.
  */
 export function triageRunRow(overrides: Partial<NewTriageRunRow> = {}): NewTriageRunRow {
   const mapping = overrides.mapping ?? mappingSupporting(["al-gharimin"]);
@@ -121,7 +113,6 @@ export function triageRunRow(overrides: Partial<NewTriageRunRow> = {}): NewTriag
     escalation: NOT_ESCALATED,
     policyVersion: POLICY_VERSION,
     model: "test-model",
-    slackDelivery: null,
     ...overrides,
   };
 }

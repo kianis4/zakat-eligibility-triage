@@ -154,8 +154,10 @@ async function attemptExtraction(
       system: SYSTEM_PROMPT,
       prompt: [
         `Campaign title: ${input.title}`,
-        `Platform category: ${input.category}`,
-        `Stated goal: ${input.goalAmount} ${input.currency}`,
+        ...(input.category === undefined ? [] : [`Platform category: ${input.category}`]),
+        ...(input.goalAmount === undefined
+          ? []
+          : [`Stated goal: ${[input.goalAmount, input.currency].filter((part) => part !== undefined).join(" ")}`]),
         "",
         "Campaign story:",
         input.story,

@@ -1,7 +1,7 @@
 # ADR-0004: Retrieved precedent is rendered to the reviewer and never fed to the model
 
 Date: 2026-08-19
-Status: accepted
+Status: accepted, amended by ADR-0010 (the fence stands; precedent is no longer rendered)
 
 ## Context
 The system now holds a corpus of adjudicated campaigns: the campaign as submitted, how it
